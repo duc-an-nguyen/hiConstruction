@@ -1,15 +1,17 @@
 import pandas as pd
 import numpy as np
 import random
-# import torch
-# from sklearn.linear_model import LinearRegression
-from utility.logger import aiLogger
+from utility.logger             import aiLogger
+from prettytable                import PrettyTable
+
 
 class PreProcessData(object):
     def __init__(self,  seqLength   = 128,
                         overLap     = 127,
-                        theCase     = 2,
                 ):
+        
+        np.random.seed(1)
+        random.seed(1)
         # ------------------------------
         # Configure some variables
         # ------------------------------
@@ -18,171 +20,324 @@ class PreProcessData(object):
         self.stabletime     = 30        # hours 
         self.sampleRateTime = 3         # minuites per one sample
 
-        self.machine            = ["reactor","separator","stripper"]
-        self.rawData            = {"reactor":[],"separator":[],"stripper":[],"label":[]}
-        
-        # self.reactorHeadline    = [ "Reactor Coolant",       "Reactor Feed Rate",       "Reactor Pressure", \
-        #                             "Reactor Temperature",   "Reactor Coolant Temp",    "Recycle Flow",
-        #                             'Component A to Reactor','Component B to Reactor',  'Component C to Reactor',
-        #                             'Component D to Reactor','Component E to Reactor',  'Component F to Reactor']
-        
-        self.allHeadline     = ["D feed",                    "E Feed",                   "A Feed",                   "A and C Feed", 
-                                "Recycle",                   "Purge",                    "Separator",                "Stripper",
-                                "Steam",                     "Reactor Coolant",          "Condenser Coolant",        "Agitator",
-                                "msv A Feed",                "msv D Feed",               "msv E Feed",               "msv A and C Feed",
-                                "Recycle Flow",              "Reactor Feed Rate",        "Reactor Pressure",         
-                                "Reactor Temperature",       "Purge Rate",               "Product Sep Temp",         
-                                "Product Sep Pressure",      "Product Sep Underflow",    "Stripper Pressure",
-                                "Stripper Underflow",        "Stripper Temp",            "Stripper Steam Flow",      "Compressor Work",
-                                "Reactor Coolant Temp",      "Separator Coolant Temp",   "Component A to Reactor",   "Component B to Reactor",
-                                "Component C to Reactor",    "Component D to Reactor",   "Component E to Reactor",   "Component F to Reactor",
-                                "Component A to Purge",      "Component B to Purge",     "Component C to Purge",     "Component D to Purge",
-                                "Component E to Purge",      "Component F to Purge",     "Component G to Purge",     "Component H to Purge",
-                                "Component D to Product",    "Component E to Product",   "Component F to Product",   "Component G to Product",
-                                "Component H to Product",    "Liquid Input Stripper",    "Liquid Input Separator",   "Liquid Input Reactor",
-                                'Reactor Level','Product Sep Level','Stripper Level'
-                                ]
-        
-        # self.degraLiq         = ['Liquid Input Stripper','Liquid Input Separator','Liquid Input Reactor']
-        self.degraLiq         = ['Reactor Level','Product Sep Level','Stripper Level']
+        self.machine            = ["crusher1","crusher2","conveyor"]
+        self.rawData            = {"crusher1":[],"crusher2":[],"conveyor":[]}
+                
         
         # --------------------------
-        # Case 2
+        # CRUSHER 1
         # --------------------------
-        if theCase == 2:
-            self.reactorHeadline    = [ "Reactor Coolant",              "Reactor Pressure",         "Purge",
-                                       "Reactor Feed Rate",             "Reactor Coolant Temp"]
-                                                                        
-            self.separatorHeadline  = [ "Separator",                    "Separator Coolant Temp",    "Product Sep Temp",     
-                                       "Product Sep Pressure",          "Product Sep Underflow",]
-                                       
-                                    
-                                                                      
-            self.stripperHeadline   = [ "Stripper",                     "Stripper Pressure",    "Stripper Underflow",    
-                                       "Stripper Temp",                 "Stripper Steam Flow"]                           
+        self.crusher1Headline    = [    'tiempo',                           'Descripción Equipo',           'Modo de Falla', 
+                                        'Comentario',                       'Especialidad',                 'Motivo', 
+                                        'Inicio Reportado',                 'Fin Reportado',                'corriente(A)', 
+                                        'velocidad(rpm)',                   'nivel_tolva_compensacion(%)',  'Potencia(kW)', 
+                                        'posicion_poste(%)',                'rendimiento(ton)',             'presion_estanque_aire(bar)', 
+                                        'Piñón_ext(°C)',                    'Piñón_int(°C)',                'Piñón_int(mm/s)', 
+                                        'Piñón_ext(mm/s)',                  'Eje_piñón_aceite(%)',          'Lubricación_retorno(°C)', 
+                                        'Lubricación_depósito(°C)',         'Lubricación_entrada(°C)',      'Lubricación_principal(psi)',
+                                        'Lubricación_principal(A)',         'Lubricación_respaldo(psi)',    'Lubricación_respaldo(A)', 
+                                        'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 'Lubricación_entrada_sup(psi)',
+                                        'Lubricación_entrada_inf(psi)',     'Lubricación_entrada_sup(m3/h)','Lubricación_entrada_inf(m3/h)', 
+                                        'Lubricación_depósito(%)',          'Motor_Fase1(A)',               'Motor_Fase2(A)', 
+                                        'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
+                                        'Motor_Fase3(V)',                   'Equipo']
+        
+        self.crusher1Value    = [    
+                                        'corriente(A)', 
+                                        'velocidad(rpm)',                   'nivel_tolva_compensacion(%)',  'Potencia(kW)', 
+                                        'posicion_poste(%)',                'rendimiento(ton)',             'presion_estanque_aire(bar)', 
+                                        'Piñón_ext(°C)',                    'Piñón_int(°C)',                'Piñón_int(mm/s)', 
+                                        'Piñón_ext(mm/s)',                  'Eje_piñón_aceite(%)',          'Lubricación_retorno(°C)', 
+                                        'Lubricación_depósito(°C)',         'Lubricación_entrada(°C)',      'Lubricación_principal(psi)',
+                                        'Lubricación_principal(A)',         'Lubricación_respaldo(psi)',    'Lubricación_respaldo(A)', 
+                                        'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 'Lubricación_entrada_sup(psi)',
+                                        'Lubricación_entrada_inf(psi)',     'Lubricación_entrada_sup(m3/h)','Lubricación_entrada_inf(m3/h)', 
+                                        'Lubricación_depósito(%)',          'Motor_Fase1(A)',               'Motor_Fase2(A)', 
+                                        'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
+                                        'Motor_Fase3(V)',                   ]
+        
+        self.manipulatedCr1 =  [    
+                                        'corriente(A)', 
+                                        'velocidad(rpm)',                   'Potencia(kW)', 
+                                        'posicion_poste(%)',                'presion_estanque_aire(bar)',   'Eje_piñón_aceite(%)',          
                                         
+                                        'Lubricación_principal(psi)',
+                                        'Lubricación_principal(A)',         'Lubricación_respaldo(psi)',    'Lubricación_respaldo(A)', 
+                                        'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 'Lubricación_entrada_sup(psi)',
+                                        'Lubricación_entrada_inf(psi)',     'Lubricación_entrada_sup(m3/h)','Lubricación_entrada_inf(m3/h)', 
+                                        'Lubricación_depósito(%)',          'Motor_Fase1(A)',               'Motor_Fase2(A)', 
+                                        'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
+                                        'Motor_Fase3(V)',                   ]
+        
+        self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
+                                        'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
+                                        'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',]
+        
+
+        # --------------------------
+        # CRUSHER 2
+        # --------------------------                                                 
+        self.crusher2Headline  = [      'tiempo',                           'Descripción Equipo',           'Modo de Falla', 
+                                        'Comentario',                       'Especialidad',                 'Motivo', 
+                                        'Inicio Reportado',                 'Fin Reportado',                'Corriente(A)',
+                                        'Nivel_Tolva(%)',                   'Potencia(kW)',                 'Presión_Diferencial(psi)', 
+                                        'Renimiento(ton)',                  'Velocidad(rpm)',               'Eje_Piñón_Vibración_1', 
+                                        'Eje_Piñón_Vibración_2',            'Eje_Piñón_Vibración_3',        'Eje_Piñón_Vibración_4',
+                                        'Enfriamiento_Temp_Aire(°C)',       'Enfriamiento_Corriente_1(A)',  'Enfriamiento_Corriente_2(A)', 
+                                        'Enfriamiento_Corriente_3(A)',      'Hidráulico_Corriente_Bomba(A)','Lubricación_Calefactor_Corriente(A)',
+                                        'Lubricación_Calefactor_Principal_Corriente(A)',                    'Lubricación_Calefactor_Respaldo_Corriente(A)',
+                                        'Lubricación_Flujo_Entrada_Sup(m3/h)',                              'Lubricación_Presión_Entrada_Inf(psi)', 
+                                        'Lubricación_Temp_Retorno(°C)',                                     'Lubricación_Temp_Depósito(°C)', 
+                                        'Motor_Corriente_F1(A)',            'Motor_Corriente_F2(A)',        'Motor_Corriente_F3(A)', 
+                                        'Motor_Voltaje_F1(V)',              'Motor_Voltaje_F2(V)',          'Motor_Voltaje_F3(V)', 
+                                        'Motor_Temp_F1(°C)',                'Motor_Temp_F2(°C)',            'Equipo']
+        
+        self.crusher2Value  = [         'Corriente(A)',
+                                        'Nivel_Tolva(%)',                   'Potencia(kW)',                 'Presión_Diferencial(psi)', 
+                                        'Renimiento(ton)',                  'Velocidad(rpm)',               'Eje_Piñón_Vibración_1', 
+                                        'Eje_Piñón_Vibración_2',            'Eje_Piñón_Vibración_3',        'Eje_Piñón_Vibración_4',
+                                        'Enfriamiento_Temp_Aire(°C)',       'Enfriamiento_Corriente_1(A)',  'Enfriamiento_Corriente_2(A)', 
+                                        'Enfriamiento_Corriente_3(A)',      'Hidráulico_Corriente_Bomba(A)','Lubricación_Calefactor_Corriente(A)',
+                                        'Lubricación_Calefactor_Principal_Corriente(A)',                    'Lubricación_Calefactor_Respaldo_Corriente(A)',
+                                        'Lubricación_Flujo_Entrada_Sup(m3/h)',                              'Lubricación_Presión_Entrada_Inf(psi)', 
+                                        'Lubricación_Temp_Retorno(°C)',                                     'Lubricación_Temp_Depósito(°C)', 
+                                        'Motor_Corriente_F1(A)',            'Motor_Corriente_F2(A)',        'Motor_Corriente_F3(A)', 
+                                        'Motor_Voltaje_F1(V)',              'Motor_Voltaje_F2(V)',          'Motor_Voltaje_F3(V)', 
+                                        'Motor_Temp_F1(°C)',                'Motor_Temp_F2(°C)',            ]
+
+        # --------------------------
+        # CONVEYOR BEALT
+        # --------------------------                                                 
+        self.conveyorHeadline   = [     'tiempo',                           'Descripción Equipo',           'Modo de Falla', 
+                                        'Comentario',                       'Especialidad',                 'Motivo', 
+                                        'Inicio Reportado',                 'Fin Reportado',                'Corriente(A)', 
+                                        'Pesómetro(ton/h)',                 'Equipo']        
 
 
-        else:
-            self.reactorHeadline    = [ "Reactor Coolant",              "Reactor Pressure",         "Purge",
-                                       "Reactor Feed Rate",             "Reactor Coolant Temp"]
-                                                                        
-            self.separatorHeadline  = [ "Separator",                    "Separator Coolant Temp",    "Product Sep Temp",     
-                                       "Product Sep Pressure",          "Product Sep Underflow",]
-                                       
-                                    
-                                                                      
-            self.stripperHeadline   = [ "Stripper",                     "Stripper Pressure",    "Stripper Underflow",    
-                                       "Stripper Temp",                 "Stripper Steam Flow"]
-
+        # --------------------------
+        # MODES OF FAILURE
+        # --------------------------
+        self.usedCriticalMOF      = [   'Válvula defectuosa', 
+                                        'Lubricación  deficiente',
+                                        'Bomba hidráulica con fuga',
+                                        'Fuga de aceite',
+                                        'Falla sistema de hidroset-poste',                     
+                                        'Mandibulas o revestimiento suelto', 
+                                    ] 
+        
+        self.criticalMOF        = [ "Válvula defectuosa",
+                                    "Mantención programada", 
+                                    "Falta de aceite hidráulico",
+                                    "Lubricación  deficiente",
+                                    "Temperatura fuera de rango",
+                                    "Bomba hidráulica con fuga",
+                                    "Fuga de aceite",
+                                    "Falla en sistema hidráulico",
+                                    "Falla sistema de hidroset-poste",
+                                    "Mandibulas o revestimiento suelto"
+                                   ]
+        
+        self.notModeOfFailure  = [  "Stand by",
+                                    "Stock de producto lleno",
+                                    "Cambio de Turno",
+                                    "Tronadura",
+                                    "Falla o problemas aguas arriba",
+                                    "Falta de equipo carguío mina",
+                                    "Otra falla mecánica",
+                                    "Limpieza equipo",
+                                    "Detención por Enclavamiento",
+                                    "Colación",
+                                    "Falla o problemas aguas abajo",
+                                    "Ajuste de Setting (Asociado al Plan)",
+                                    "Falta de inventario",
+                                    "Otra falla instrumentación",
+                                    "Falta de Equipos de Apoyo",
+                                    "Puesta en Marcha o sistema en vació",
+                                    "Bloqueo de Equipos",
+                                    "Factor Climático",
+                                    "Inspección de equipo ante evento operacional (chatarra, falsa alarma etc)",
+                                    "Puesta en marcha de equipos o sistemas en vacío",
+                                    "Sensor nivel lectura errónea",
+                                    "Corte energía interno",
+                                    "Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (ins)",
+                                    "Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (mec)",
+                                    "Factor Externo (huelgas, manifestaciones, cortes de caminos, etc)",
+                                    "Otra falla operacional",
+                                    "Sensor de flujo lectura errónea",
+                                    "Sobrecarga, Rebalses y atollos"
+                                    ]
+                                                                         
+                                        
+        
+    
+    def dataLoading(self,):
         aiLogger.info("Loading data from files ...")
-        self.case          = {}
+    
+        self.crusher1       = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
+        # self.crusher2       = pd.read_excel('data/3200CR002_26-3-2024_fixed.xlsx',engine='openpyxl')
+        # self.conveyor       = pd.read_excel('data/3200CV002_26-3-2024_fixed.xlsx',engine='openpyxl')
 
-            
-        self.case[1]       = pd.read_csv('data/case1.csv')
-        self.case[2]       = pd.read_csv('data/case2.csv')
-        self.case[3]       = pd.read_csv('data/case3.csv')
-        self.case[4]       = pd.read_csv('data/case4.csv')
-        self.case[5]       = pd.read_csv('data/case5_1.csv')
-        self.case[6]       = pd.read_csv('data/case6.csv')
-        self.case[7]       = pd.read_csv('data/thr/reactor_up_mode4_high.csv')
-        self.case[8]       = pd.read_csv('data/thr/seperator_up_mode4_high.csv')
-        self.case[9]       = pd.read_csv('data/thr/stripper_up_mode4_high.csv')
+        aiLogger.info("Finishing loading data ...")
+
+        print(self.crusher1.columns)
+        # aiLogger.debug(self.crusher2.columns)
+        # aiLogger.debug(self.conveyor.columns)
+
+    # ===================================
+    # This func is used to remove some 
+    # redundant mode of failure inside the
+    # excel file
+    # -----------------------------------
+    def rmRedundantMOF(self,):
+        df_filtered  = self.crusher1
+        for idxFeature in self.notModeOfFailure:
+            df_filtered = df_filtered[df_filtered['Modo de Falla'] != idxFeature]
+
+
+        output_path = 'data/criticalMOFCrusher1.xlsx'  # Specify your output file path
+        df_filtered.to_excel(output_path, index=False)
+
+
+    # ===================================
+    # This func is used to sumarry the data
+    # according to time which is inside 
+    # the excell file into a concise way
+    # -----------------------------------
+    def sumarryDataFromFile(self,):
+        mofTable                = PrettyTable()
+        mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
+
+        no                      = 1
+        usefulMOF               = []
+        mofCol                  = self.crusher1['Modo de Falla']
+        preMOF                  = None
+        beginingRow             = 0
+        beginingTime            = 0
+
+
+        for idx in range(len(self.crusher1)):
+            curIdx = idx
+            preIdx = idx -1
+
+            if (mofCol[curIdx] != preMOF) and curIdx!=0:
+                # --------------------------
+                # Collect the last state
+                # --------------------------
+                endingTime      = self.crusher1['tiempo'][preIdx] 
+                endingRow       = preIdx
+                
+                if not pd.isna(preMOF):
+                    mofTable.add_row([no,preMOF, beginingTime,endingTime,beginingRow+2,endingRow+2])
+                    no +=1
+                    
+                    if preMOF not in usefulMOF:
+                        usefulMOF.append(preMOF)
+                
+                # --------------------------
+                # Assign new state
+                # --------------------------
+                preMOF          = mofCol[curIdx]
+                beginingTime    = self.crusher1['tiempo'][curIdx]
+                beginingRow     = curIdx
+                
+        
+        print("All the mode of failure:",usefulMOF)
+        print(mofTable)
+
+
+    # ===================================
+    # This function is used to sumarry all
+    # the mode of failure inside the data
+    # -----------------------------------
+    def sumarryMOF(self,):
+        allMofTable                 = PrettyTable()
+        allMofTable.field_names     = ["Elimination", "Critical MOF", "Used MOF"]
+
+        elimination     = self.notModeOfFailure.copy()
+        criticalMOF     = self.criticalMOF.copy()
+        usedMOF         = self.usedCriticalMOF.copy()
+
+
+        max_length        = max(len(elimination), len(criticalMOF), len(usedMOF))
+
+        # -------------------------------
+        # Fill the empty ones
+        # -------------------------------
+        while len(elimination) < max_length:
+            elimination.append("")
+
+        while len(criticalMOF) < max_length:
+            criticalMOF.append("")
+
+        while len(usedMOF) < max_length:
+            usedMOF.append("")
+
+        # -------------------------------
+        # Add row and print
+        # -------------------------------
+        for idx in range(max_length):
+            allMofTable.add_row([elimination[idx], criticalMOF[idx], usedMOF[idx]])
+
+        print(allMofTable)
+
+
+    # ===================================
+    # This function is used to print the 
+    # manipulated and efficiency variable
+    # -----------------------------------
+    def splitInputandEfficiencyVar(self,):
+        table     = PrettyTable()
+        table.field_names = ["ManupulatedVar", "EfficiencyVar"]
+
+        manipulatedCr1    = self.manipulatedCr1.copy()
+        efficiencyCr1     = self.efficiencyCr1.copy()
+
+        max_length        = max(len(self.manipulatedCr1), len(self.efficiencyCr1))
+
+        # -------------------------------
+        # Fill the empty ones
+        # -------------------------------
+        while len(manipulatedCr1) < max_length:
+            manipulatedCr1.append("")
+
+        while len(efficiencyCr1) < max_length:
+            efficiencyCr1.append("")
+
+        # -------------------------------
+        # Add row and print
+        # -------------------------------
+        for idx in range(max_length):
+            table.add_row([manipulatedCr1[idx], efficiencyCr1[idx]])
+
+        print(table)
 
     # ===================================
     # This function is used to 
     # extract data from .csv file
     # -----------------------------------
-    def getDataset(self,
-                    component       = "all",
-                    removeInitState = True
+    def getCriticalTrajectory(self,
                     ):
-        aiLogger.info("Converting data to list of array ...")
+        aiLogger.info("Getting critical trajectories ...")
+        
+        
+        
 
-        allData         = []
-        allLabel        = []
-        allTime         = []
-        allDegra        = []
-        dataComponent   = {}
+        
 
-        # if theCase == "all":
-        simulationCase  = [self.case[idxCase+1] for idxCase in range(9)]
-        # else:
-            # simulationCase  = [self.case[theCase]]
+        
+        # -------------------------
+        # Convert to a matrix, and transpose 
+        # to have a shape of 8xlen
+        # -------------------------
+        # rulLabel        = [np.squeeze(oneDirRulLabel[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
+        # collectedData   = [np.squeeze(rawData[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
+        # time            = [np.squeeze(timeStamp[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
+        # degra           = [np.squeeze(degration[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
 
 
-        for idxCase,sim in enumerate(simulationCase):
-            # -------------------------
-            # Extract by using panda from healine
-            # and add ID to mornitor later
-            # -------------------------
-            idxSimColumn    = sim['Id'].to_numpy()                      # Get the id column from the data
-            addIdxCase      = np.full((idxSimColumn.size,1),idxCase+1)  # Create the id to get the working condition
 
-            dataComponent["Reactor"]        = sim[self.reactorHeadline].to_numpy()
-            dataComponent["Separator"]      = sim[self.separatorHeadline].to_numpy()
-            dataComponent["Stripper"]       = sim[self.stripperHeadline].to_numpy()
-
-            degration                       = sim[self.degraLiq].to_numpy()
-            testAllData                     = sim[self.allHeadline].to_numpy()
-
-            
-
-            # withIdReactor   = np.concatenate((addIdxCase,temReactor), axis=1)       #Add case id  to the first column
-            # withIdSeparator = np.concatenate((addIdxCase,temSeparator), axis=1)     #Add case id to the first column
-            # withIdStripper  = np.concatenate((addIdxCase,temStripper), axis=1)      #Add case id to the first column
-            # rawData         = np.concatenate((temReactor,temSeparator,temStripper), axis=1)
-             
-            if component == "all":
-                rawData     = np.concatenate((dataComponent["Reactor"],dataComponent["Separator"],dataComponent["Stripper"]), axis=1)
-
-                
-
-            elif component == "testAll":
-                rawData     = testAllData
-
-            else:
-                rawData     = dataComponent[component]
-
-            # -------------------------
-            # Create the RUL label
-            # -------------------------
-            oneDirRulLabel  = np.array([])                              # Contain the label of RUL data
-            timeStamp       = sim['Time'].to_numpy()  
-            for idxRul in range(max(idxSimColumn)):  
-                curId           = np.where(idxSimColumn == (idxRul+1))           
-                curRul          = np.squeeze(timeStamp[curId[0][-1]] - timeStamp[curId])
-                oneDirRulLabel  = np.concatenate((oneDirRulLabel,curRul), axis=0)
-              
-            oneDirRulLabel = oneDirRulLabel.reshape((-1, 1))
-            timeStamp      = timeStamp.reshape((-1, 1))
-
-            # print(timeStamp.shape)
            
-            # -------------------------
-            # Convert to a matrix, and transpose 
-            # to have a shape of 8xlen
-            # -------------------------
-            rulLabel        = [np.squeeze(oneDirRulLabel[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-            collectedData   = [np.squeeze(rawData[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-            time            = [np.squeeze(timeStamp[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-            degra           = [np.squeeze(degration[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-
-            if removeInitState:
-                rulLabel        = self.removeInitState(rulLabel,removeValue=True,getLast = True)    
-                collectedData   = self.removeInitState(collectedData)
-                time            = self.removeInitState(time,removeValue=True)
-                degra           = self.removeInitState(degra)
-            # -------------------------
-            # This function is used to 
-            # store all data
-            # -------------------------
-            allData     = allData   + collectedData
-            allLabel    = allLabel  + rulLabel
-            allTime     = allTime   + time
-            allDegra    = allDegra  + degra
-           
-        return allData,allLabel,allTime,allDegra
+        # return criticalTrajectories
     
 
 
@@ -438,4 +593,21 @@ class PreProcessData(object):
 
     
     
-    
+if __name__ == '__main__':
+    pre             = PreProcessData()
+    pre.dataLoading()
+    criticalTrajec  = pre.getCriticalTrajectory()
+
+
+
+    # Check the text data inside
+    # print(preData.crusher1.head())
+
+    # time        = preData.crusher1['tiempo']
+
+    # for idxLabel in preData.crusher1Value:
+    #     currentI    = preData.crusher1[idxLabel].to_numpy().astype(float)
+    #     for idx in range(len(currentI)):
+    #         # print(type(currentI[idx]))
+    #         if type(currentI[idx]) is str:
+    #             print(idx)
