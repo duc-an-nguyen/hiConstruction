@@ -2,19 +2,20 @@ from tensorflow.keras.optimizers        import Adam
 from tensorflow.keras.callbacks         import EarlyStopping, ReduceLROnPlateau
 from preProcessingData                  import PreProcessData
 from utility.config                     import rulVAECNNConfig
-from model.systemHiAndRulModel          import systemHiAndRul
+from model.vae_conv_model               import VariationalAutoencoderConv
 
 import numpy                            as np 
 import matplotlib.pyplot                as plt
 
 import os, warnings
 import random
+import json
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 warnings.filterwarnings('ignore') 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # disabling gpu usage because my cuda is corrupted, needs to be fixed. 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 np.random.seed(1)
 random.seed(1)
 
@@ -22,27 +23,25 @@ random.seed(1)
 # ==============================
 # Config and data preprocessing
 # ==============================
-config              = rulVAECNNConfig()
-
+with open('model/modelConfig.json', 'r') as configFile:
+    config = json.load(configFile)
+ 
 
 preData             = PreProcessData(seqLength  = config.seqLength,
                                      overLap    = config.overLap)
 
-rawData,rulLabel,_  = preData.getDataset(   component           = "all", 
-                                            removeInitState     = True,
-                                            theCase             = config.theCase)    
-cleanData           = preData.cleanData(    rawData,
-                                            getMovingAverage    = True, 
-                                            flipToDown          = True)
-norData             = preData.normalizeData(cleanData)                # Normalize the data
+rawData             = preData.dataLoading()
+
+# cleanData           = preData.cleanData(    rawData,
+#                                             getMovingAverage    = True, 
+#                                             flipToDown          = True)
+
+norData                 = preData.normalizeData(rawData[preData.crusher1Value])    # Normalize the data
+healthyStateData        = preData.getHealthyState(norData)
+seqTrain                = preData.splitAllDataIntoSequences(healthyStateData)
 
 
-trainXY,valXY       = preData.splitTrainVal(norData,rulLabel)       # Split data and label into train and validation dataeset
-seqTrainXY          = preData.splitAllDataIntoSequences(trainXY)
-seqValXY            = preData.splitAllDataIntoSequences(valXY)  
-
-
-model = systemHiAndRul(config)
+model                   = VariationalAutoencoderConv(config)
 
 # model.summary()
 
@@ -54,19 +53,10 @@ early_stop_loss     = 'loss'
 early_stop_callback = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=5) 
 reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=5)
 
-reactorInput        = seqTrainXY[0][:,:,:7]
-sepInput            = seqTrainXY[0][:,:,7:12]
-stripInput          = seqTrainXY[0][:,:,12:17]
-
-reactorVal          = seqValXY[0][:,:,:7]
-sepVal              = seqValXY[0][:,:,7:12]
-stripVal            = seqValXY[0][:,:,12:17]
-
-
 
 
 history = model.fit(
-        x           =   (reactorInput,sepInput,stripInput),
+        x           =   seqTrain,
         y           =   seqTrainXY[1],
         batch_size  =   config.batch_size,
         epochs      =   config.n_epochs,

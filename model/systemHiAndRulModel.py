@@ -1,8 +1,10 @@
-from model.vae_conv_I_model   import VariationalAutoencoderConvInterpretable as TimeVAE
-from utility.config     import rulVAECNNConfig
 import joblib 
 import os
-import tensorflow       as tf
+
+import tensorflow               as tf
+from model.vae_conv_I_model     import VariationalAutoencoderConvInterpretable as TimeVAE
+from utility.config             import rulVAECNNConfig
+
 from tensorflow.keras.layers    import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer,InputLayer
 from tensorflow.keras.layers    import MultiHeadAttention,AveragePooling1D
 from tensorflow.keras.models    import Model 
@@ -94,8 +96,6 @@ class systemHiAndRul(Model):
                                             key     = latentVector,
                                             value   = latentVector)
                                          
-                                        
-
         # -----------------------
         # Use the seq as features,
         # move the seq to the end

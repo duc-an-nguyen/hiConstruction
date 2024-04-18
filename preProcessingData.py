@@ -182,6 +182,7 @@ class PreProcessData(object):
         print(self.crusher1.columns)
         # aiLogger.debug(self.crusher2.columns)
         # aiLogger.debug(self.conveyor.columns)
+        return self.crusher1
 
     # ===================================
     # This func is used to remove some 
@@ -315,29 +316,22 @@ class PreProcessData(object):
     # This function is used to 
     # extract data from .csv file
     # -----------------------------------
-    def getCriticalTrajectory(self,
+    def getHealthyState(self,data
                     ):
         aiLogger.info("Getting critical trajectories ...")
         
+        healthyExcellPos = {"startingRow":  [18317, 28175,  43739,  64526,  87163,  107316, 115185, 133833, 225442, 277099, 310291],
+                            "endingRow":    [27068, 42727,  63051,  86359,  98506,  115132, 132599, 157742, 249835, 283708, 321436],
+                            "percent":      [0.5,   0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.3,    0.5,    0.7]}   # should subtract 2
         
-        
-
-        
-
-        
-        # -------------------------
-        # Convert to a matrix, and transpose 
-        # to have a shape of 8xlen
-        # -------------------------
-        # rulLabel        = [np.squeeze(oneDirRulLabel[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-        # collectedData   = [np.squeeze(rawData[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-        # time            = [np.squeeze(timeStamp[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-        # degra           = [np.squeeze(degration[np.where(idxSimColumn == (idxSimExtract+1)),:] ,axis =0)   for idxSimExtract in range(max(idxSimColumn))]
-
-
-
-           
-        # return criticalTrajectories
+        self.healthyData =  pd.DataFrame(columns=self.crusher1Value)
+        for idx in len(healthyExcellPos["startingRow"]):
+            lenOfHealthyRow     = (healthyExcellPos["endingRow"][idx] - healthyExcellPos["startingRow"][idx]) * healthyExcellPos["startingRow"]['percent']
+            htEachPeriod        = data[healthyExcellPos["endingRow"][idx]:healthyExcellPos["endingRow"][idx]+lenOfHealthyRow]         
+            self.healthyData    = pd.concat([self.healthyData,htEachPeriod],ignore_index=True)
+    
+    
+        return self.healthyData
     
 
 
@@ -427,41 +421,17 @@ class PreProcessData(object):
     def normalizeData(self,rawData):
         aiLogger.info("Normalizing the data ...")
 
-        minAllTrajec    = []
-        maxAllTrajec    = []
-        # -----------------------
-        # Get the lowest element
-        # from each list (trajectory)
-        for idxList in range(len(rawData)):     
-            trajec        = rawData[idxList]                # Get each trajectory
-            minEachTrajec = trajec.min(axis=0)              # Get min each trajectory
-            maxEachTrajec = trajec.max(axis=0)              # Get max each trajectory
-            minAllTrajec.append(minEachTrajec.tolist())     # Store all min value 
-            maxAllTrajec.append(maxEachTrajec.tolist())     
-
-        # -----------------------
-        # Get min and max value 
-        # from all trajectories
-        # -----------------------
-        minEachFeature = np.min(np.array(minAllTrajec),axis = 0)    
-        maxEachFeature = np.max(np.array(maxAllTrajec),axis = 0)
+        minValue        = rawData.min(axis = 0)
+        maxValue        = rawData.max(axis = 0)
         
-        # print(minEachFeature.shape)
-        # print(maxEachFeature.shape)
-        # print(maxEachFeature[1,-1] - minEachFeature(1,-1))
-        # for eachTraject,idx in enumerate(rawData):
-            
-        #     if (maxEachFeature[idx] - minEachFeature[idx]) != 0:
-        #         norData = (eachTraject - minEachFeature[idx]) / (maxEachFeature[idx] - minEachFeature[idx])
-            
-        #     else:
-        #         norData = eachTraject
-
-        norData = [(eachTraject - minEachFeature) / (maxEachFeature - minEachFeature) for eachTraject in rawData]
+        
+        norData = (rawData - minValue) / (maxValue - minValue) 
 
         # print(norData[0].shape)
             
         return norData
+    
+
     
     def normalLabel(self,allDegra):
         aiLogger.info("Normalizing the label ...")

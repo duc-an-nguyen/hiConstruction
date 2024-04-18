@@ -13,6 +13,10 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.backend import random_normal
  
 
+# ================================
+# This class is used to sample 
+# for latent space with VAE
+# ================================
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the vector encoding a digit."""
     def call(self, inputs):
@@ -25,32 +29,37 @@ class Sampling(Layer):
 
         # print("mean",dim)
         # print("epsilon",epsilon.shape)
-    
-
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
-
+# ================================
+# This class is used as base 
+# class, being used to create the 
+# VAE
+# ================================
 class BaseVariationalAutoencoder(Model, ABC):
-    def __init__(self,  
-            seq_len, 
-            feat_dim,  
-            latent_dim,
-            reconstruction_wt = 3.0,
-            **kwargs  ):
+    def __init__(   self,  
+                    seq_len, 
+                    feat_dim,  
+                    latent_dim,
+                    reconstruction_wt = 3.0,
+                    **kwargs):
         super(BaseVariationalAutoencoder, self).__init__(**kwargs)
-        self.seq_len = seq_len
-        self.feat_dim = feat_dim
-        self.latent_dim = latent_dim
-        self.reconstruction_wt = reconstruction_wt
-        self.total_loss_tracker = Mean(name="total_loss")
-        self.reconstruction_loss_tracker = Mean( name="reconstruction_loss" )
-        self.kl_loss_tracker = Mean(name="kl_loss")
+        self.seq_len                        = seq_len
+        self.feat_dim                       = feat_dim
+        self.latent_dim                     = latent_dim
+        self.reconstruction_wt              = reconstruction_wt
+        self.total_loss_tracker             = Mean(name = "total_loss")
+        self.reconstruction_loss_tracker    = Mean(name = "reconstruction_loss" )
+        self.kl_loss_tracker                = Mean(name = "kl_loss")
         # self.latent_loss_tracker = Mean(name="latent_loss")
 
         self.encoder = None
         self.decoder = None
 
-
+    # ================================
+    # This function is used as forward 
+    # function in Pytorch
+    # --------------------------------
     def call(self, X, returnLatent = False):
         z_mean, _, zLatent = self.encoder(X)
         # print(z_mean.shape)
@@ -63,41 +72,53 @@ class BaseVariationalAutoencoder(Model, ABC):
         else:
             return x_decoded
 
-
+    # ================================
+    # --------------------------------
     def get_num_trainable_variables(self):
         trainableParams = int(np.sum([np.prod(v.get_shape()) for v in self.trainable_weights]))
         nonTrainableParams = int(np.sum([np.prod(v.get_shape()) for v in self.non_trainable_weights]))
         totalParams = trainableParams + nonTrainableParams
         return trainableParams, nonTrainableParams, totalParams
 
-
+    # ================================
+    # --------------------------------
     def get_prior_samples(self, num_samples):
         Z = np.random.randn(num_samples, self.latent_dim)
         samples = self.decoder.predict(Z)
         return samples
     
-
+    # ================================
+    # --------------------------------
     def get_prior_samples_given_Z(self, Z):
         samples = self.decoder.predict(Z)
         return samples
 
-
+    # ================================
+    # The encoder in the parent class
+    # --------------------------------
     @abstractmethod
     def _get_encoder(self, **kwargs):
         raise NotImplementedError
 
-    
+    # ================================
+    # The decoder in the parent class
+    # --------------------------------
     @abstractmethod
     def _get_decoder(self, **kwargs):
         raise NotImplementedError
 
 
+    # ================================
+    # Sumarry the model
+    # --------------------------------
     def summary(self):
         self.encoder.summary()
         self.decoder.summary()
 
 
-
+    # ================================
+    # Get the reconstruction loss
+    # --------------------------------
     def _get_reconstruction_loss(self, X, X_recons): 
 
         def get_reconst_loss_by_axis(X, X_c, axis): 
@@ -116,7 +137,9 @@ class BaseVariationalAutoencoder(Model, ABC):
         return reconst_loss
     
 
-
+    # ================================
+    # Train step
+    # --------------------------------
     def train_step(self, X):
         with tf.GradientTape() as tape:
             # print("Input shape",X.shape)
@@ -156,6 +179,9 @@ class BaseVariationalAutoencoder(Model, ABC):
         }
 
     
+    # ================================
+    # Validation and test step
+    # --------------------------------
     def test_step(self, X): 
         X = X[0]
         z_mean, z_log_var, z = self.encoder(X)
@@ -183,13 +209,18 @@ class BaseVariationalAutoencoder(Model, ABC):
         }
 
 
+    # ================================
+    # Saving weights
+    # --------------------------------
     def save_weights(self, model_dir, file_pref): 
         encoder_wts = self.encoder.get_weights()
         decoder_wts = self.decoder.get_weights()
         joblib.dump(encoder_wts, os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
         joblib.dump(decoder_wts, os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
 
-    
+    # ================================
+    # Loading weights
+    # --------------------------------
     def load_weights(self, model_dir, file_pref):
         encoder_wts = joblib.load(os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
         decoder_wts = joblib.load(os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
@@ -197,7 +228,9 @@ class BaseVariationalAutoencoder(Model, ABC):
         self.encoder.set_weights(encoder_wts)
         self.decoder.set_weights(decoder_wts)
 
-
+    # ================================
+    # Saving entire model
+    # --------------------------------
     def save(self, model_dir, file_pref): 
 
         self.save_weights(model_dir, file_pref)
@@ -213,10 +246,10 @@ class BaseVariationalAutoencoder(Model, ABC):
         joblib.dump(dict_params, params_file)
 
 
-#####################################################################################################
-#####################################################################################################
 
-
+# ================================
+#       TEST FUNCTION
+# ================================
 if __name__ == '__main__':
 
     pass
