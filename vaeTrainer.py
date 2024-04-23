@@ -26,20 +26,23 @@ random.seed(1)
 with open('model/modelConfig.json', 'r') as configFile:
     config = json.load(configFile)
  
-
-preData             = PreProcessData(seqLength  = config.seqLength,
-                                     overLap    = config.overLap)
-
+preData             = PreProcessData()
 rawData             = preData.dataLoading()
 
 # cleanData           = preData.cleanData(    rawData,
 #                                             getMovingAverage    = True, 
 #                                             flipToDown          = True)
 
-norData                 = preData.normalizeData(rawData[preData.crusher1Value])    # Normalize the data
-healthyStateData        = preData.getHealthyState(norData)
-seqTrain                = preData.splitAllDataIntoSequences(healthyStateData)
+norData                 = preData.normalizeData(rawData[preData.crusher1Value])     # Normalize the data
+healthyStateData        = preData.getHealthyState(norData)                          # Extract the healthy state of machine
 
+inputX                  = healthyStateData[preData.manipulatedCr1]
+outputY                 = healthyStateData[preData.efficiencyCr1]
+
+trainXY,valXY           = preData.splitTrainVal(inputX,outputY)                     # Split input and efficiency variables into train and validation dataset
+
+seqTrainXY              = preData.splitAndPadSequences(trainXY)                # Split them into sequences
+seqValXY                = preData.splitAndPadSequences(valXY)                  # Split them into sequences
 
 model                   = VariationalAutoencoderConv(config)
 
@@ -56,7 +59,7 @@ reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=5)
 
 
 history = model.fit(
-        x           =   seqTrain,
+        x           =   seqTrainXY[0],
         y           =   seqTrainXY[1],
         batch_size  =   config.batch_size,
         epochs      =   config.n_epochs,

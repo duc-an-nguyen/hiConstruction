@@ -6,8 +6,7 @@ from prettytable                import PrettyTable
 
 
 class PreProcessData(object):
-    def __init__(self,  seqLength   = 128,
-                        overLap     = 127,
+    def __init__(self,  
                 ):
         
         np.random.seed(1)
@@ -15,8 +14,6 @@ class PreProcessData(object):
         # ------------------------------
         # Configure some variables
         # ------------------------------
-        self.seqLength      = seqLength
-        self.overlap        = overLap
         self.stabletime     = 30        # hours 
         self.sampleRateTime = 3         # minuites per one sample
 
@@ -280,6 +277,8 @@ class PreProcessData(object):
             allMofTable.add_row([elimination[idx], criticalMOF[idx], usedMOF[idx]])
 
         print(allMofTable)
+        for idx in self.criticalMOF:
+            print(idx)
 
 
     # ===================================
@@ -314,50 +313,32 @@ class PreProcessData(object):
 
     # ===================================
     # This function is used to 
-    # extract data from .csv file
+    # get the healthy state of machine
     # -----------------------------------
     def getHealthyState(self,data
                     ):
         aiLogger.info("Getting critical trajectories ...")
-        
-        healthyExcellPos = {"startingRow":  [18317, 28175,  43739,  64526,  87163,  107316, 115185, 133833, 225442, 277099, 310291],
+
+        # ----------------------------
+        # Get the healthy state by 
+        # accessing manually the healthy
+        # index
+        # ----------------------------
+        healthyExcellPos = {"startingRow":  [18317, 28175,  43739,  64526,  87163,  107316, 115185, 133833, 225442, 280493, 310291], #277099 instead of 280493, but the current values is 0
                             "endingRow":    [27068, 42727,  63051,  86359,  98506,  115132, 132599, 157742, 249835, 283708, 321436],
                             "percent":      [0.5,   0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.3,    0.5,    0.7]}   # should subtract 2
-        
+
         self.healthyData =  pd.DataFrame(columns=self.crusher1Value)
-        for idx in len(healthyExcellPos["startingRow"]):
-            lenOfHealthyRow     = (healthyExcellPos["endingRow"][idx] - healthyExcellPos["startingRow"][idx]) * healthyExcellPos["startingRow"]['percent']
-            htEachPeriod        = data[healthyExcellPos["endingRow"][idx]:healthyExcellPos["endingRow"][idx]+lenOfHealthyRow]         
-            self.healthyData    = pd.concat([self.healthyData,htEachPeriod],ignore_index=True)
-    
-    
+        for idx in range(len(healthyExcellPos["startingRow"])):
+            lenOfHealthyRow         = int((healthyExcellPos["endingRow"][idx] - healthyExcellPos["startingRow"][idx]) * healthyExcellPos["percent"][idx])
+
+            startingPos             = healthyExcellPos["startingRow"][idx] - 2
+            endingPos               = healthyExcellPos["startingRow"][idx] - 2 + lenOfHealthyRow
+
+            htEachPeriod            = data[startingPos:endingPos]         
+            self.healthyData        = pd.concat([self.healthyData,htEachPeriod],ignore_index=True)
         return self.healthyData
-    
-
-
-    def removeInitState(self,data,removeValue = False, getLast = False):
-        initPoint       = int(self.stabletime*60/self.sampleRateTime)
-        # print(data[0].shape)
-
-        # ----------------------------
-        # Some data need to get data conversely
-        # ----------------------------
-        if getLast:
-            removedInitData = [curData[:-initPoint,:] for curData in data]
-        else:
-            removedInitData = [curData[initPoint:,:] for curData in data]
-        # print(removedInitData[0].shape)
-
-        # ----------------------------
-        # If the data is time, we need
-        # to subtract with the first 30h (stable time)
-        # ----------------------------
-        if removeValue:
-            removedInitData = [curData - self.stabletime for curData in removedInitData]
-
         
-        return removedInitData
-    
 
     # ===================================
     # This function is used to clean data
@@ -432,34 +413,6 @@ class PreProcessData(object):
         return norData
     
 
-    
-    def normalLabel(self,allDegra):
-        aiLogger.info("Normalizing the label ...")
-        minReac,maxReac     = (65,114)
-        minSep, maxSep      = (50,136)
-        minStrip,maxStrip   = (50,130)
-
-        for idxList in range(len(allDegra)):   
-            allDegra[idxList][:,0] = 1 - (allDegra[idxList][:,0] - minReac)/(maxReac - minReac)
-            allDegra[idxList][:,1] = 1 - (allDegra[idxList][:,1] - minSep)/(maxSep - minSep)
-            allDegra[idxList][:,2] = 1 - (allDegra[idxList][:,2] - minStrip)/(maxStrip - minStrip)
-        
-        # norReac     = [(eachDegre[:,0] - minReac)/(maxReac - minReac)       for eachDegre in allDegra]
-        # norSep      = [(eachDegre[:,1] - minSep)/(maxSep - minSep)          for eachDegre in allDegra]
-        # norStrip    = [(eachDegre[:,2] - minStrip)/(maxStrip - minStrip)    for eachDegre in allDegra]
-        
-        return allDegra
-    
-    def getTheCase(self,theCase,data,time):
-        idxStart = (theCase-1)*100
-        idxEnd   = idxStart + 100
-        caseData = data[idxStart:idxEnd]
-        caseTime = time[idxStart:idxEnd]
-
-        return caseData,caseTime
-
-    
-
     # ===================================
     # This function is used to split data 
     # into sequences.
@@ -469,23 +422,24 @@ class PreProcessData(object):
     # sep: 7 sensors
     # strip: 5 sensors
     # -----------------------------------
-    def splitAllDataIntoSequences(self,dataXY):
+    def splitAllDataIntoSequences(  self,
+                                    data        = None,
+                                    seqLength   = 30,
+                                    overlap     = 29,):
         aiLogger.info("Spliting data into sequences now ...")
 
-        data    = dataXY[0]
-        label   = dataXY[1]
         
         allSeq   = []
         allLabel = []
          
         for idx in range(len(data)):
             transposedDt    = data[idx].transpose()
-            transposedLb    = label[idx].transpose()
+            # transposedLb    = label[idx].transpose()
             # print(transposedLb)
             seqData,seqLabel    = self.splitAndPadSequences(transposedDt,
-                                                           transposedLb,
-                                                            self.seqLength,
-                                                            self.overlap)     
+                                                            # transposedLb,
+                                                            seqLength,
+                                                            overlap)     
             
             # print(len(seqData))
             allSeq          = allSeq    + seqData
@@ -503,12 +457,16 @@ class PreProcessData(object):
     # This function is used to split data 
     # into sequences.
     # -----------------------------------
-    def splitAndPadSequences(self,dataX,dataY, seqLength, overlap):
-        sequences       = []
-        labels          = []
+    def splitAndPadSequences(self,  data, 
+                                    seqLength = 30, 
+                                    overlap   = 29):
+        sequencesX      = []
+        sequencesY      = []
+        dataX           = data[0]
+        dataY           = data[1]
         step_size       = seqLength - overlap
-        # print(dataX)
-        totalLength     = dataX.shape[1]
+        totalLength     = len(dataX)
+        
         # print(dataY)
 
         for start in range(0, totalLength-overlap, step_size):
@@ -521,44 +479,36 @@ class PreProcessData(object):
             if end > totalLength:                
                 padding  = end - totalLength
                 # sequence = torch.nn.functional.pad(dataX[:, start:], (0, padding), 'constant', 0)
-                curLalel = dataY[:,-1]
+                aiLogger.error("Check again the for loop!!!")
+           
             else:
-                sequence = dataX[:,start:end]           # Get sentense
-                curLalel = dataY[:,end-1]               # Get the last element in the data
+                sequenceX = dataX[start:end].to_numpy()           # Get sentense
+                sequenceY = dataY[start:end].to_numpy()           # Get sentense
+                
+            sequencesX.append(sequenceX)
+            sequencesY.append(sequenceY)
 
-            sequences.append(sequence)
-            labels.append(curLalel)
-        
-        return sequences,labels
+        tensorX =   np.stack(sequencesX, axis=0)
+        tensorY =   np.stack(sequencesY, axis=0)
+           
+        return [tensorX,tensorY]
     
 
     # ===================================
     # This function is used to split data
     # to train, val, test groups
     # -----------------------------------
-    def splitTrainVal(self,norData,label):
+    def splitTrainVal(self,inputX,outputY,scaleForTrain = 0.8):
 
-        trainData = {"reactor":[],"separator":[],"stripper":[],"label":[]}
-        valData   = {"reactor":[],"separator":[],"stripper":[],"label":[]}
-
-        trainData   =   norData[0:40]       + norData[70:140]  + \
-                        norData[170:240]    + norData[270:340] + \
-                        norData[370:440]    + norData[470:540]  + \
-                        norData[570:600]   
+        xLength     =   len(inputX)
         
-        valData     =   norData[40:70]     + norData[140:170] + \
-                        norData[240:270]    + norData[340:370] + \
-                        norData[440:470]    + norData[540:570]
+        trainX      =   inputX[ :int(xLength*scaleForTrain)]
+        trainY      =   outputY[:int(xLength*scaleForTrain)]
         
-        trainLabel   =  label[0:40]       + label[70:140]  + \
-                        label[170:240]    + label[270:340] + \
-                        label[370:440]    + label[470:540]  + \
-                        label[570:600]   
-        valLabel     =  label[40:70]     + label[140:170] + \
-                        label[240:270]    + label[340:370] + \
-                        label[440:470]    + label[540:570]
+        valX        =   inputX[ int(xLength*scaleForTrain):]
+        valY        =   outputY[int(xLength*scaleForTrain):]
         
-        return [trainData,trainLabel],[valData,valLabel]
+        return [trainX,trainY],[valX,valY]
     
 
     
