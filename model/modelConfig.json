@@ -1,20 +1,16 @@
 {
 "vae": {
-    "_name": "Variational autoencoder with 1D CNN"
+    "_name":            "Variational autoencoder with 1D CNN - vaeConv1DCustom",
+    "encLayer":         [250,200,80],
+    "decLayer":         [80,200,250],
+    "reconstructionWt": 3,
+    "latentDim":        2,
+    "seqLength":        30,
+    "inFeatureDim":     23,
+    "outFeatureDim":    9,
 
-
-
-
-
-
+    "batchSize":        64,
+    "nEpoch":           5000
 }
-
-
-
-
-
-
-
-
 
 }

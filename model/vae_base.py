@@ -38,16 +38,15 @@ class Sampling(Layer):
 # ================================
 class BaseVariationalAutoencoder(Model, ABC):
     def __init__(   self,  
-                    seq_len, 
-                    feat_dim,  
-                    latent_dim,
-                    reconstruction_wt = 3.0,
+                    config,
                     **kwargs):
         super(BaseVariationalAutoencoder, self).__init__(**kwargs)
-        self.seq_len                        = seq_len
-        self.feat_dim                       = feat_dim
-        self.latent_dim                     = latent_dim
-        self.reconstruction_wt              = reconstruction_wt
+        self.seq_len                        = config["seqLength"]
+        self.inFeatureDim                   = config["inFeatureDim"]
+        self.outFeatureDim                  = config["outFeatureDim"]
+        self.latent_dim                     = config["latentDim"]
+        self.reconstruction_wt              = config["reconstructionWt"]
+
         self.total_loss_tracker             = Mean(name = "total_loss")
         self.reconstruction_loss_tracker    = Mean(name = "reconstruction_loss" )
         self.kl_loss_tracker                = Mean(name = "kl_loss")
@@ -61,10 +60,10 @@ class BaseVariationalAutoencoder(Model, ABC):
     # function in Pytorch
     # --------------------------------
     def call(self, X, returnLatent = False):
-        z_mean, _, zLatent = self.encoder(X)
+        z_mean, _, zLatent  = self.encoder(X)
         # print(z_mean.shape)
         # print(zLatent.shape)
-        x_decoded = self.decoder(z_mean)
+        x_decoded           = self.decoder(z_mean)
         if len(x_decoded.shape) == 1: x_decoded = x_decoded.reshape((1, -1))
 
         if returnLatent:
@@ -122,10 +121,10 @@ class BaseVariationalAutoencoder(Model, ABC):
     def _get_reconstruction_loss(self, X, X_recons): 
 
         def get_reconst_loss_by_axis(X, X_c, axis): 
-            x_r = tf.reduce_mean(X, axis = axis)
-            x_c_r = tf.reduce_mean(X_recons, axis = axis)
-            err = tf.math.squared_difference(x_r, x_c_r)
-            loss = tf.reduce_sum(err)
+            x_r     = tf.reduce_mean(X, axis = axis)
+            x_c_r   = tf.reduce_mean(X_recons, axis = axis)
+            err     = tf.math.squared_difference(x_r, x_c_r)
+            loss    = tf.reduce_sum(err)
             return loss
 
         # overall    
@@ -140,15 +139,18 @@ class BaseVariationalAutoencoder(Model, ABC):
     # ================================
     # Train step
     # --------------------------------
-    def train_step(self, X):
+    def train_step(self, input):
+
+        X = input[0]
+        Y = input[1]
         with tf.GradientTape() as tape:
             # print("Input shape",X.shape)
             z_mean, z_log_var, z = self.encoder(X)
 
-            # print("Latent size",z_mean.shape)
+            
             reconstruction = self.decoder(z)
 
-            reconstruction_loss = self._get_reconstruction_loss(X, reconstruction)
+            reconstruction_loss = self._get_reconstruction_loss(Y, reconstruction)
 
             kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
             kl_loss = tf.reduce_sum(tf.reduce_sum(kl_loss, axis=1))
@@ -182,11 +184,13 @@ class BaseVariationalAutoencoder(Model, ABC):
     # ================================
     # Validation and test step
     # --------------------------------
-    def test_step(self, X): 
-        X = X[0]
-        z_mean, z_log_var, z = self.encoder(X)
-        reconstruction = self.decoder(z)
-        reconstruction_loss = self._get_reconstruction_loss(X, reconstruction)
+    def test_step(self, testInput): 
+        X = testInput[0]
+        Y = testInput[1]
+
+        z_mean, z_log_var, z    = self.encoder(X)
+        reconstruction          = self.decoder(z)
+        reconstruction_loss     = self._get_reconstruction_loss(Y, reconstruction)
 
         kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
         kl_loss = tf.reduce_sum(tf.reduce_sum(kl_loss, axis=1))
@@ -236,11 +240,12 @@ class BaseVariationalAutoencoder(Model, ABC):
         self.save_weights(model_dir, file_pref)
         dict_params = {
 
-            'seq_len': self.seq_len,
-            'feat_dim': self.feat_dim,
-            'latent_dim': self.latent_dim,
+            'seq_len':          self.seq_len,
+            'inFeatureDim':     self.inFeatureDim,
+            'outFeatureDim':    self.outFeatureDim,
+            'latent_dim':       self.latent_dim,
             'reconstruction_wt': self.reconstruction_wt,
-            'hidden_layer_sizes': self.hidden_layer_sizes,
+            # 'hidden_layer_sizes': self.hidden_layer_sizes,
         }
         params_file = os.path.join(model_dir, f'{file_pref}parameters.pkl') 
         joblib.dump(dict_params, params_file)

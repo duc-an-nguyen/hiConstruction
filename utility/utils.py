@@ -1,5 +1,4 @@
 
-
 import os, warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 warnings.filterwarnings('ignore') 
@@ -7,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd, numpy as np
 import sys
 import tensorflow as tf
-from config import config as cfg
+# from config import config as cfg
 
 
 TITLE_FONT_SIZE = 16

@@ -164,9 +164,13 @@ class PreProcessData(object):
                                     "Sobrecarga, Rebalses y atollos"
                                     ]
                                                                          
-                                        
-        
-    
+ 
+
+    # ===================================
+    # Loading the excell file, take more
+    # time to load, so prefer to load by
+    # h5 function
+    # -----------------------------------
     def dataLoading(self,):
         aiLogger.info("Loading data from files ...")
     
@@ -177,8 +181,27 @@ class PreProcessData(object):
         aiLogger.info("Finishing loading data ...")
 
         print(self.crusher1.columns)
-        # aiLogger.debug(self.crusher2.columns)
-        # aiLogger.debug(self.conveyor.columns)
+        return self.crusher1
+
+    # ===================================
+    # Save to H5 file with numeric values from 
+    # crusher 1 only, abandon some text column
+    # -----------------------------------
+    def save2H5Format(self,rawData):
+        savedData  = rawData[self.crusher1Value]
+        aiLogger.info("Saving data to h5 file ...")
+        savedData.to_hdf('data/criticalMOFCrusher1.h5', key='crusher1', mode='w')
+
+        aiLogger.info("Finish saving data to h5 file ...")
+
+    # ===================================
+    # This function is used to load the h5 file
+    # -----------------------------------
+    def loadDataFromH5Format(self):
+        aiLogger.info("Loading data from H5 files ...")
+        self.crusher1 = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
+
+        aiLogger.info("Finish loading data from H5 files ...")
         return self.crusher1
 
     # ===================================
