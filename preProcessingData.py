@@ -199,10 +199,10 @@ class PreProcessData(object):
     # -----------------------------------
     def loadDataFromH5Format(self):
         aiLogger.info("Loading data from H5 files ...")
-        self.crusher1 = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
+        self.cleanData = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
 
         aiLogger.info("Finish loading data from H5 files ...")
-        return self.crusher1
+        return self.cleanData
 
     # ===================================
     # This func is used to remove some 

@@ -1,4 +1,3 @@
-
 import os, warnings, sys
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 warnings.filterwarnings('ignore') 
@@ -7,10 +6,10 @@ from abc import ABC, abstractmethod
 import numpy as np
 import tensorflow as tf
 import joblib 
-from tensorflow.keras.models import Model 
-from tensorflow.keras.layers import Layer
-from tensorflow.keras.metrics import Mean
-from tensorflow.keras.backend import random_normal
+from tensorflow.keras.models    import Model 
+from tensorflow.keras.layers    import Layer
+from tensorflow.keras.metrics   import Mean
+from tensorflow.keras.backend   import random_normal
  
 
 # ================================
@@ -59,17 +58,58 @@ class BaseVariationalAutoencoder(Model, ABC):
     # This function is used as forward 
     # function in Pytorch
     # --------------------------------
-    def call(self, X, returnLatent = False):
+    def call(   self, 
+                seqData, 
+                returnLatent                = False, 
+                returnReconstructionError   = False):
+
+        X = seqData[0]
+        Y = seqData[1]
+
+        # ---------------------
+        # Run forward pass for 
+        # model
+        # ---------------------
         z_mean, _, zLatent  = self.encoder(X)
         # print(z_mean.shape)
         # print(zLatent.shape)
-        x_decoded           = self.decoder(z_mean)
-        if len(x_decoded.shape) == 1: x_decoded = x_decoded.reshape((1, -1))
+        xDecoded            = self.decoder(z_mean)
 
-        if returnLatent:
-            return x_decoded,z_mean
-        else:
-            return x_decoded
+        # ---------------------
+        # Get the reconstruction
+        # error
+        # ---------------------
+        reconstructionLoss  = self._get_reconstruction_loss(Y, xDecoded)
+
+
+        if len(xDecoded.shape) == 1: xDecoded = xDecoded.reshape((1, -1))
+
+
+        # ---------------------
+        # Return values
+        # ---------------------
+        returnedValue = {}
+        returnedValue['decodedValue']       = xDecoded
+        returnedValue['reconstructionLoss'] = reconstructionLoss    if returnReconstructionError    else 0
+        returnedValue["latent"]             = np.mean(zLatent)               if returnLatent                 else 0
+
+        return returnedValue
+    
+    # ================================
+    # This function is used to create 
+    # batch size manually
+    # --------------------------------
+    @staticmethod
+    def batchGenerator(data,batchSize = 64):
+            """Yield successive n-sized batches from data."""
+            X = data[0]
+            Y = data[1]
+            dataLength = len(X)
+            # print(dataLength)
+            for i in range(0, dataLength, batchSize):
+                yield [X[i:i + batchSize],Y[i:i + batchSize]]
+
+                # print(data[0][i:i + batchSize].shape)
 
     # ================================
     # --------------------------------
