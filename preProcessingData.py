@@ -199,10 +199,10 @@ class PreProcessData(object):
     # -----------------------------------
     def loadDataFromH5Format(self):
         aiLogger.info("Loading data from H5 files ...")
-        self.cleanData = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
+        self.cleanCrusher1Data = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
 
         aiLogger.info("Finish loading data from H5 files ...")
-        return self.cleanData
+        return self.cleanCrusher1Data
 
     # ===================================
     # This func is used to remove some 
@@ -234,6 +234,7 @@ class PreProcessData(object):
         preMOF                  = None
         beginingRow             = 0
         beginingTime            = 0
+        markedPoint             = {}
 
 
         for idx in range(len(self.crusher1)):
@@ -253,7 +254,10 @@ class PreProcessData(object):
                     
                     if preMOF not in usefulMOF:
                         usefulMOF.append(preMOF)
-                
+                        markedPoint[preMOF] = [[beginingRow,endingRow]]
+
+                    else:
+                        markedPoint[preMOF].append([beginingRow,endingRow])
                 # --------------------------
                 # Assign new state
                 # --------------------------
@@ -263,6 +267,7 @@ class PreProcessData(object):
                 
         
         print("All the mode of failure:",usefulMOF)
+        print(markedPoint)
         print(mofTable)
 
 
