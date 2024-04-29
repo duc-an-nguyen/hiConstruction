@@ -25,16 +25,18 @@ def lineAndScatterPlot(data, x, y, color):
     fig.update_traces(line=dict(color='black'))
     fig.show()
 
-def scatterPlot2D(data, x, y, color):
+def scatterPlot2D(data, x, y, color, title='Scatterplot 2D'):
     fig = px.scatter(data, 
                      x=x, 
                      y=y, 
                      color=color, 
                      width=600, 
                      height=500)
+    
+    fig.update_layout(title=title)
     fig.show()
 
-def scatterPlot3D(data, x, y, z, color):
+def scatterPlot3D(data, x, y, z, color, title='Scatterplot 3D'):
     fig = px.scatter_3d(data,
                         x=x, 
                         y=y, 
@@ -42,7 +44,8 @@ def scatterPlot3D(data, x, y, z, color):
                         color=color, 
                         size_max=10)
     
-    fig.update_layout(width=600, 
+    fig.update_layout(title=title,
+                      width=600, 
                       height=500)
     fig.show()
 
