@@ -40,7 +40,7 @@ class ClusteringTimeSeries:
     # -------------------------------------
     def getResults(self):
         self.clustersResults    = {}
-        for trajectory in tqdm(self.trajectories[:6]):
+        for trajectory in tqdm(self.trajectories[:6]): #CHANGE: problem with kernel
             dfFiltered          = self.dataNormalized[self.data['trajectory']==trajectory]
             dfResults           = dfFiltered.copy()
             dfResults['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
@@ -65,7 +65,7 @@ class ClusteringTimeSeries:
     # obtained for a single sequence
     # -------------------------------
     def getTrajectory(self, idx):
-        self.trajectory       = self.trajectories[idx]
+        self.trajectory  = self.trajectories[idx]
         trajectoryResult = self.clustersResults[self.trajectory]
 
         return trajectoryResult
@@ -148,24 +148,25 @@ class ClusteringTimeSeries:
 
         if typePlot  == 'lineplot':
             lineAndScatterPlot(data, 
-                               x='tiempo', 
-                               y=variable, 
-                               color=f'cluster_{algorithm}')
+                               x     = 'tiempo', 
+                               y     = variable, 
+                               color = f'cluster_{algorithm}',
+                               title = f'Clusters from trajectory {self.trajectory}')
             
         elif typePlot == 'scatter2D':
             scatterPlot2D(data, 
-                          x=f'{algorithm}_x', 
-                          y=f'{algorithm}_y', 
-                          color=f'cluster_{algorithm}',
-                          title=f'Clusters from trajectory {self.trajectory}')
+                          x     = f'{algorithm}_x', 
+                          y     = f'{algorithm}_y', 
+                          color = f'cluster_{algorithm}',
+                          title = f'Clusters from trajectory {self.trajectory}')
             
         elif typePlot == 'scatter3D':
             scatterPlot3D(data, 
-                          x=f'{algorithm}_x', 
-                          y=f'{algorithm}_y', 
-                          z=f'{algorithm}_z', 
-                          color=f'cluster_{algorithm}',
-                          title=f'Clusters from trajectory {self.trajectory}')
+                          x     = f'{algorithm}_x', 
+                          y     = f'{algorithm}_y', 
+                          z     = f'{algorithm}_z', 
+                          color = f'cluster_{algorithm}',
+                          title = f'Clusters from trajectory {self.trajectory}')
             
 
     # ===================================
@@ -184,21 +185,23 @@ class ClusteringTimeSeries:
 
             for j in range(n_cols):
                 algorithm   = self.algorithms[j]
-                scatterplot = axes[j].scatter(xs=data[f'{algorithm}_x'], 
-                                              ys=data[f'{algorithm}_y'], 
-                                              zs=data[f'{algorithm}_z'], 
-                                              c=data[f'cluster_{algorithm}'].astype('int'),   
-                                              s=20, 
-                                              marker='o', 
-                                              cmap=cmap, 
-                                              alpha=0.3)
+                scatterplot = axes[j].scatter(xs     = data[f'{algorithm}_x'], 
+                                              ys     = data[f'{algorithm}_y'], 
+                                              zs     = data[f'{algorithm}_z'], 
+                                              c      = data[f'cluster_{algorithm}'].astype('int'),   
+                                              s      = 20, 
+                                              marker = 'o', 
+                                              cmap   = cmap, 
+                                              alpha  = 0.3)
                 
                 axes[j].set_xlabel(f'{algorithm}_x')
                 axes[j].set_ylabel(f'{algorithm}_y')
                 axes[j].set_zlabel(f'{algorithm}_z')
-                axes[j].legend(*scatterplot.legend_elements(), loc='upper left')
+                axes[j].legend(*scatterplot.legend_elements(), loc ='upper left')
                 
-            fig.suptitle(f'Dimensionality reduction for trajectory {trajectory}', fontsize=10, y=0.88)
+            fig.suptitle(f'Dimensionality reduction for trajectory {trajectory}', 
+                         fontsize = 10, 
+                         y        = 0.88)
 
             if save:
                 plt.savefig(f'clustering_figures\{trajectory}.png')
