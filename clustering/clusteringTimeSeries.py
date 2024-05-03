@@ -21,6 +21,18 @@ class ClusteringTimeSeries:
         self.clusteringModels   = clusteringModels
         self.dimReductionModels = dimReductionModels
         self.algorithms         = list(self.clusteringModels.keys())
+        self.n_components       = dimReductionModels[self.algorithms[0]].n_components
+
+
+     #=========================================
+    # this func trains a dimensionality 
+    # reduction model using only one trajectory
+    # -----------------------------------------
+    def train(self, trainTrajectory):
+        self.trainTrajectory = trainTrajectory
+        trainData = self.dataNormalized[self.data['trajectory']==self.trainTrajectory]
+        for algorithm in self.algorithms:
+            self.dimReductionModels[algorithm].fit(trainData)
 
 
     # ===================================
@@ -29,7 +41,7 @@ class ClusteringTimeSeries:
     # the embedded space.
     # -----------------------------------
     def findClusters(self, data, clusteringModel, dimReductionModel):
-        transformedData = dimReductionModel.fit_transform(data)
+        transformedData = dimReductionModel.transform(data) #fit_transform previous version
         clusterLabels   = clusteringModel.fit_predict(transformedData)
         return transformedData, clusterLabels
     
@@ -39,27 +51,28 @@ class ClusteringTimeSeries:
     # trajectory of the time series
     # -------------------------------------
     def getResults(self):
-        self.clustersResults    = {}
-        for trajectory in tqdm(self.trajectories[:6]): #CHANGE: problem with kernel
+        self.clustersResults = {}
+        axis = ['x', 'y', 'z']
+
+        for trajectory in tqdm(self.trajectories[:6]):
             dfFiltered          = self.dataNormalized[self.data['trajectory']==trajectory]
             dfResults           = dfFiltered.copy()
             dfResults['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
+
 
             for algorithm in self.algorithms:
                 clusteringModel                    = self.clusteringModels[algorithm]
                 dimReductionModel                  = self.dimReductionModels[algorithm]
                 transformedData, clusterLabels     = self.findClusters(dfFiltered, clusteringModel, dimReductionModel)
-
-                dfResults[f'{algorithm}_x']        = transformedData[:, 0]
-                dfResults[f'{algorithm}_y']        = transformedData[:, 1]
-                dfResults[f'{algorithm}_z']        = transformedData[:, 2]
                 dfResults[f'cluster_{algorithm}']  = clusterLabels.astype('str')
 
+                for i in range(self.n_components):
+                    dfResults[f'{algorithm}_{axis[i]}'] = transformedData[:, i]
+
             self.clustersResults[trajectory] = dfResults
-
         return self.clustersResults
-
-
+    
+    
     # ===============================
     # This func returns the results 
     # obtained for a single sequence
@@ -67,7 +80,7 @@ class ClusteringTimeSeries:
     def getTrajectory(self, idx):
         self.trajectory  = self.trajectories[idx]
         trajectoryResult = self.clustersResults[self.trajectory]
-
+        
         return trajectoryResult
 
 
@@ -76,7 +89,10 @@ class ClusteringTimeSeries:
     # of each cluster in the embedded space
     # -------------------------------------
     def getCentroids(self, data, algorithm):
-        embeddingData   = data[[f'{algorithm}_x', f'{algorithm}_y', f'{algorithm}_z']]
+        if self.n_components==2:
+            embeddingData = data[[f'{algorithm}_x', f'{algorithm}_y']]
+        else:
+            embeddingData = data[[f'{algorithm}_x', f'{algorithm}_y', f'{algorithm}_z']]
         clusterLabels   = data[f'cluster_{algorithm}'].astype('int')
 
         centroids = []
@@ -169,42 +185,199 @@ class ClusteringTimeSeries:
                           title = f'Clusters from trajectory {self.trajectory}')
             
 
-    # ===================================
-    # This graph function several figures 
-    # with the groups obtained in the 
-    # embedding space.
-    # -----------------------------------
-    def subplotsScatter3D(self, n_rows, save=False):
-        cmap   = ListedColormap(sns.color_palette("hls", 256).as_hex())
-        n_cols = len(self.algorithms)
+    # ================================
+    # This func can graph several 
+    # figures with of embedding spaces 
+    # of different trajectories
+    # --------------------------------
+    def plotEmbedding(self, nfigures):
+        ncols = len(self.algorithms)
+        trainData  = self.clustersResults[self.trainTrajectory]
 
-        for i in range(n_rows):
-            fig, axes   = plt.subplots(1, n_cols, figsize=(15, 5), subplot_kw={"projection": "3d"})
-            trajectory  = self.trajectories[i]
-            data        = self.getTrajectory(i)
-
-            for j in range(n_cols):
-                algorithm   = self.algorithms[j]
-                scatterplot = axes[j].scatter(xs     = data[f'{algorithm}_x'], 
-                                              ys     = data[f'{algorithm}_y'], 
-                                              zs     = data[f'{algorithm}_z'], 
-                                              c      = data[f'cluster_{algorithm}'].astype('int'),   
-                                              s      = 20, 
-                                              marker = 'o', 
-                                              cmap   = cmap, 
-                                              alpha  = 0.3)
+        if self.n_components == 3:
+            for i in range(nfigures):
+                fig, axes  = plt.subplots(nrows      = 1, 
+                                          ncols      = ncols, 
+                                          figsize    = (5*ncols, 4),
+                                          subplot_kw = {"projection": "3d"})
                 
-                axes[j].set_xlabel(f'{algorithm}_x')
-                axes[j].set_ylabel(f'{algorithm}_y')
-                axes[j].set_zlabel(f'{algorithm}_z')
-                axes[j].legend(*scatterplot.legend_elements(), loc ='upper left')
-                
-            fig.suptitle(f'Dimensionality reduction for trajectory {trajectory}', 
-                         fontsize = 10, 
-                         y        = 0.88)
+                trajectory = self.trajectories[i]
+                data       = self.getTrajectory(i)
 
+                for j in range(ncols):
+                    algorithm = self.algorithms[j]
+                    axes[j].scatter(xs     = trainData[f'{algorithm}_x'], 
+                                    ys     = trainData[f'{algorithm}_y'], 
+                                    zs     = trainData[f'{algorithm}_z'], 
+                                    label  = f'trajectory {self.trainTrajectory} (train)',            
+                                    marker = '.',
+                                    alpha  = 0.3,
+                                    s      = 10 )
+                    
+                    axes[j].scatter(xs     = data[f'{algorithm}_x'], 
+                                    ys     = data[f'{algorithm}_y'], 
+                                    zs     = data[f'{algorithm}_z'], 
+                                    label  = f'trajectory {trajectory}',            
+                                    marker = '.',
+                                    alpha  = 0.3,
+                                    s      = 10 )
+                    
+                    axes[j].set_xlabel(f'{algorithm}_x')
+                    axes[j].set_ylabel(f'{algorithm}_y')
+                    axes[j].set_ylabel(f'{algorithm}_z')
+                    axes[j].legend(fontsize = 8, 
+                                   loc      = 'upper left')
+                    
+                fig.tight_layout()
+                fig.suptitle(f'Dimensionality reduction for trajectory {trajectory}', 
+                             fontsize = 10, 
+                             y        = 1.04)
+            
+                
+        else:
+            for i in range(nfigures):
+                fig, axes  = plt.subplots(nrows   = 1, 
+                                          ncols   = ncols, 
+                                          figsize = (5*ncols, 4))
+                
+                trajectory = self.trajectories[i]
+                data       = self.getTrajectory(i)
+
+                for j in range(ncols):
+                    algorithm = self.algorithms[j]
+                    axes[j].scatter(x      = trainData[f'{algorithm}_x'], 
+                                    y      = trainData[f'{algorithm}_y'], 
+                                    label  = f'trajectory {self.trainTrajectory} (train)',            
+                                    marker = '.',
+                                    alpha  = 0.3,
+                                    s      = 10 )
+                    
+                    axes[j].scatter(x      = data[f'{algorithm}_x'], 
+                                    y      = data[f'{algorithm}_y'], 
+                                    label  = f'trajectory {trajectory}',            
+                                    marker = '.',
+                                    alpha  = 0.3,
+                                    s      = 10 )
+                    
+                    axes[j].set_xlabel(f'{algorithm}_x')
+                    axes[j].set_ylabel(f'{algorithm}_y')
+                    axes[j].legend(fontsize = 8, 
+                                   loc      = 'upper left')
+                    
+                fig.tight_layout()
+                fig.suptitle(f'Dimensionality reduction for trajectory {trajectory}', 
+                             fontsize = 10, 
+                             y        = 1.04)
+            
+
+    # ==================================
+    # This func can graph several 
+    # figures with the clusters obtained 
+    # in the embedding space
+    # ----------------------------------
+    def plotResults(self, nfigures, save=False):
+        cmap  = ListedColormap(sns.color_palette("hls", 256).as_hex())
+        ncols = len(self.algorithms)
+
+        if self.n_components == 3:
+            for i in range(nfigures):
+                fig, axes  = plt.subplots(nrows      = 1, 
+                                          ncols      = ncols, 
+                                          figsize    = (5*ncols, 4),
+                                          subplot_kw = {"projection": "3d"})
+                
+                trajectory = self.trajectories[i]
+                data       = self.getTrajectory(i)
+
+                for j in range(ncols):
+                    algorithm = self.algorithms[j]
+                    scatterplot = axes[j].scatter(xs     = data[f'{algorithm}_x'], 
+                                                  ys     = data[f'{algorithm}_y'], 
+                                                  zs     = data[f'{algorithm}_z'], 
+                                                  c      = data[f'cluster_{algorithm}'].astype('int'), 
+                                                  cmap   = cmap,                
+                                                  marker = '.',
+                                                  alpha  = 0.3,
+                                                  s      = 10 )
+                    
+                    axes[j].set_xlabel(f'{algorithm}_x')
+                    axes[j].set_ylabel(f'{algorithm}_y')
+                    axes[j].set_ylabel(f'{algorithm}_z')
+                    axes[j].legend(*scatterplot.legend_elements(), 
+                                   loc = 'upper left')
+                    
+                fig.tight_layout()
+                fig.suptitle(f'Clusters in embedding space for trajectory {trajectory}', 
+                             fontsize = 10, 
+                             y        = 1)
+                
+        else:
+            for i in range(nfigures):
+                fig, axes  = plt.subplots(nrows   = 1, 
+                                          ncols   = ncols, 
+                                          figsize = (5*ncols, 4))
+                
+                trajectory = self.trajectories[i]
+                data       = self.getTrajectory(i)
+
+                for j in range(ncols):
+                    algorithm = self.algorithms[j]
+                    scatterplot = axes[j].scatter(x      = data[f'{algorithm}_x'], 
+                                                  y      = data[f'{algorithm}_y'], 
+                                                  c      = data[f'cluster_{algorithm}'].astype('int'), 
+                                                  cmap   = cmap,                
+                                                  marker = '.',
+                                                  alpha  = 0.3,
+                                                  s      = 10 )
+                    
+                    axes[j].set_xlabel(f'{algorithm}_x')
+                    axes[j].set_ylabel(f'{algorithm}_y')
+                    axes[j].legend(*scatterplot.legend_elements(), 
+                                   bbox_to_anchor = (1, 1),
+                                   loc            = 'upper left')
+                    
+                fig.tight_layout()
+                fig.suptitle(f'Clusters in embedding space for trajectory {trajectory}', 
+                             fontsize = 10, 
+                             y        = 1.04)
+                    
             if save:
                 plt.savefig(f'clustering_figures\{trajectory}.png')
                 plt.close(fig)
             else:
                 plt.show()
+
+    # ==============================
+    # This func can graph the points 
+    # obtained by each cluster for 
+    # some variable
+    # ------------------------------
+    def plotVarByCluster(self, idxTrajectory, variable, algorithm):
+        dataTrajectory = self.getTrajectory(idxTrajectory)
+        clusterLabels  = dataTrajectory[f'cluster_{algorithm}'].unique()
+        clusterLabels  = clusterLabels[clusterLabels!=str(-1)]
+
+        ymax           = dataTrajectory[dataTrajectory[f'cluster_{algorithm}'].isin(clusterLabels)][variable].max()
+        ymin           = dataTrajectory[dataTrajectory[f'cluster_{algorithm}'].isin(clusterLabels)][variable].min()
+        ncols          = len(clusterLabels)
+
+        fig, axes      = plt.subplots(nrows=1, ncols=ncols, figsize=(2*ncols, 4))
+        for j, cluster in enumerate(clusterLabels):
+            dataFiltered = dataTrajectory[dataTrajectory[f'cluster_{algorithm}']==cluster]
+            axes[j].scatter(x = dataFiltered.reset_index().index, 
+                            y = dataFiltered[variable], 
+                            s = 5)
+            axes[j].set_title(f'Cluster {cluster}', 
+                              fontsize = 10)
+            axes[j].set_ylim(ymin, ymax)
+        
+            if j==0:
+                axes[j].set_ylabel(f'{variable}')
+            else:
+                axes[j].yaxis.set_visible(False)
+
+        fig.tight_layout()
+        fig.suptitle(f'Comparison of the {variable} by clusters for trajectory {self.trajectory}', 
+                     fontsize = 15, 
+                     y        = 1.04)
+        plt.show()
