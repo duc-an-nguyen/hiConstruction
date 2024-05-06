@@ -65,8 +65,8 @@ class appVAE():
     def trainer(seqTrainXY,seqValXY,vaeConfig):
         model                   = vaeConv1DCustom(vaeConfig)
         model.compile(optimizer =   Adam(),
-                    loss      =   'mean_squared_error',
-                    metrics   =   ['mean_absolute_error'])
+                    loss        =   'mean_squared_error',
+                    metrics     =   ['mean_absolute_error'])
 
         early_stop_loss     = 'loss'
         early_stop_callback = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=5) 
