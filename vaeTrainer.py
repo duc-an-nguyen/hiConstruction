@@ -43,16 +43,17 @@ class appVAE():
         # entire dataset
         # ------------------------
         if forTraining:
-            healthyStateData        = preData.getHealthyState(norData)                          # Extract the healthy state of machine
+            healthyStateData,_      = preData.getHealthyState(norData)                          # Extract the healthy state of machine
             inputX                  = healthyStateData[preData.manipulatedCr1]
-            outputY                 = healthyStateData[preData.efficiencyCr1]
-            trainXY,valXY           = preData.splitTrainVal(inputX,outputY)                     # Split input and efficiency variables into train and validation dataset
+            # outputY                 = healthyStateData[preData.efficiencyCr1]
+            trainXY,valXY           = preData.splitTrainVal(inputX  = inputX,
+                                                            outputY = inputX)                   # Split input and efficiency variables into train and validation dataset
             seqTrainXY              = preData.splitAndPadSequences(trainXY)                     # Split them into sequences
             seqValXY                = preData.splitAndPadSequences(valXY)                       # Split them into sequences
         else:
             inputX                  = norData[preData.manipulatedCr1]
-            outputY                 = norData[preData.efficiencyCr1]
-            seqValXY                = preData.splitAndPadSequences([inputX,outputY])                       # Split them into sequences
+            # outputY                 = norData[preData.efficiencyCr1]
+            seqValXY                = preData.splitAndPadSequences([inputX,inputX])                       # Split them into sequences
             seqTrainXY              = None
         
 
@@ -63,14 +64,14 @@ class appVAE():
     # --------------------
     @staticmethod
     def trainer(seqTrainXY,seqValXY,vaeConfig):
-        model                   = vaeConv1DCustom(vaeConfig)
+        model                   =   vaeConv1DCustom(vaeConfig)
         model.compile(optimizer =   Adam(),
                     loss        =   'mean_squared_error',
                     metrics     =   ['mean_absolute_error'])
 
         early_stop_loss     = 'loss'
-        early_stop_callback = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=5) 
-        reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=5)
+        early_stop_callback = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=10) 
+        reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10)
 
 
         history = model.fit(    x           =   seqTrainXY[0],
@@ -94,7 +95,8 @@ class appVAE():
         # ------------------------------
         # Create model directory
         # ------------------------------
-        modelDir   = "ckpt/" + str(vaeConfig["encLayer"]) + "_" + str(vaeConfig["decLayer"]) +  \
+        typeOfModel = "VAECNN1D_ManupulatedAndEfficiencyInputOutput"
+        modelDir   = "ckpt/" + typeOfModel + str(vaeConfig["encLayer"]) + "_" + str(vaeConfig["decLayer"]) +  \
                     "latent" + "_" + str(vaeConfig["latentDim"])
 
         if not os.path.exists(modelDir + "/"):
@@ -116,7 +118,7 @@ class appVAE():
         # ==============================    
         # save model 
         # ==============================
-        model.save(model_dir = modelDir, file_pref = "crusher")
+        model.save(model_dir = modelDir, file_pref = "crusher1")
 
     # ====================
     # Prediction
@@ -148,7 +150,7 @@ class appVAE():
 #       MAIN FUNCTION
 # ============================
 if __name__ == '__main__':
-    trainIsTrue = False
+    trainIsTrue = True
     # ----------------
     # Config
     # ----------------
@@ -159,7 +161,7 @@ if __name__ == '__main__':
     if trainIsTrue:
         seqTrainXY,seqValXY     = appVAE.dataPreprocessing()
         history,model           = appVAE.trainer(seqTrainXY,seqValXY,vaeConfig)
-        appVAE.saveModelAndProgress
+        appVAE.saveModelAndProgress(history,model)
 
     else:
         _,seqData               = appVAE.dataPreprocessing(forTraining = False)
