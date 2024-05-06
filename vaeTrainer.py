@@ -5,7 +5,6 @@ from utility.config                     import rulVAECNNConfig
 from model.vaeConv1DCustom              import vaeConv1DCustom 
 from tqdm                               import tqdm
 
-
 import numpy                            as np 
 import matplotlib.pyplot                as plt
 
