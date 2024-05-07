@@ -218,7 +218,6 @@ class PreProcessData(object):
         return self.crusher1
 
 
-
     # ===================================
     # This func is used to sumarry the data
     # according to time which is inside 
@@ -347,7 +346,150 @@ class PreProcessData(object):
         self.scaledCrusher1.loc[:, variablesToNormalize.columns] = scaledData
         return self.scaledCrusher1
     
+
+    # ===================================
+    # This function is used to 
+    # get the healthy state of machine
+    # -----------------------------------
+    def getHealthyStatePrevious(self): #, data):
+        # ----------------------------
+        # Get the healthy state by 
+        # accessing manually the healthy
+        # index
+        # ----------------------------
+        self.healthyExcellPos = {"startingRow":  [18317, 28175,  43739,  64526,  87163,  107316, 115185, 133833, 225442, 280493, 310291], #277099 instead of 280493, but the current values is 0
+                                 "endingRow":    [27068, 42727,  63051,  86359,  98506,  115132, 132599, 157742, 249835, 283708, 321436],
+                                 "percent":      [0.5,   0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.3,    0.5,    0.7]}   # should subtract 2
+
+
+        self.healthyData =  pd.DataFrame(columns=self.crusher1Value)
+        for idx in range(len(self.healthyExcellPos["startingRow"])):
+            lenOfHealthyRow         = int((self.healthyExcellPos["endingRow"][idx] - self.healthyExcellPos["startingRow"][idx]) * self.healthyExcellPos["percent"][idx])
+
+            startingPos             = self.healthyExcellPos["startingRow"][idx] - 2
+            endingPos               = self.healthyExcellPos["startingRow"][idx] - 2 + lenOfHealthyRow
+
+            htEachPeriod            = self.crusher1[startingPos:endingPos]         
+            self.healthyData        = pd.concat([self.healthyData, htEachPeriod], ignore_index=True)
+        
+        return self.healthyData, self.healthyExcellPos
     
+
+    def getHealthyState(self):
+        self.healthyTrajectories = { '7': 0.5,  '9': 0.5, '11': 0.5, 
+                                    '15': 0.5, '23': 0.5, '25': 0.5, 
+                                    '27': 0.5, '55': 0.3, '63': 0.5, 
+                                    '71': 0.7}
+
+        self.healthyData =  pd.DataFrame(columns=self.crusher1.columns)
+        for trajectory in self.healthyTrajectories:
+            percentage     = self.healthyTrajectories[trajectory]
+            dfTrajectory   = self.crusher1[self.crusher1['trajectory']==trajectory]
+            lenOfHealthy   = len(dfTrajectory)
+
+            healthyPeriod  = dfTrajectory[:int(lenOfHealthy*percentage)]
+            self.healthyData    = pd.concat([self.healthyData, healthyPeriod], ignore_index=True)
+        
+        self.crusher1 = self.healthyData
+        
+    
+    # ===================================
+    # This function is used to calculate
+    # additional efficient variables
+    # -----------------------------------
+    def additionEfficiencyVar(self, window_size=30, use_global_mean=True):
+
+        """
+        # adding new feature columns that assess various aspects of operational efficiency and stability.
+
+        Parameters:
+            - df (DataFrame): The input DataFrame that contains operational data.
+            - window_size (int): The size of the rolling window used for calculating moving averages. This affects how data smoothing is applied, particularly for new features that are based on rolling computations.
+            - use_global_mean (bool): A flag to determine whether to fill NaN values with the global mean of the respective columns. This can be helpful in maintaining data integrity when initial rows lack enough data due to the rolling window.
+
+        The function adds the following features to the DataFrame:
+            - Efficiency performance, based on the ratio of performance (tons) to power (kW).
+            - Z-scores for internal and external vibrations to assess the stability and anomaly in vibrations.
+            - Oil flow ratio, which compares upper to lower flow rates, indicative of lubrication system efficiency.
+            - Performance per revolution, using a rolling average to smooth the measurement over specified window sizes.
+            - Average temperature difference and average power, also smoothed with a rolling window.
+            - Cooling efficiency, calculated from the average temperature difference divided by the average power.
+            - Optionally fills NaN values with the global mean across columns if specified.
+        """
+    
+
+        #-----------------------------
+        # Add efficiency performance:
+        # - Calculates efficiency by dividing performance in tons by power in kW.
+        #-----------------------------
+        step        = 1
+        padSize     = window_size- step     # Step by 1 element so overlap is 29
+        epsilon     = 1e-10                 # A small number to prevent division by zero
+
+        df = self.crusher1
+
+        df['Eficiencia_Rendimiento'] = df['rendimiento(ton)'] / (df['Potencia(kW)']+ epsilon)
+
+        #-----------------------------
+        # Calculate Z-Scores for internal vibrations:
+        # - Normalizes internal vibrations relative to their mean and standard deviation.
+        #-----------------------------
+        df['Z_Score_Int'] = (df['Piñón_int(mm/s)'] - df['Piñón_int(mm/s)'].mean()) / (df['Piñón_int(mm/s)'].std() + epsilon)
+
+        #-----------------------------
+        # Calculate Z-Scores for external vibrations:
+        # - Normalizes external vibrations relative to their mean and standard deviation.
+        #-----------------------------
+        df['Z_Score_Ext'] = (df['Piñón_ext(mm/s)'] - df['Piñón_ext(mm/s)'].mean()) / (df['Piñón_ext(mm/s)'].std() + epsilon)
+
+        #-----------------------------
+        # Add oil flow ratio:
+        # - Calculates the oil flow ratio by dividing the upper flow by the lower flow.
+        #-----------------------------
+        df['Ratio_Flujo_Aceite'] = df['Lubricación_entrada_sup(m3/h)'] / (df['Lubricación_entrada_inf(m3/h)'] + epsilon)
+
+        #-----------------------------
+        # Calculate performance per revolution using a sliding window:
+        # - Smooths the relationship between performance and speed using a moving average.
+        #-----------------------------
+        df['Rendimiento_por_Revolucion']    = (df['rendimiento(ton)'] / (df['velocidad(rpm)'] + epsilon)).rolling(window=window_size).mean()
+        
+
+        #-----------------------------
+        # Calculate the average temperature difference using a sliding window:
+        # - Smooths the temperature differences between the lubrication input and return.
+        #-----------------------------
+        df['Temperatura_Diferencia_Media'] = (df['Lubricación_entrada(°C)'] - df['Lubricación_retorno(°C)']).rolling(window=window_size).mean()
+        
+        #-----------------------------
+        # Calculate the average power using a sliding window:
+        # - Smooths the consumed power using a moving average.
+        #-----------------------------
+        df['Potencia_Media']    = df['Potencia(kW)'].rolling(window=window_size).mean()
+       
+        #-----------------------------
+        # Calculate the cooling efficiency:
+        # - Divides the average temperature difference by the average power to assess the cooling system's efficiency.
+        #-----------------------------
+        df['Eficiencia_Enfriamiento'] = df['Temperatura_Diferencia_Media'] / (df['Potencia_Media'] + epsilon)
+
+        self.newEfficiencyCr1 = ['Eficiencia_Rendimiento',      'Z_Score_Int',                  'Z_Score_Ext', 
+                                 'Ratio_Flujo_Aceite',          'Rendimiento_por_Revolucion',   'Temperatura_Diferencia_Media',
+                                 'Potencia_Media',              'Eficiencia_Enfriamiento'
+                                 ]
+
+        #-----------------------------
+        # Use the global mean to fill NaN if specified to use the global mean.
+        #-----------------------------
+        
+        if use_global_mean:
+            dfSensor = df.select_dtypes('number')
+            df.loc[:, dfSensor.columns] = dfSensor.fillna(dfSensor.mean())
+
+        return df
+        
+
+
 if __name__ == '__main__':
     pre             = PreProcessData()
     pre.dataLoading()

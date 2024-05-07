@@ -6,6 +6,7 @@
 #folders
 data/
 mmodal/
+figures/
 
 # Node artifact files
 node_modules/

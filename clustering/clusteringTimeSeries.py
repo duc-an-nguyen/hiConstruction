@@ -54,11 +54,10 @@ class ClusteringTimeSeries:
         self.clustersResults = {}
         axis = ['x', 'y', 'z']
 
-        for trajectory in tqdm(self.trajectories[:6]):
+        for trajectory in tqdm(self.trajectories[:6]): #CHANGE: Problem with Kernel
             dfFiltered          = self.dataNormalized[self.data['trajectory']==trajectory]
             dfResults           = dfFiltered.copy()
             dfResults['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
-
 
             for algorithm in self.algorithms:
                 clusteringModel                    = self.clusteringModels[algorithm]
@@ -70,7 +69,6 @@ class ClusteringTimeSeries:
                     dfResults[f'{algorithm}_{axis[i]}'] = transformedData[:, i]
 
             self.clustersResults[trajectory] = dfResults
-        return self.clustersResults
     
     
     # ===============================
@@ -143,8 +141,16 @@ class ClusteringTimeSeries:
                             cluster1, cluster2              = (i,j) 
                             pointsCluster1                  = embeddingData1[clusterLabels1 == cluster1].copy()
                             pointsCluster2                  = embeddingData2[clusterLabels2 == cluster2].copy() 
-                            pointsCluster1.loc[:,'label']   = f'cluster: {cluster1}, trajectory:{trajectory1}'
-                            pointsCluster2.loc[:,'label']   = f'cluster: {cluster2}, trajectory:{trajectory2}'
+                            
+                            pointsCluster1.loc[:, 'cluster'] = cluster1
+                            pointsCluster2.loc[:, 'cluster'] = cluster2
+                            
+                            pointsCluster1.loc[:, 'trajectory'] = trajectory1
+                            pointsCluster2.loc[:, 'trajectory'] = trajectory2
+
+                            pointsCluster1.loc[:,'label']   = f'cluster: {cluster1}, trajectory: {trajectory1}'
+                            pointsCluster2.loc[:,'label']   = f'cluster: {cluster2}, trajectory: {trajectory2}'
+
                             
                             dfResuts                        = pd.concat([pointsCluster1, pointsCluster2])
                             dfResuts.loc[:, 'group']        = iterator
@@ -152,6 +158,37 @@ class ClusteringTimeSeries:
                             iterator+=1
 
         return self.similarClusters 
+    
+    def unifyClusters(self, algorithm):
+        if self.n_components==2:
+            dfResults = self.similarClusters.drop(columns=[f'{algorithm}_x', 
+                                                           f'{algorithm}_y']).drop_duplicates().reset_index(drop=True)
+        else:
+            dfResults = self.similarClusters.drop(columns=[f'{algorithm}_x', 
+                                                           f'{algorithm}_y', 
+                                                           f'{algorithm}_z']).drop_duplicates().reset_index(drop=True)
+            
+        Groups = dfResults['group'].unique()
+        removeGroups = Groups.copy()
+
+        realClusters = []
+        for group in Groups:
+
+            if np.isin(group, removeGroups).item():
+                dfFiltered = dfResults[dfResults['group']==group]
+                trajectory1, trajectory2 = dfFiltered['trajectory']
+                cluster1, cluster2 = dfFiltered['cluster']
+
+                groups = dfResults[((dfResults['cluster']==cluster1)&
+                                    (dfResults['trajectory']==trajectory1))|
+                                    ((dfResults['cluster']==cluster2)&
+                                    (dfResults['trajectory']==trajectory2))]['group'].unique()
+                
+                similarClusters = dfResults[dfResults['group'].isin(groups)].drop_duplicates(subset='label')
+
+                realClusters.append(similarClusters)
+                removeGroups = removeGroups[~np.isin(removeGroups, groups)]
+
     
     
     # ===================================
@@ -346,6 +383,7 @@ class ClusteringTimeSeries:
                 plt.close(fig)
             else:
                 plt.show()
+
 
     # ==============================
     # This func can graph the points 
