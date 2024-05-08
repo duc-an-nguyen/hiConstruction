@@ -1,6 +1,6 @@
 #! "C:\Users\CAEX\Desktop\Diego\Crusher Project\2ndrealdatajournalchile\mmodal\Scripts\python.exe"
 
-import numpy as np
+import numpy  as np
 import pandas as pd
 from prettytable        import PrettyTable
 
