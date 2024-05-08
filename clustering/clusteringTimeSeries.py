@@ -2,14 +2,15 @@
 
 import numpy as np
 import pandas as pd
+import networkx as nx
 from tqdm                           import tqdm
 
 from matplotlib.colors              import ListedColormap
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from sklearn.metrics.pairwise import euclidean_distances
-from utils.plotFigures      import lineAndScatterPlot, scatterPlot2D, scatterPlot3D
+from sklearn.metrics.pairwise       import euclidean_distances
+from utils.plotFigures              import lineAndScatterPlot, scatterPlot2D, scatterPlot3D
 
 
 class ClusteringTimeSeries: 
@@ -56,19 +57,19 @@ class ClusteringTimeSeries:
 
         for trajectory in tqdm(self.trajectories[:6]): #CHANGE: Problem with Kernel
             dfFiltered          = self.dataNormalized[self.data['trajectory']==trajectory]
-            dfResults           = dfFiltered.copy()
-            dfResults['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
+            similarClusters           = dfFiltered.copy()
+            similarClusters['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
 
             for algorithm in self.algorithms:
-                clusteringModel                    = self.clusteringModels[algorithm]
-                dimReductionModel                  = self.dimReductionModels[algorithm]
-                transformedData, clusterLabels     = self.findClusters(dfFiltered, clusteringModel, dimReductionModel)
-                dfResults[f'cluster_{algorithm}']  = clusterLabels.astype('str')
+                clusteringModel                          = self.clusteringModels[algorithm]
+                dimReductionModel                        = self.dimReductionModels[algorithm]
+                transformedData, clusterLabels           = self.findClusters(dfFiltered, clusteringModel, dimReductionModel)
+                similarClusters[f'cluster_{algorithm}']  = clusterLabels.astype('str')
 
                 for i in range(self.n_components):
-                    dfResults[f'{algorithm}_{axis[i]}'] = transformedData[:, i]
+                    similarClusters[f'{algorithm}_{axis[i]}'] = transformedData[:, i]
 
-            self.clustersResults[trajectory] = dfResults
+            self.clustersResults[trajectory] = similarClusters
     
     
     # ===============================
@@ -159,37 +160,107 @@ class ClusteringTimeSeries:
 
         return self.similarClusters 
     
+
+    # ==========================================
+    # This func groups all similar clusters 
+    # using the connected components of a graph
+    # ------------------------------------------
     def unifyClusters(self, algorithm):
+
+        # The information is filtered to obtain the number of similarities
         if self.n_components==2:
-            dfResults = self.similarClusters.drop(columns=[f'{algorithm}_x', 
-                                                           f'{algorithm}_y']).drop_duplicates().reset_index(drop=True)
+            dfSimilarClusters = self.similarClusters.drop(columns = [f'{algorithm}_x', 
+                                                                     f'{algorithm}_y']).drop_duplicates().reset_index(drop=True)
         else:
-            dfResults = self.similarClusters.drop(columns=[f'{algorithm}_x', 
-                                                           f'{algorithm}_y', 
-                                                           f'{algorithm}_z']).drop_duplicates().reset_index(drop=True)
+            dfSimilarClusters = self.similarClusters.drop(columns = [f'{algorithm}_x', 
+                                                                     f'{algorithm}_y',
+                                                                     f'{algorithm}_z']).drop_duplicates().reset_index(drop=True)
             
-        Groups = dfResults['group'].unique()
-        removeGroups = Groups.copy()
+        dfSimilarClusters['trajectory'] = dfSimilarClusters['trajectory'].astype('int')
 
-        realClusters = []
-        for group in Groups:
+        # ==============================
+        # List with similarities between trajectory and cluster 
+        # Each element is: (trajectory i, cluster n) is similar to (trajectory j, cluster m)
+        # ------------------------------
+        similarityTuples                = [((group['trajectory'].iloc[0], group['cluster'].iloc[0]), 
+                                            (group['trajectory'].iloc[1], group['cluster'].iloc[1]))
+                                            for _, group in dfSimilarClusters.groupby('group')]  
+        
+        # Create a graph
+        self.Graph = nx.DiGraph()
+        # Add nodes and edges to the graph
+        for sim_tuple in similarityTuples:
+            source_node = sim_tuple[0]
+            target_node = sim_tuple[1]
+            self.Graph.add_edge(source_node, target_node)
 
-            if np.isin(group, removeGroups).item():
-                dfFiltered = dfResults[dfResults['group']==group]
-                trajectory1, trajectory2 = dfFiltered['trajectory']
-                cluster1, cluster2 = dfFiltered['cluster']
+        # Find connected components: number of real clusters
+        self.connectedComponents = list(nx.weakly_connected_components(self.Graph))
 
-                groups = dfResults[((dfResults['cluster']==cluster1)&
-                                    (dfResults['trajectory']==trajectory1))|
-                                    ((dfResults['cluster']==cluster2)&
-                                    (dfResults['trajectory']==trajectory2))]['group'].unique()
-                
-                similarClusters = dfResults[dfResults['group'].isin(groups)].drop_duplicates(subset='label')
+        # Add real cluster to results
+        for key, df in self.clustersResults.items():
+            realClusters = []
+            for _, row in df.iterrows():
+                flag = False
+                x    = int(key) 
+                y    = int(row[f'cluster_{algorithm}'])  
 
-                realClusters.append(similarClusters)
-                removeGroups = removeGroups[~np.isin(removeGroups, groups)]
+                # Find in which connected component the tuple (x, y) is located
+                for i, component in enumerate(self.connectedComponents):
+                    if (x, y) in component:
+                        flag = True
+                        realClusters.append(i) 
+                        break  
 
+                if flag == False:
+                    realClusters.append(-1) 
+
+            df[f'real_cluster_{algorithm}'] = realClusters
+
+
+    # ====================================
+    # This func plots a graph that shows 
+    # the similarity between the different 
+    # clusters of all trajectories
+    # ------------------------------------
+    def plotGraph(self):
+        # Assign colors to nodes based on the connected component they belong to
+        colors      = ['red', 'royalblue', 'green', 'orange', 'purple', 'yellow'] # Change length of colors
+        node_colors = {}
+        edge_colors = {}
+
+        for i, component in enumerate(self.connectedComponents):
     
+            # Add colors to node and edges
+            for node in component:
+                node_colors[node] = colors[i % len(colors)]
+
+            for edge in self.Graph.edges():
+                    if edge[0] in component and edge[1] in component:
+                        edge_colors[edge] = colors[i % len(colors)]
+
+        # Add position to graph        
+        pos = {}
+        for node in self.Graph.nodes():
+            pos[node] = (node[0], node[1])
+
+        # Create figure
+        plt.figure(figsize  = (8, 6))
+        nx.draw(G           = self.Graph, 
+                pos         = pos, 
+                with_labels = True, 
+                node_size   = 700, 
+                font_size   = 10, 
+                arrowsize   = 20,
+                node_color  = [node_colors[node] for node in self.Graph.nodes()],  
+                edge_color  = [edge_colors[edge] for edge in self.Graph.edges()], 
+                )
+
+        plt.xlabel('trajectories')
+        plt.ylabel('clusters')
+        plt.title("Assignment found between similar clusters")
+        plt.show()
+
     
     # ===================================
     # This func graphs different 
@@ -312,8 +383,8 @@ class ClusteringTimeSeries:
     # figures with the clusters obtained 
     # in the embedding space
     # ----------------------------------
-    def plotResults(self, nfigures, save=False):
-        cmap  = ListedColormap(sns.color_palette("hls", 256).as_hex())
+    def plotResults(self, nfigures, label_color='cluster', save=False):
+        cmap  = ListedColormap(sns.color_palette("hls", 256).as_hex()[10:])
         ncols = len(self.algorithms)
 
         if self.n_components == 3:
@@ -331,7 +402,7 @@ class ClusteringTimeSeries:
                     scatterplot = axes[j].scatter(xs     = data[f'{algorithm}_x'], 
                                                   ys     = data[f'{algorithm}_y'], 
                                                   zs     = data[f'{algorithm}_z'], 
-                                                  c      = data[f'cluster_{algorithm}'].astype('int'), 
+                                                  c      = data[f'{label_color}_{algorithm}'].astype('int'), 
                                                   cmap   = cmap,                
                                                   marker = '.',
                                                   alpha  = 0.3,
@@ -361,7 +432,7 @@ class ClusteringTimeSeries:
                     algorithm = self.algorithms[j]
                     scatterplot = axes[j].scatter(x      = data[f'{algorithm}_x'], 
                                                   y      = data[f'{algorithm}_y'], 
-                                                  c      = data[f'cluster_{algorithm}'].astype('int'), 
+                                                  c      = data[f'{label_color}_{algorithm}'].astype('int'), 
                                                   cmap   = cmap,                
                                                   marker = '.',
                                                   alpha  = 0.3,
