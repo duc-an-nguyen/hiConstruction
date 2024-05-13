@@ -4,11 +4,12 @@ from matplotlib.colors  import ListedColormap
 import plotly.express as px
 import plotly.graph_objects as go
 
-def linePlot(data, x, y, color):
+def linePlot(data, x, y, color, title=None):
     fig = px.line(data, 
                   x     = x, 
                   y     = y, 
-                  color = color)
+                  color = color,
+                  title = title)
     fig.show()
 
 def lineAndScatterPlot(data, x, y, color, title='Time series'):
@@ -30,11 +31,10 @@ def scatterPlot2D(data, x, y, color, title='Scatterplot 2D'):
     fig = px.scatter(data, 
                      x      = x, 
                      y      = y, 
-                     color  = color, 
+                     color  = color,
+                     title  = title, 
                      width  = 600, 
                      height = 500)
-    
-    fig.update_layout(title=title)
     fig.show()
 
 def scatterPlot3D(data, x, y, z, color, title='Scatterplot 3D'):
@@ -42,11 +42,11 @@ def scatterPlot3D(data, x, y, z, color, title='Scatterplot 3D'):
                         x        = x, 
                         y        = y, 
                         z        = z,
-                        color    = color, 
+                        color    = color,
+                        title    = title, 
                         size_max = 10)
     
-    fig.update_layout(title  = title,
-                      width  = 600, 
+    fig.update_layout(width  = 600, 
                       height = 500)
     fig.show()
 

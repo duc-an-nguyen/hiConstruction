@@ -52,8 +52,8 @@ class ClusteringResults(ClusteringTimeSeries):
     # of different trajectories
     # --------------------------------
     def plotEmbedding(self, nfigures):
-        ncols      = len(self.algorithms)
-        trainData  = self.clustersResults[self.trainTrajectory]
+        ncols           = len(self.algorithms)
+        #self.embeddingTrain  = pd.concat(list(self.clustersResults.values())) #self.clustersResults[self.trainTrajectory]
 
         if self.n_components==2:
             for i in range(nfigures):
@@ -66,8 +66,9 @@ class ClusteringResults(ClusteringTimeSeries):
 
                 for j in range(ncols):
                     algorithm = self.algorithms[j]
-                    axes[j].scatter(x      = trainData[f'{algorithm}_x'], 
-                                    y      = trainData[f'{algorithm}_y'], 
+                    axes[j].scatter(x      = self.embeddingTrain[f'{algorithm}_x'], 
+                                    y      = self.embeddingTrain[f'{algorithm}_y'], 
+                                    #label  = 'train data', 
                                     label  = f'trajectory {self.trainTrajectory} (train)',            
                                     marker = '.',
                                     alpha  = 0.3,
@@ -102,9 +103,10 @@ class ClusteringResults(ClusteringTimeSeries):
 
                 for j in range(ncols):
                     algorithm = self.algorithms[j]
-                    axes[j].scatter(xs     = trainData[f'{algorithm}_x'], 
-                                    ys     = trainData[f'{algorithm}_y'], 
-                                    zs     = trainData[f'{algorithm}_z'], 
+                    axes[j].scatter(xs     = self.embeddingTrain[f'{algorithm}_x'], 
+                                    ys     = self.embeddingTrain[f'{algorithm}_y'], 
+                                    zs     = self.embeddingTrain[f'{algorithm}_z'], 
+                                    #label  = 'train data', 
                                     label  = f'trajectory {self.trainTrajectory} (train)',            
                                     marker = '.',
                                     alpha  = 0.3,
@@ -233,7 +235,7 @@ class ClusteringResults(ClusteringTimeSeries):
             
             axes[j].set_ylim(ymin, ymax)
             axes[j].set_title(f'Cluster {cluster}', 
-                              fontsize = 10)
+                              fontsize = 8)
 
             if j==0:
                 axes[j].set_ylabel(f'{variable}')
