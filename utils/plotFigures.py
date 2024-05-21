@@ -57,7 +57,9 @@ def scatterPlot3D(data, x, y, z, color, title='Scatterplot 3D'):
     fig.show()
 
 
-
+# =============================================
+# All trajectories colored by label are plotted
+# ---------------------------------------------
 def plotLabels(dataframe, variable='Piñón_ext(°C)', colorscale='HSV'):
     fig     = go.Figure()
     color   = px.colors.sample_colorscale(colorscale    = colorscale, 
@@ -104,6 +106,10 @@ def plotLabels(dataframe, variable='Piñón_ext(°C)', colorscale='HSV'):
     fig.show()
 
 
+# =============================================================
+# A figure is created containing a time series colored by hour, 
+# and the embedding results for each trajectory colored by hour
+# -------------------------------------------------------------
 def plotResults(trajectory, 
                 data1, 
                 data2, 
@@ -120,6 +126,7 @@ def plotResults(trajectory,
                 fig.add_subplot(gs[1, 0]),
                 fig.add_subplot(gs[1, 1])]
 
+        # Subfigure
         sns.lineplot(
             x       = 'tiempo', 
             y       = variable, 
@@ -153,6 +160,7 @@ def plotResults(trajectory,
             s       = 30
         )
 
+        # Updating axis names
         axes[0].set_xlabel(' ')
         axes[0].legend_.remove()
         axes[1].legend_.remove()
@@ -171,6 +179,10 @@ def plotResults(trajectory,
                      fontsize   = 16);   
 
 
+# ======================================================================
+# A figure is created using plotly that containing a time series colored 
+# by hour, and the embedding results for a trajectory colored by hour
+# ----------------------------------------------------------------------
 def plotResultsPlotly(trajectory, 
                       data1, 
                       data2, 
