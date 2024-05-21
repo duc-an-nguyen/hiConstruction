@@ -1,10 +1,10 @@
 
 #! "C:\Users\CAEX\Desktop\Diego\Crusher Project\2ndrealdatajournalchile\mmodal\Scripts\python.exe"
 
-import pandas            as pd
-import networkx          as nx
-import seaborn           as sns
-import matplotlib.pyplot as plt
+import pandas                           as pd
+import networkx                         as nx
+import seaborn                          as sns
+import matplotlib.pyplot                as plt
 
 from matplotlib.colors                  import ListedColormap
 from clustering.clusteringTimeSeries    import ClusteringTimeSeries
@@ -53,7 +53,6 @@ class ClusteringResults(ClusteringTimeSeries):
     # --------------------------------
     def plotEmbedding(self, nfigures):
         ncols           = len(self.algorithms)
-        #self.embeddingTrain  = pd.concat(list(self.clustersResults.values())) #self.clustersResults[self.trainTrajectory]
 
         if self.n_components==2:
             for i in range(nfigures):
@@ -68,8 +67,8 @@ class ClusteringResults(ClusteringTimeSeries):
                     algorithm = self.algorithms[j]
                     axes[j].scatter(x      = self.embeddingTrain[f'{algorithm}_x'], 
                                     y      = self.embeddingTrain[f'{algorithm}_y'], 
-                                    #label  = 'train data', 
-                                    label  = f'trajectory {self.trainTrajectory} (train)',            
+                                    label  = 'train data', 
+                                    #label  = f'trajectory {self.trainTrajectory} (train)',            
                                     marker = '.',
                                     alpha  = 0.3,
                                     s      = 10 )
@@ -106,8 +105,8 @@ class ClusteringResults(ClusteringTimeSeries):
                     axes[j].scatter(xs     = self.embeddingTrain[f'{algorithm}_x'], 
                                     ys     = self.embeddingTrain[f'{algorithm}_y'], 
                                     zs     = self.embeddingTrain[f'{algorithm}_z'], 
-                                    #label  = 'train data', 
-                                    label  = f'trajectory {self.trainTrajectory} (train)',            
+                                    label  = 'train data', 
+                                    #label  = f'trajectory {self.trainTrajectory} (train)',            
                                     marker = '.',
                                     alpha  = 0.3,
                                     s      = 10 )
@@ -137,7 +136,7 @@ class ClusteringResults(ClusteringTimeSeries):
     # figures with the clusters obtained 
     # in the embedding space
     # ----------------------------------
-    def plotResults(self, nfigures, label_color='cluster', save=False):
+    def plotClusters(self, nfigures, label_color='cluster', save=False):
         cmap  = ListedColormap(sns.color_palette("hls", 256).as_hex()[10:])
         ncols = len(self.algorithms)
 
@@ -291,3 +290,11 @@ class ClusteringResults(ClusteringTimeSeries):
         plt.ylabel('clusters')
         plt.title("Assignment found between similar clusters")
         plt.show()
+
+
+
+
+
+
+
+        

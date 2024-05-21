@@ -228,7 +228,7 @@ class PreProcessData(object):
     def getHealthyStatePrevious(self): #, data):
         # ----------------------------
         # Get the healthy state by 
-        # accessing manually the healthy
+        # accessing manually the 
         # index
         # ----------------------------
         self.healthyExcellPos = {"startingRow":  [18317, 28175,  43739,  64526,  87163,  107316, 115185, 133833, 225442, 280493, 310291], #277099 instead of 280493, but the current values is 0
@@ -251,26 +251,25 @@ class PreProcessData(object):
 
 
     def getHealthyState(self):
-        self.healthyTrajectories = { '7': 0.5,  '9': 0.5, '11': 0.5, 
-                                    '15': 0.5, '23': 0.5, '25': 0.5, 
-                                    '27': 0.5, '55': 0.3, '63': 0.5, 
-                                    '71': 0.7}
+        self.healthyTrajectories = { '1': 0.7,  '3': 0.5,  '7': 0.5,  '9': 0.5, '11': 0.3, '15': 0.5, 
+                                    '17': 0.5, '19': 0.5, '21': 0.5, '23': 0.5, '25': 0.5, '27': 0.5,
+                                    '29': 0.5, '37': 0.5, '39': 0.5, '45': 0.3, '49': 0.5, '51': 0.5, 
+                                    '55': 0.5, '61': 0.5, '63': 0.5, '65': 0.7, '67': 0.5, '71': 0.5}
 
         self.healthyData    =  pd.DataFrame(columns=self.crusher1.columns)
-        self.unhealthyData  =  pd.DataFrame(columns=self.crusher1.columns)
-        for trajectory in self.trajectories: #self.healthyTrajectories:
-            #percentage         = self.healthyTrajectories[trajectory]
-            percentage          = 0.5
+        #self.unhealthyData  =  pd.DataFrame(columns=self.crusher1.columns)
+        for trajectory in self.healthyTrajectories: #self.trajectories:
+            percentage          = self.healthyTrajectories[trajectory]
+            #percentage          = 0.5
             dfTrajectory        = self.crusher1[self.crusher1['trajectory']==trajectory]
             lenOfHealthy        = len(dfTrajectory)
 
             healthyPeriod       = dfTrajectory[:int(lenOfHealthy*percentage)]
-            unhealthyPeriod     = dfTrajectory[int(lenOfHealthy*percentage):]
+            #unhealthyPeriod     = dfTrajectory #[int(lenOfHealthy*percentage):]
             self.healthyData    = pd.concat([self.healthyData, healthyPeriod],     ignore_index=True)
-            self.unhealthyData  = pd.concat([self.unhealthyData, unhealthyPeriod], ignore_index=True)
+            #self.unhealthyData  = pd.concat([self.unhealthyData, unhealthyPeriod], ignore_index=True)
         
-        #self.crusher1 = self.healthyData
-        return self.healthyData, self.unhealthyData
+        return self.healthyData #, self.unhealthyData
         
     
     # ===================================

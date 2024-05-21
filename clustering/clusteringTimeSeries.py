@@ -44,11 +44,17 @@ class ClusteringTimeSeries:
     # this func trains a dimensionality 
     # reduction model using healthy data
     # ----------------------------------
-    def train(self):
+    def train(self, supervised=False):
         trainData = self.dataNormalized
         self.embeddingTrain = trainData.copy()
         for algorithm in self.algorithms:
-            self.dimReductionModels[algorithm].fit(trainData)
+            # Train algorithm
+            if supervised:
+                self.dimReductionModels[algorithm].fit(trainData, self.data['label'])
+            else:
+                self.dimReductionModels[algorithm].fit(trainData)
+                
+            # Get the embedding data for visualization
             if self.n_components == 2:
                 self.embeddingTrain.loc[:, [f'{algorithm}_x', 
                                             f'{algorithm}_y']] = self.dimReductionModels[algorithm].transform(trainData)
@@ -64,7 +70,7 @@ class ClusteringTimeSeries:
     # the embedded space.
     # -----------------------------------
     def findClusters(self, data, clusteringModel, dimReductionModel):
-        transformedData = dimReductionModel.transform(data) #fit_transform previous version
+        transformedData = dimReductionModel.transform(data) 
         clusterLabels   = clusteringModel.fit_predict(transformedData)
         return transformedData, clusterLabels
     
@@ -79,6 +85,8 @@ class ClusteringTimeSeries:
         dfFiltered                = self.dataNormalized[self.data['trajectory']==trajectory]
         similarClusters           = dfFiltered.copy()
         similarClusters['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
+
+        similarClusters['period'] = self.data[self.data['trajectory']==trajectory]['period'] 
 
         for algorithm in self.algorithms:
             clusteringModel                          = self.clusteringModels[algorithm]
