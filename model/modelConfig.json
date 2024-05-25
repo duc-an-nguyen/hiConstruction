@@ -6,8 +6,8 @@
     "reconstructionWt": 3,
     "latentDim":        2,
     "seqLength":        30,
-    "inFeatureDim":     32,
-    "outFeatureDim":    32,
+    "inFeatureDim":     23,
+    "outFeatureDim":    23,
 
     "batchSize":        64,
     "nEpoch":           5000

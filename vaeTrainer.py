@@ -130,7 +130,7 @@ class appVAE():
         batchData      = vaeConv1DCustom.batchGenerator(seqData,batchSize=1)
         # print(type(batchData))
         model          = vaeConv1DCustom(vaeConfig)
-        model.load_weights("ckpt/[250, 200, 80]_[80, 200, 250]latent_2","crusher")
+        model.load_weights("ckpt/VAECNN1D_ManupulatedAndEfficiencyInputOutput[200, 100, 50]_[50, 100, 200]latent_2","crusher1")
         
         lossResults     = []
         latentResults   = []

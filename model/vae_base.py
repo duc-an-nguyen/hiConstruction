@@ -19,11 +19,11 @@ from tensorflow.keras.backend   import random_normal
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the vector encoding a digit."""
     def call(self, inputs):
-        z_mean, z_log_var = inputs
-        batch = tf.shape(z_mean)[0]
-        dim   = z_mean.shape[1]
+        z_mean, z_log_var   = inputs
+        batch               = tf.shape(z_mean)[0]
+        dim                 = z_mean.shape[1]
         # dim = tf.shape(z_mean)[1]
-        epsilon = random_normal(shape=(batch, dim))
+        epsilon             = random_normal(shape=(batch, dim))
 
 
         # print("mean",dim)
