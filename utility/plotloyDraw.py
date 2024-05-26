@@ -97,6 +97,9 @@ class PlotlyDraw():
         fig.update_layout(title="Results",xaxis_title='Index',yaxis_title='Value',height=600, width=20000)
         fig.show() 
 
+
+
+
     
         
         
