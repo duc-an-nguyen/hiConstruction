@@ -123,7 +123,7 @@ class ClusteringTimeSeries:
         clusterLabels   = data[f'cluster_{algorithm}'].astype('int')
 
         centroids = []
-        for label in clusterLabels.unique():
+        for label in np.sort((clusterLabels.unique())):
             if label == -1: # Outliers are ignored
                 continue
 

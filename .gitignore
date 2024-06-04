@@ -5,10 +5,12 @@
 
 # Notebooks
 test.ipynb
+test2.ipynb
+test3.ipynb
 supervisedUmap.ipynb
 timeSeriesDescomposition.ipynb
 clusteringFirstVersion.ipynb
-supervisedEmbeddingManipulable.ipynb 
+testNewFeatures.ipynb
 
 #folders
 data/

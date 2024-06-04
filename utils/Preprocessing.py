@@ -257,20 +257,16 @@ class PreProcessData(object):
                                     '55': 0.5, '61': 0.5, '63': 0.5, '65': 0.7, '67': 0.5, '71': 0.5}
 
         self.healthyData    =  pd.DataFrame(columns=self.crusher1.columns)
-        #self.unhealthyData  =  pd.DataFrame(columns=self.crusher1.columns)
-        for trajectory in self.healthyTrajectories: #self.trajectories:
+        for trajectory in self.healthyTrajectories: 
             percentage          = self.healthyTrajectories[trajectory]
-            #percentage          = 0.5
             dfTrajectory        = self.crusher1[self.crusher1['trajectory']==trajectory]
             lenOfHealthy        = len(dfTrajectory)
 
             healthyPeriod       = dfTrajectory[:int(lenOfHealthy*percentage)]
-            #unhealthyPeriod     = dfTrajectory #[int(lenOfHealthy*percentage):]
             self.healthyData    = pd.concat([self.healthyData, healthyPeriod],     ignore_index=True)
-            #self.unhealthyData  = pd.concat([self.unhealthyData, unhealthyPeriod], ignore_index=True)
         
-        return self.healthyData #, self.unhealthyData
-        
+        return self.healthyData 
+    
     
     # ===================================
     # This function is used to calculate

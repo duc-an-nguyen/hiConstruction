@@ -58,7 +58,9 @@ class ClusteringResults(ClusteringTimeSeries):
             for i in range(nfigures):
                 fig, axes  = plt.subplots(nrows   = 1, 
                                           ncols   = ncols, 
-                                          figsize = (5*ncols, 4))
+                                          figsize = (5*ncols, 4))       
+                if ncols == 1:
+                    axes = [axes]
                 
                 trajectory = self.trajectories[i]
                 data       = self.getTrajectory(i)
@@ -96,6 +98,8 @@ class ClusteringResults(ClusteringTimeSeries):
                                           ncols      = ncols, 
                                           figsize    = (5*ncols, 4),
                                           subplot_kw = {"projection": "3d"})
+                if ncols == 1:
+                    axes = [axes]
                 
                 trajectory = self.trajectories[i]
                 data       = self.getTrajectory(i)
@@ -144,7 +148,9 @@ class ClusteringResults(ClusteringTimeSeries):
             for i in range(nfigures):
                 fig, axes  = plt.subplots(nrows   = 1, 
                                           ncols   = ncols, 
-                                          figsize = (5*ncols, 4))
+                                          figsize = (5*ncols, 4))            
+                if ncols == 1:
+                    axes = [axes]
                 
                 trajectory = self.trajectories[i]
                 data       = self.getTrajectory(i)
@@ -176,6 +182,8 @@ class ClusteringResults(ClusteringTimeSeries):
                                           ncols      = ncols, 
                                           figsize    = (5*ncols, 4),
                                           subplot_kw = {"projection": "3d"})
+                if ncols == 1:
+                    axes = [axes]
                 
                 trajectory = self.trajectories[i]
                 data       = self.getTrajectory(i)
@@ -214,20 +222,20 @@ class ClusteringResults(ClusteringTimeSeries):
     # obtained by each cluster for 
     # some variable
     # ------------------------------
-    def plotVarByCluster(self, idxTrajectory, variable, algorithm):
+    def plotVarByCluster(self, idxTrajectory, variable, algorithm, label_color='real_cluster'):
         dataTrajectory = self.getTrajectory(idxTrajectory)
-        clusterLabels  = dataTrajectory[f'real_cluster_{algorithm}'].unique()
+        clusterLabels  = dataTrajectory[f'{label_color}_{algorithm}'].unique()
         clusterLabels  = clusterLabels[clusterLabels!=-1]
 
-        ymax           = dataTrajectory[dataTrajectory[f'real_cluster_{algorithm}'].isin(clusterLabels)][variable].max()
-        ymin           = dataTrajectory[dataTrajectory[f'real_cluster_{algorithm}'].isin(clusterLabels)][variable].min()
+        ymax           = dataTrajectory[dataTrajectory[f'{label_color}_{algorithm}'].isin(clusterLabels)][variable].max()
+        ymin           = dataTrajectory[dataTrajectory[f'{label_color}_{algorithm}'].isin(clusterLabels)][variable].min()
         ncols          = len(clusterLabels)
 
         fig, axes      = plt.subplots(nrows   = 1, 
                                       ncols   = ncols, 
                                       figsize = (2*ncols, 4))
         for j, cluster in enumerate(clusterLabels):
-            dataFiltered = dataTrajectory[dataTrajectory[f'real_cluster_{algorithm}']==cluster]
+            dataFiltered = dataTrajectory[dataTrajectory[f'{label_color}_{algorithm}']==cluster]
             axes[j].scatter(x = dataFiltered.reset_index().index, 
                             y = dataFiltered[variable], 
                             s = 5)

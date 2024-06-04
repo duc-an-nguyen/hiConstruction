@@ -33,14 +33,19 @@ def lineAndScatterPlot(data, x, y, color, title='Time series'):
     fig.update_traces(line=dict(color='black'))
     fig.show()
 
-def scatterPlot2D(data, x, y, color, title='Scatterplot 2D'):
+def scatterPlot2D(data, x, y, color, title='Scatterplot 2D', color_discrete_sequence=None, n_colors=None):
+
+    if color_discrete_sequence is not None:
+        color_discrete_sequence = px.colors .sample_colorscale(colorscale   = "Plasma_r", 
+                                                               samplepoints = [n/(n_colors-1) for n in range(n_colors)])
     fig = px.scatter(data, 
                      x      = x, 
                      y      = y, 
                      color  = color,
                      title  = title, 
                      width  = 600, 
-                     height = 500)
+                     height = 500,
+                     color_discrete_sequence = color_discrete_sequence)
     fig.show()
 
 def scatterPlot3D(data, x, y, z, color, title='Scatterplot 3D'):
@@ -191,7 +196,7 @@ def plotResultsPlotly(trajectory,
                       color       = 'period'):
 
     palette = px.colors.sample_colorscale(colorscale     = palette, 
-                                            samplepoints   = len(data1.period.unique())) 
+                                          samplepoints   = len(data1.period.unique())) 
 
     # Create the structure of the figure
     fig = make_subplots(
@@ -212,10 +217,10 @@ def plotResultsPlotly(trajectory,
 
     # subplot 1: time serie
     line_fig = px.line(data_frame               = data1, 
-                        x                        = 'tiempo', 
-                        y                        = variable, 
-                        color                    = color, 
-                        color_discrete_sequence  = palette)
+                       x                        = 'tiempo', 
+                       y                        = variable, 
+                       color                    = color, 
+                       color_discrete_sequence  = palette)
 
     # add traces to main figure
     for trace in line_fig.data:
@@ -227,33 +232,33 @@ def plotResultsPlotly(trajectory,
 
     # subplot 2: idea 1 
     scatter_fig1 = px.scatter(data_frame                = data1, 
-                                x                         = 'umap_x', 
-                                y                         = 'umap_y', 
-                                color                     = color, 
-                                color_discrete_sequence   = palette, 
-                                opacity                   = 0.3)
+                              x                         = 'umap_x', 
+                              y                         = 'umap_y', 
+                              color                     = color, 
+                              color_discrete_sequence   = palette, 
+                              opacity                   = 0.3)
 
     # add traces to main figure
     for trace in scatter_fig1.data:
         trace.showlegend    = False
         fig.add_trace(trace = trace, 
-                        row   = 2, 
-                        col   = 1)
+                      row   = 2, 
+                      col   = 1)
 
 
     # subplot 3: idea 2 
     scatter_fig2 = px.scatter(data_frame                = data2, 
-                                x                         = 'umap_x', 
-                                y                         = 'umap_y', 
-                                color                     = color, 
-                                color_discrete_sequence   = palette, 
-                                opacity                   = 0.3)
+                              x                         = 'umap_x', 
+                              y                         = 'umap_y', 
+                              color                     = color, 
+                              color_discrete_sequence   = palette, 
+                              opacity                   = 0.3)
 
     # add traces to main figure
     for trace in scatter_fig2.data:
         fig.add_trace(trace = trace, 
-                        row   = 2, 
-                        col   = 2)
+                      row   = 2, 
+                      col   = 2)
 
     # update main figure title parameters
     fig.update_layout(
