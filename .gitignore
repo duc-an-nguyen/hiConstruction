@@ -7,15 +7,22 @@
 test.ipynb
 test2.ipynb
 test3.ipynb
+test4.ipynb
+test5.ipynb
+test6.ipynb
 supervisedUmap.ipynb
 timeSeriesDescomposition.ipynb
 clusteringFirstVersion.ipynb
 testNewFeatures.ipynb
+clusteringExperiments.ipynb
+clusteringExperimentsEfficiency.ipynb
+supervisedEmbedding2.ipynb
 
 #folders
 data/
 mmodal/
 figures/
+saved_models/
 
 # Node artifact files
 node_modules/

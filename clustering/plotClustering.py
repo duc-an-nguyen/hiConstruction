@@ -5,6 +5,8 @@ import pandas                           as pd
 import networkx                         as nx
 import seaborn                          as sns
 import matplotlib.pyplot                as plt
+import plotly.express                   as px
+import plotly.graph_objects             as go
 
 from matplotlib.colors                  import ListedColormap
 from clustering.clusteringTimeSeries    import ClusteringTimeSeries
@@ -298,6 +300,64 @@ class ClusteringResults(ClusteringTimeSeries):
         plt.ylabel('clusters')
         plt.title("Assignment found between similar clusters")
         plt.show()
+
+
+    def plotGraphPlotly(self):
+        colors = px.colors.qualitative.Plotly 
+
+        # Add position to graph
+        pos = {}
+        for node in self.Graph.nodes():
+            pos[node] = (node[0], node[1])
+            
+        fig = go.Figure()    
+        legend_items = [] 
+
+        # Add components to the figure
+        for i, component in enumerate(self.connectedComponents):
+            node_trace = []
+            edge_trace = []
+            node_color = colors[i % len(colors)]
+
+            # Add legend item for each component
+            if i not in legend_items:
+                node_trace.append(go.Scattergl(x            = [None], 
+                                               y            = [None],
+                                               mode         = 'markers',
+                                               marker       = dict(size=10, color=node_color),
+                                               name         = f'Component {i}',
+                                               legendgroup  = 'group'+str(i),
+                                               showlegend   = True))
+                legend_items.append(i)
+
+            for node in component:
+                node_trace.append(go.Scattergl(x            = [pos[node][0]], y=[pos[node][1]],
+                                               mode         = 'markers',
+                                               marker       = dict(size=15, color=node_color),
+                                               text         = str(node),
+                                               hoverinfo    = 'text',
+                                               legendgroup  = 'group'+str(i),
+                                               showlegend   = False))
+
+            for edge in self.Graph.edges():
+                if edge[0] in component and edge[1] in component:
+                    edge_trace.append(go.Scattergl(x           = [pos[edge[0]][0], pos[edge[1]][0]],
+                                                   y           = [pos[edge[0]][1], pos[edge[1]][1]],
+                                                   mode        = 'lines',
+                                                   line        = dict(color=node_color, width=2),
+                                                   hoverinfo   = 'none',
+                                                   legendgroup = 'group'+str(i),
+                                                   showlegend  = False))
+
+            fig.add_traces(node_trace + edge_trace)
+
+        fig.update_layout(title         = "Assignment found between similar clusters",
+                          xaxis_title   = "trajectories",
+                          yaxis_title   = "clusters",
+                          showlegend    = True,
+                          width         = 900,
+                          height        = 700)
+        fig.show()
 
 
 

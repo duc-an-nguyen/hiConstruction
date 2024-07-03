@@ -10,7 +10,11 @@ from matplotlib.colors                  import ListedColormap
 from plotly.subplots                    import make_subplots
 
 
-def linePlot(data, x, y, color, title=None):
+def linePlot(data, x, y, color=None, title=None):
+    if color is not None:
+        data        = data.copy()
+        data[color] = data[color].astype('str')
+
     fig = px.line(data, 
                   x     = x, 
                   y     = y, 
@@ -19,6 +23,8 @@ def linePlot(data, x, y, color, title=None):
     fig.show()
 
 def lineAndScatterPlot(data, x, y, color, title='Time series'):
+    data        = data.copy()
+    data[color] = data[color].astype('str')
     fig = px.scatter(data, 
                      x      = x, 
                      y      = y, 
@@ -33,11 +39,15 @@ def lineAndScatterPlot(data, x, y, color, title='Time series'):
     fig.update_traces(line=dict(color='black'))
     fig.show()
 
-def scatterPlot2D(data, x, y, color, title='Scatterplot 2D', color_discrete_sequence=None, n_colors=None):
+def scatterPlot2D(data, x, y, color=None, title='Scatterplot 2D', color_discrete_sequence=None, n_colors=None):
 
     if color_discrete_sequence is not None:
         color_discrete_sequence = px.colors .sample_colorscale(colorscale   = "Plasma_r", 
                                                                samplepoints = [n/(n_colors-1) for n in range(n_colors)])
+    if color is not None:
+        data        = data.copy()
+        data[color] = data[color].astype('str')
+        
     fig = px.scatter(data, 
                      x      = x, 
                      y      = y, 
@@ -120,7 +130,8 @@ def plotResults(trajectory,
                 data2, 
                 variable    = 'Piñón_int(mm/s)', 
                 palette     = 'Spectral', 
-                hue         = 'period'):
+                hue         = 'period',
+                algorithm   = 'umap'):
 
         # Figure and axes
         fig  = plt.figure(figsize = (10, 6))
@@ -142,8 +153,8 @@ def plotResults(trajectory,
         )
 
         sns.scatterplot(
-            x       = 'umap_x', 
-            y       = 'umap_y', 
+            x       = f'{algorithm}_x', 
+            y       = f'{algorithm}_y', 
             data    = data1, 
             ax      = axes[1], 
             hue     = hue,
@@ -154,8 +165,8 @@ def plotResults(trajectory,
         )
 
         sns.scatterplot(
-            x       = 'umap_x', 
-            y       = 'umap_y', 
+            x       = f'{algorithm}_x', 
+            y       = f'{algorithm}_y', 
             data    = data2, 
             ax      = axes[2], 
             hue     = hue,
@@ -190,7 +201,8 @@ def plotResults(trajectory,
 # ----------------------------------------------------------------------
 def plotResultsPlotly(trajectory, 
                       data1, 
-                      data2, 
+                      data2,
+                      algorithm   = 'umap', 
                       variable    = 'Piñón_int(mm/s)', 
                       palette     = 'Spectral', 
                       color       = 'period'):
@@ -205,7 +217,7 @@ def plotResultsPlotly(trajectory,
         row_heights         = [0.5, 1],
         vertical_spacing    = 0.12, 
         specs               = [[{"colspan": 2}, None],
-                                [{},                {}]],
+                               [{},                {}]],
         
         # titles for each subfigure
         subplot_titles  = (
@@ -232,8 +244,8 @@ def plotResultsPlotly(trajectory,
 
     # subplot 2: idea 1 
     scatter_fig1 = px.scatter(data_frame                = data1, 
-                              x                         = 'umap_x', 
-                              y                         = 'umap_y', 
+                              x                         = f'{algorithm}_x', 
+                              y                         = f'{algorithm}_y', 
                               color                     = color, 
                               color_discrete_sequence   = palette, 
                               opacity                   = 0.3)
@@ -248,8 +260,8 @@ def plotResultsPlotly(trajectory,
 
     # subplot 3: idea 2 
     scatter_fig2 = px.scatter(data_frame                = data2, 
-                              x                         = 'umap_x', 
-                              y                         = 'umap_y', 
+                              x                         = f'{algorithm}_x', 
+                              y                         = f'{algorithm}_y', 
                               color                     = color, 
                               color_discrete_sequence   = palette, 
                               opacity                   = 0.3)
@@ -272,10 +284,10 @@ def plotResultsPlotly(trajectory,
 
     # update axes of each subfigure
     fig.update_yaxes(title_text=variable, titlefont=dict(size=12), row=1, col=1)
-    fig.update_xaxes(title_text='umap_x', titlefont=dict(size=12), row=2, col=1)
-    fig.update_yaxes(title_text='umap_y', titlefont=dict(size=12), row=2, col=1)
-    fig.update_xaxes(title_text='umap_x', titlefont=dict(size=12), row=2, col=2)
-    fig.update_yaxes(title_text='umap_y', titlefont=dict(size=12), row=2, col=2)
+    fig.update_xaxes(title_text=f'{algorithm}_x', titlefont=dict(size=12), row=2, col=1)
+    fig.update_yaxes(title_text=f'{algorithm}_y', titlefont=dict(size=12), row=2, col=1)
+    fig.update_xaxes(title_text=f'{algorithm}_x', titlefont=dict(size=12), row=2, col=2)
+    fig.update_yaxes(title_text=f'{algorithm}_y', titlefont=dict(size=12), row=2, col=2)
 
     # update title size from each subfigure
     for annotation in fig['layout']['annotations']:
@@ -283,3 +295,22 @@ def plotResultsPlotly(trajectory,
 
     fig.show() 
 
+
+
+def plot_learning_curves(train_acc_curve, val_acc_curve, train_loss_curve, val_loss_curve):
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].plot(train_loss_curve, label="Train loss")
+    ax[0].plot(val_loss_curve, label="Valid loss")
+    ax[0].legend()
+    ax[0].set_xlabel("Epoch")
+    ax[0].set_ylabel("Loss")
+
+    ax[1].plot(train_acc_curve, label="Train acc")
+    ax[1].plot(val_acc_curve, label="Valid acc")
+    ax[1].legend()
+    ax[1].set_xlabel("Epoch")
+    ax[1].set_ylabel("Accuracy")
+
+    fig.tight_layout()
+    fig.suptitle('Comparación de las curvas de aprendizaje entre train y validation', fontsize=15, y = 1.05)
+    plt.show()
