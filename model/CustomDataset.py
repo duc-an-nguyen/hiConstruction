@@ -3,6 +3,10 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+# ------------------------------------------------
+# Dataset to concatenate text from different 
+# columns and prepare it as input to a BERT model
+# ------------------------------------------------
 class BertDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_len):
         self.texts      = texts
@@ -33,7 +37,10 @@ class BertDataset(Dataset):
             'labels':           torch.tensor(label, dtype=torch.long)
         }
     
-
+# ---------------------------------------------------
+# Dataset that prepares the values ​​of a single column 
+# and prepares them as input to a BERT model
+# ---------------------------------------------------
 class TextDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, window_size, max_len):
         self.texts              = texts
@@ -76,7 +83,9 @@ class TextDataset(Dataset):
             'labels':           torch.tensor(label, dtype=torch.long)
         }
     
-
+# ---------------------------------------------------
+# Dataset that prepares data as input to a GPT2 model
+# ---------------------------------------------------
 class GPTDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, window_size, max_len):
         self.texts              = texts

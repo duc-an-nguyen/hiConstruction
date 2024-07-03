@@ -7,12 +7,20 @@ import torch.optim          as optim
 import torch.nn.functional  as F
 from model.config           import device
 
+
+#-----------------------
+# function to calculate 
+# the time of each epoch
+# ----------------------
 def epoch_time(start_time, end_time):
     elapsed_time = end_time - start_time
     elapsed_mins = int(elapsed_time / 60)
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
 
+# -------------------------
+# function to train a model
+# -------------------------
 def train(model, iterator, optimizer, criterion, device):
     model.train()
     total_loss  = 0
@@ -38,6 +46,9 @@ def train(model, iterator, optimizer, criterion, device):
     return total_loss/len(iterator), total_acc/len(iterator.dataset)
 
 
+# ----------------------------
+# function to evaluate a model
+# ----------------------------
 def evaluate(model, iterator, criterion, device):
     model.eval()
     total_loss = 0
@@ -61,6 +72,10 @@ def evaluate(model, iterator, criterion, device):
     return total_loss/len(iterator), total_acc/len(iterator.dataset)
 
 
+#-------------------------------------------------------
+# function that contains the entire training cycle of a
+# classification problem and returns the learning curves
+# ------------------------------------------------------
 def train_classification_model(model, 
                                optimizer, 
                                train_iterator, 
