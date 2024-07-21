@@ -175,7 +175,24 @@ class PreProcessData(object):
     # time to load, so prefer to load by
     # h5 function
     # -----------------------------------
-    def dataLoading(self,):
+    def dataLoadingOriginalData(self,):
+        aiLogger.info("Loading data from files ...")
+    
+        self.crusher1       = pd.read_excel('data/3200CR001_26-3-2024_fixed.xlsx',engine='openpyxl')
+        # self.crusher2       = pd.read_excel('data/3200CR002_26-3-2024_fixed.xlsx',engine='openpyxl')
+        # self.conveyor       = pd.read_excel('data/3200CV002_26-3-2024_fixed.xlsx',engine='openpyxl')
+
+        aiLogger.info("Finishing loading data ...")
+
+        print(self.crusher1.columns)
+        return self.crusher1
+    
+    # ===================================
+    # Loading the excell file, take more
+    # time to load, so prefer to load by
+    # h5 function
+    # -----------------------------------
+    def dataLoadingCriticalData(self,):
         aiLogger.info("Loading data from files ...")
     
         self.crusher1       = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
@@ -219,6 +236,7 @@ class PreProcessData(object):
         df_filtered  = self.crusher1
         for idxFeature in self.notModeOfFailure:
             df_filtered = df_filtered[df_filtered['Modo de Falla'] != idxFeature]
+            aiLogger.info(f"Removing {idxFeature}")
 
 
         output_path = 'data/criticalMOFCrusher1.xlsx'  # Specify your output file path
@@ -395,12 +413,15 @@ class PreProcessData(object):
         #-----------------------------
         df['Eficiencia_Enfriamiento'] = df['Temperatura_Diferencia_Media'] / (df['Potencia_Media'] + epsilon)
 
+        print(df[self.addEfficiencyCr1])
         #-----------------------------
         # Use the global mean to fill NaN if specified to use the global mean.
         #-----------------------------
         if use_global_mean:
-            df.fillna(df.mean(), inplace=True)
+            df[self.addEfficiencyCr1].fillna(df[self.addEfficiencyCr1].mean(), inplace=True)
 
+        print("===============================")
+        print(df[self.addEfficiencyCr1])
         return df
         
 
@@ -468,7 +489,7 @@ class PreProcessData(object):
         # print(indices)
         return self.healthyData,self.healthyExcellPos
         
-
+        
     # ===================================
     # This function is used to clean data
     # -----------------------------------
@@ -643,9 +664,10 @@ class PreProcessData(object):
     
     
 if __name__ == '__main__':
-    pre             = PreProcessData()
-    pre.dataLoading()
-    criticalTrajec  = pre.getCriticalTrajectory()
+    preData         = PreProcessData()
+    rawDataH5       = preData.loadDataFromH5Format()
+    addedVariables  = preData.additionEfficiencyVar(rawDataH5)
+
 
 
 
