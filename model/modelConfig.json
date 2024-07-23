@@ -5,7 +5,7 @@
     "decLayer":         [50,100,200],
     "reconstructionWt": 3,
     "latentDim":        2,
-    "seqLength":        30,
+    "seqLength":        120,
     "inFeatureDim":     23,
     "outFeatureDim":    23,
 

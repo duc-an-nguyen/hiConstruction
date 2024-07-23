@@ -35,8 +35,8 @@ class appVAE():
         # Init and load data
         # ------------------------
         preData     = PreProcessData()
-        rawData     = preData.loadDataFromH5Format()
-        norData     = preData.normalizeData(rawData[preData.crusher1Value])     # Normalize the data
+        rawData     = preData.loadCriticalData()
+        norData     = preData.normalizeBuilinFunction(rawData[preData.crusher1Value])     # Normalize the data
         
         # ------------------------
         # Get healthy data only or
@@ -48,8 +48,8 @@ class appVAE():
             # outputY                 = healthyStateData[preData.efficiencyCr1]
             trainXY,valXY           = preData.splitTrainVal(inputX  = inputX,
                                                             outputY = inputX)                   # Split input and efficiency variables into train and validation dataset
-            seqTrainXY              = preData.splitAndPadSequences(trainXY)                     # Split them into sequences
-            seqValXY                = preData.splitAndPadSequences(valXY)                       # Split them into sequences
+            seqTrainXY              = preData.splitAndPadSequences(trainXY,seqLength=vaeConfig['seqLength'])                     # Split them into sequences
+            seqValXY                = preData.splitAndPadSequences(valXY, seqLength=vaeConfig['seqLength'])                       # Split them into sequences
         else:
             inputX                  = norData[preData.manipulatedCr1]
             # outputY                 = norData[preData.efficiencyCr1]
@@ -91,11 +91,11 @@ class appVAE():
     # of training
     # --------------------
     @staticmethod
-    def saveModelAndProgress(history,model):
+    def saveModelAndProgress(history,model,nameOfModel = "default"):
         # ------------------------------
         # Create model directory
         # ------------------------------
-        typeOfModel = "VAECNN1D_ManupulatedAndEfficiencyInputOutput"
+        typeOfModel = nameOfModel
         modelDir   = "ckpt/" + typeOfModel + str(vaeConfig["encLayer"]) + "_" + str(vaeConfig["decLayer"]) +  \
                     "latent" + "_" + str(vaeConfig["latentDim"])
 
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     if trainIsTrue:
         seqTrainXY,seqValXY     = appVAE.dataPreprocessing()
         history,model           = appVAE.trainer(seqTrainXY,seqValXY,vaeConfig)
-        appVAE.saveModelAndProgress(history,model)
+        appVAE.saveModelAndProgress(history,model,nameOfModel= "manipulatedReconstruction")
 
     else:
         _,seqData               = appVAE.dataPreprocessing(forTraining = False)

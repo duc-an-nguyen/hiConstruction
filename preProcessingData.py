@@ -3,7 +3,10 @@ import numpy as np
 import random
 from utility.logger             import aiLogger
 from prettytable                import PrettyTable
-
+from sklearn.preprocessing      import StandardScaler, MinMaxScaler
+import umap
+from utility.matpilotDraw       import MatPlot
+import matplotlib.pyplot        as plt
 
 class PreProcessData(object):
     def __init__(self,  
@@ -188,23 +191,6 @@ class PreProcessData(object):
         return self.crusher1
     
     # ===================================
-    # Loading the excell file, take more
-    # time to load, so prefer to load by
-    # h5 function
-    # -----------------------------------
-    def dataLoadingCriticalData(self,):
-        aiLogger.info("Loading data from files ...")
-    
-        self.crusher1       = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
-        # self.crusher2       = pd.read_excel('data/3200CR002_26-3-2024_fixed.xlsx',engine='openpyxl')
-        # self.conveyor       = pd.read_excel('data/3200CV002_26-3-2024_fixed.xlsx',engine='openpyxl')
-
-        aiLogger.info("Finishing loading data ...")
-
-        print(self.crusher1.columns)
-        return self.crusher1
-
-    # ===================================
     # Save to H5 file with numeric values from 
     # crusher 1 only, abandon some text column
     # -----------------------------------
@@ -220,11 +206,15 @@ class PreProcessData(object):
     # ===================================
     # This function is used to load the h5 file
     # -----------------------------------
-    def loadDataFromH5Format(self):
-        aiLogger.info("Loading data from H5 files ...")
-        self.crusher1 = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
+    def loadCriticalData(self,type='h5'):
+        aiLogger.info("Loading critical MOF data from files ...")
+        if type == 'h5':
+            self.crusher1 = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
+        else:
+            self.crusher1 = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
 
-        aiLogger.info("Finish loading data from H5 files ...")
+        aiLogger.info("Finish loading data from files ...")
+        print(self.crusher1.columns)
         return self.crusher1
 
     # ===================================
@@ -413,15 +403,18 @@ class PreProcessData(object):
         #-----------------------------
         df['Eficiencia_Enfriamiento'] = df['Temperatura_Diferencia_Media'] / (df['Potencia_Media'] + epsilon)
 
-        print(df[self.addEfficiencyCr1])
+        # print(df[self.addEfficiencyCr1])
         #-----------------------------
         # Use the global mean to fill NaN if specified to use the global mean.
         #-----------------------------
         if use_global_mean:
-            df[self.addEfficiencyCr1].fillna(df[self.addEfficiencyCr1].mean(), inplace=True)
+            dfSensor = df.select_dtypes('number')
+            df.loc[:, dfSensor.columns] = dfSensor.fillna(dfSensor.mean())
+
+            # df[self.addEfficiencyCr1].fillna(df[self.addEfficiencyCr1].mean(), inplace=True)
 
         print("===============================")
-        print(df[self.addEfficiencyCr1])
+        # print(df[self.addEfficiencyCr1])
         return df
         
 
@@ -472,12 +465,12 @@ class PreProcessData(object):
                                  "endingRow":    [27068, 42727,  63051,  86359,  98506,  115132, 132599, 157742, 249835, 283708, 321436],
                                  "percent":      [0.5,   0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.5,    0.3,    0.5,    0.7]}   # should subtract 2
 
-
+        
         self.healthyData =  pd.DataFrame(columns=self.crusher1Value)
         for idx in range(len(self.healthyExcellPos["startingRow"])):
             lenOfHealthyRow         = int((self.healthyExcellPos["endingRow"][idx] - self.healthyExcellPos["startingRow"][idx]) * self.healthyExcellPos["percent"][idx])
 
-            startingPos             = self.healthyExcellPos["startingRow"][idx] - 2
+            startingPos             = self.healthyExcellPos["startingRow"][idx] - 2                     # In excell file, the index is higher 2 than reality
             endingPos               = self.healthyExcellPos["startingRow"][idx] - 2 + lenOfHealthyRow
 
             htEachPeriod            = data[startingPos:endingPos]         
@@ -488,7 +481,30 @@ class PreProcessData(object):
         # indices         = greaterThan500[greaterThan500].index.tolist()
         # print(indices)
         return self.healthyData,self.healthyExcellPos
-        
+    
+    def getTrajectory(self,data):
+        trajectoryIdx = {   "Válvula defectuosa":           [[0,5035], [198148, 198761],[198761,208449]],
+                            "Falta de aceite hidráulico":   [[98574,101638]],
+                            "Lubricación  deficiente":      [[158678,164501-2],[256591,256651]],
+                            "Temperatura fuera de rango":   [[164501-2,168035]],
+                            "Bomba hidráulica con fuga":    [[168033,168856], [284796,294328]],
+                            "Fuga de aceite":               [[168856,169796], [170335, 180620]],
+                            "Falla sistema de hidroset-poste": [[180620,187027], [187027,188517],[188517,188581]],
+                            "Mandibulas o revestimiento suelto": [[225441, 249970], [249970, 250188],[250188, 256591]],
+                            }
+        trajectoryList = {}
+        for key,values in trajectoryIdx.items():     # Run per each MOF
+            trajectoryList[key] = []
+            for idxValue in values:                  # Run per each list of index
+                trajectoryList[key].append(data[idxValue[0]: idxValue[1]])
+                
+
+        # print(trajectoryList)
+        return trajectoryList
+
+
+
+                      
         
     # ===================================
     # This function is used to clean data
@@ -562,6 +578,17 @@ class PreProcessData(object):
             
         return norData
     
+    # ===================================
+    # This function is used to normalize
+    # with build-in function
+    # -----------------------------------
+    def normalizeBuilinFunction(self, data, scaler = MinMaxScaler()):
+        variablesToNormalize                                 = data.select_dtypes('number')
+        scaledData                                           = scaler.fit_transform(variablesToNormalize)
+        self.scaledData                                      = data.copy()
+        self.scaledData.loc[:, variablesToNormalize.columns] = scaledData
+        return self.scaledData
+    
 
     # ===================================
     # This function is used to split data 
@@ -608,8 +635,8 @@ class PreProcessData(object):
     # into sequences.
     # -----------------------------------
     def splitAndPadSequences(self,  data, 
-                                    seqLength = 30, 
-                                    overlap   = 29):
+                                    seqLength = 120, 
+                                    overlap   = 119):
         sequencesX      = []
         sequencesY      = []
         dataX           = data[0]
@@ -664,21 +691,95 @@ class PreProcessData(object):
     
     
 if __name__ == '__main__':
-    preData         = PreProcessData()
-    rawDataH5       = preData.loadDataFromH5Format()
-    addedVariables  = preData.additionEfficiencyVar(rawDataH5)
+
+    plot                = MatPlot()
+    preData             = PreProcessData()
+    rawDataH5           = preData.loadCriticalData()
+    addedVariablesData  = preData.additionEfficiencyVar(rawDataH5)
+    normalizedData      = preData.normalizeBuilinFunction(addedVariablesData,  scaler = MinMaxScaler())
+    trajectory          = preData.getTrajectory(normalizedData)
+
+
+    dimReductionModels  =    umap.UMAP( n_components = 2,
+                                        n_neighbors  = 15, 
+                                        random_state = 40,
+                                        min_dist     = 0.5
+                                        )
+    
+    # --------------------------------
+    # Get the label and the trajectory
+    # --------------------------------
+    theTraject          = trajectory["Falla sistema de hidroset-poste"][0]           # Get the trajectory
+
+    
+    lengthData          = len(theTraject)
+    # if lengthData >= 1440:
+    #     sizeEachState   = 1440
+    # else:
+    #     sizeEachState   = 120
+    sizeEachState       = 900 # 15 hours = 900min, or 60 min
+    labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
+    num_full_groups     = theTraject.shape[0] // sizeEachState
+    remainder           = theTraject.shape[0] % sizeEachState
+    if (remainder) > 0:
+        labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
+    print(labels)
+
+    efficiencyTraject   = theTraject[preData.efficiencyCr1 + preData.addEfficiencyCr1 ]
+
+    print(efficiencyTraject)
+
+    embedding           = dimReductionModels.fit_transform(efficiencyTraject)
+                                                
+    
+    # sizeEachState       = 60
+    # lengthData          = len(theTraject)
+    # labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
+    # num_full_groups     = theTraject.shape[0] // sizeEachState
+    # remainder           = theTraject.shape[0] % sizeEachState
+    # if (remainder) > 0:
+    #     labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(embedding[:, 0], embedding[:, 1], c= labels, cmap='Spectral', s=10)
+    plt.gca().set_aspect('equal', 'datalim')
+    plt.colorbar(boundaries=np.arange(4)-0.5).set_ticks(np.arange(3))
+    plt.title('Supervised UMAP projection of the Iris dataset', fontsize=24)
+    plt.show()
+
+
+    # fig = plt.figure(figsize=(10, 6))
+    # ax = fig.add_subplot(111, projection='3d')
+    # sc = ax.scatter(embedding[:, 0], embedding[:, 1], embedding[:, 2], c=labels, cmap='Spectral', s=50)
+    # plt.colorbar(sc, label='Class Label')
+    # ax.set_title('3D UMAP Projection', fontsize=24)
+    # ax.set_xlabel('Component 1')
+    # ax.set_ylabel('Component 2')
+    # ax.set_zlabel('Component 3')
+    # plt.show()
 
 
 
 
-    # Check the text data inside
-    # print(preData.crusher1.head())
+    # htData, _       = preData.getHealthyState(addedVariables)
+    # scaler          = MinMaxScaler()
 
-    # time        = preData.crusher1['tiempo']
+    # scaledData      = preData.normalizeBuilinFunction(  data   = addedVariables, 
+    #                                                     scaler = scaler) 
+    # scaledHealthy   = preData.normalizeBuilinFunction(data   = htData, 
+    #                                                  scaler = scaler)
+    
 
-    # for idxLabel in preData.crusher1Value:
-    #     currentI    = preData.crusher1[idxLabel].to_numpy().astype(float)
-    #     for idx in range(len(currentI)):
-    #         # print(type(currentI[idx]))
-    #         if type(currentI[idx]) is str:
-    #             print(idx)
+    # scaledEfficiency = scaledData[preData.efficiencyCr1 + preData.addEfficiencyCr1]
+    # dimReductionModels  =    umap.UMAP( n_components = 2,
+    #                                             n_neighbors  = 15, 
+    #                                             random_state = 40)
+    
+
+
+    # dimReductionModels.fit(scaledEfficiency,scaledData)
+    # print(scaledData)
+
+    # print(scaledHealthy)
+
+
