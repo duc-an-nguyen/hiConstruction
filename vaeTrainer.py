@@ -30,13 +30,21 @@ class appVAE():
     # Preprocessing data
     # --------------------
     @staticmethod
-    def dataPreprocessing(forTraining = True):
+    def dataPreprocessing(forTraining = True, trainWithManipulatedVar = True):
+        
         # ------------------------
         # Init and load data
         # ------------------------
         preData     = PreProcessData()
+
+        if trainWithManipulatedVar:
+            trainVarName = preData.beauManipulatedCr1
+        else:
+            trainVarName = preData.beauefficiencyCr1
+
         rawData     = preData.loadCriticalData()
-        norData     = preData.normalizeBuilinFunction(rawData[preData.crusher1Value])     # Normalize the data
+        clearnData  = preData.cleanData(rawData[preData.crusher1Value])
+        norData     = preData.normalizeBuilinFunction(clearnData[preData.crusher1Value])     # Normalize the data
         
         # ------------------------
         # Get healthy data only or
@@ -44,12 +52,12 @@ class appVAE():
         # ------------------------
         if forTraining:
             healthyStateData,_      = preData.getHealthyState(norData)                          # Extract the healthy state of machine
-            inputX                  = healthyStateData[preData.manipulatedCr1]
+            inputX                  = healthyStateData[trainVarName]
             # outputY                 = healthyStateData[preData.efficiencyCr1]
             trainXY,valXY           = preData.splitTrainVal(inputX  = inputX,
                                                             outputY = inputX)                   # Split input and efficiency variables into train and validation dataset
-            seqTrainXY              = preData.splitAndPadSequences(trainXY,seqLength=vaeConfig['seqLength'])                     # Split them into sequences
-            seqValXY                = preData.splitAndPadSequences(valXY, seqLength=vaeConfig['seqLength'])                       # Split them into sequences
+            seqTrainXY              = preData.splitAndPadSequences(trainXY,seqLength=vaeConfig['seqLength'], overlap= vaeConfig['overlap'])                     # Split them into sequences
+            seqValXY                = preData.splitAndPadSequences(valXY, seqLength=vaeConfig['seqLength'],  overlap= vaeConfig['overlap'])                       # Split them into sequences
         else:
             inputX                  = norData[preData.manipulatedCr1]
             # outputY                 = norData[preData.efficiencyCr1]
@@ -71,7 +79,7 @@ class appVAE():
 
         early_stop_loss     = 'loss'
         early_stop_callback = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=10) 
-        reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.1, patience=10)
+        reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.01, patience=10)
 
 
         history = model.fit(    x           =   seqTrainXY[0],
@@ -124,13 +132,19 @@ class appVAE():
     # Prediction
     # --------------------
     @staticmethod
-    def predict(seqData,vaeConfig):
-        
+    def predict(seqData,vaeConfig, ckptmanipulatedVarType = True):
+
+        if ckptmanipulatedVarType:
+            ckptName = "ckpt/manipulatedReconstruction[200, 100, 50]_[50, 100, 200]latent_2"
+        else:
+            ckptName = "ckpt/efficiencyReconstruction[200, 100, 50]_[50, 100, 200]latent_2"
+
+
         print(len(seqData[0]))
         batchData      = vaeConv1DCustom.batchGenerator(seqData,batchSize=1)
         # print(type(batchData))
         model          = vaeConv1DCustom(vaeConfig)
-        model.load_weights("ckpt/VAECNN1D_ManupulatedAndEfficiencyInputOutput[200, 100, 50]_[50, 100, 200]latent_2","crusher1")
+        model.load_weights(ckptName,"crusher1")
         
         lossResults     = []
         latentResults   = []
@@ -159,9 +173,9 @@ if __name__ == '__main__':
     vaeConfig = config["vae"]
     
     if trainIsTrue:
-        seqTrainXY,seqValXY     = appVAE.dataPreprocessing()
+        seqTrainXY,seqValXY     = appVAE.dataPreprocessing(trainWithManipulatedVar = False)
         history,model           = appVAE.trainer(seqTrainXY,seqValXY,vaeConfig)
-        appVAE.saveModelAndProgress(history,model,nameOfModel= "manipulatedReconstruction")
+        appVAE.saveModelAndProgress(history,model,nameOfModel= "efficiencyReconstruction")
 
     else:
         _,seqData               = appVAE.dataPreprocessing(forTraining = False)

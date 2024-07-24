@@ -72,6 +72,14 @@ class PreProcessData(object):
         self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
                                         'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
                                         'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',]
+        
+        self.beauManipulatedCr1 = [     'corriente(A)',                     'Potencia(kW)',                 'presion_estanque_aire(bar)', 
+                                        'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 'Lubricación_entrada_sup(psi)',
+                                        'Lubricación_entrada_sup(m3/h)',    'Lubricación_entrada_inf(m3/h)', 'Motor_Fase1(A)',
+                                        'Motor_Fase2(A)',                   'Motor_Fase3(A)',                'Motor_Fase1(V)',
+                                        'Motor_Fase2(V)',                   'Motor_Fase3(V)'
+                                        ]
+        self.beauEfficiencyCr1  = self.efficiencyCr1
     
         self.addEfficiencyCr1 = [       'Eficiencia_Rendimiento',           'Z_Score_Int',                  'Z_Score_Ext',                              
                                         'Ratio_Flujo_Aceite',               'Rendimiento_por_Revolucion',   'Temperatura_Diferencia_Media',
@@ -214,7 +222,7 @@ class PreProcessData(object):
             self.crusher1 = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
 
         aiLogger.info("Finish loading data from files ...")
-        print(self.crusher1.columns)
+        # print(self.crusher1.columns)
         return self.crusher1
 
     # ===================================
@@ -452,8 +460,8 @@ class PreProcessData(object):
     # This function is used to 
     # get the healthy state of machine
     # -----------------------------------
-    def getHealthyState(self,data
-                    ):
+    def getHealthyState(self,data):
+                    
         aiLogger.info("Getting critical trajectories ...")
         
         # ----------------------------
@@ -503,47 +511,23 @@ class PreProcessData(object):
         return trajectoryList
 
 
-
-                      
+    def cleanData(self, data, windowSize = 239):
+        output     = data.copy()
+        columnName = data.columns
+        for cl in columnName:
+            output[cl] = self.getMovingAverage(data[cl], windowSize=windowSize)
         
-    # ===================================
-    # This function is used to clean data
-    # -----------------------------------
-    def cleanData(self, rawSignal,
-                        getMovingAverage = False,
-                        flipToDown       = False):
+        return output
+    
+    def getMovingAverage(self,values, windowSize = 119):
         
-        aiLogger.info("Cleaning data ...")
-        windowSize  = 127
-        padWidth    = int(windowSize/2)  # Equivalent to the floor(window_size/2) for window_size = 3
-        
+        kernel      = np.ones(int(windowSize))/float(windowSize)
+        padWidth    = int(windowSize/2)                         # Equivalent to the floor(window_size/2) for window_size = 3
 
-        cleanSignal = []
-        window      = np.ones(int(windowSize))/float(windowSize)
-          
-        for idxSig in range(len(rawSignal)):
-            trajec      = rawSignal[idxSig]                # Get each trajectory
-            outputRow   = trajec.shape[0] - windowSize + 1
-            # newSig      = np.zeros((outputRow,trajec.shape[1]))
+        padSig      = np.pad(values, padWidth, mode='symmetric') 
+        smoothedSig = np.convolve(padSig, kernel, 'valid')
+        return smoothedSig
 
-            # Compute the moving average using convolution
-            for idxArray in range(trajec.shape[1]):
-                # ---------------------------
-                if  getMovingAverage:
-                    padSig      = np.pad(trajec[:,idxArray], padWidth, mode='symmetric') 
-                    newSig      = np.convolve(padSig, window, 'valid')
-                else:
-                    newSig      = trajec[:,idxArray]
-                # ---------------------------
-                if flipToDown:
-                    trajec[:,idxArray]   = self.flip2Down(newSig)
-                else:
-                    trajec[:,idxArray]   = newSig
-
-
-            cleanSignal.append(trajec) 
-
-        return cleanSignal
 
     def flip2Down(self,data):
         aiLogger.info("Flipping data ...")
