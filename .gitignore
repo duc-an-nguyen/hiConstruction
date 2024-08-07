@@ -4,25 +4,25 @@
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
 # Notebooks
-test.ipynb
-test2.ipynb
-test3.ipynb
-test4.ipynb
-test5.ipynb
-test6.ipynb
+test_aggregation.ipynb
+test_clustering_sliding_window.ipynb
+test_figuras_tesis.ipynb
+test_regression.ipynb
 supervisedUmap.ipynb
-timeSeriesDescomposition.ipynb
 clusteringFirstVersion.ipynb
-testNewFeatures.ipynb
 clusteringExperiments.ipynb
 clusteringExperimentsEfficiency.ipynb
-supervisedEmbedding2.ipynb
+test_annotations.ipynb 
+test_vae.ipynb
+test1.ipynb
+languageModel_alfa.ipynb
 
 #folders
 data/
 mmodal/
 figures/
 saved_models/
+codigo_desechado/
 
 # Node artifact files
 node_modules/

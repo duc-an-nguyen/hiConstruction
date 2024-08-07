@@ -22,13 +22,28 @@ class ClusteringTimeSeries:
         self.n_components       = dimReductionModels[self.algorithms[0]].n_components
 
 
+
+    def trainPrevious(self, trainTrajectory):
+        self.trainTrajectory = trainTrajectory
+        trainData = self.dataNormalized[self.data['trajectory']==self.trainTrajectory]
+        self.embeddingTrain = trainData.copy()
+        for algorithm in self.algorithms:
+            self.dimReductionModels[algorithm].fit(trainData)
+            if self.n_components == 2:
+                self.embeddingTrain.loc[:, [f'{algorithm}_x', 
+                                            f'{algorithm}_y']] = self.dimReductionModels[algorithm].transform(trainData)
+            else:
+                self.embeddingTrain.loc[:, [f'{algorithm}_x', 
+                                            f'{algorithm}_y',
+                                            f'{algorithm}_z']] = self.dimReductionModels[algorithm].transform(trainData)
+
     # ==================================
     # this func trains a dimensionality 
     # reduction model using healthy data
     # ----------------------------------
     def train(self, supervised=False):
         trainData = self.dataNormalized
-        self.embeddingTrain = trainData.copy()
+        self.embedding = trainData.copy()
         for algorithm in self.algorithms:
             # Train algorithm
             if supervised:
@@ -38,39 +53,40 @@ class ClusteringTimeSeries:
                 
             # Get the embedding data for visualization
             if self.n_components == 2:
-                self.embeddingTrain.loc[:, [f'{algorithm}_x', 
+                self.embedding.loc[:, [f'{algorithm}_x', 
                                             f'{algorithm}_y']] = self.dimReductionModels[algorithm].transform(trainData)
             else:
-                self.embeddingTrain.loc[:, [f'{algorithm}_x', 
+                self.embedding.loc[:, [f'{algorithm}_x', 
                                             f'{algorithm}_y',
                                             f'{algorithm}_z']] = self.dimReductionModels[algorithm].transform(trainData)
                 
                 
-    # # ================================
-    # # This func finds the clusters for 
-    # # a trajectory of the time series
-    # # --------------------------------
-    # def getResults(self, trajectory=None): 
-    #     if trajectory is not None:
-    #         mask = self.data['trajectory'] == trajectory
-    #     else:
-    #         mask = slice(None)
+    # ================================
+    # This func finds the clusters for 
+    # a trajectory of the time series
+    # --------------------------------
+    def getResults2(self, trajectory=None): 
+        if trajectory is not None:
+            mask = self.data['trajectory'] == trajectory
+        else:
+            mask = slice(None)
         
-    #     #dfFiltered                  = self.dataNormalized[mask]
-    #     similarClusters             = self.embeddingTrain #dfFiltered.copy()
-    #     similarClusters['tiempo']   = self.data.loc[mask, 'tiempo']
-    #     similarClusters['period']   = self.data.loc[mask, 'period']
+        df_filtered                 = self.embedding[mask].copy() 
+        df_filtered['tiempo']       = self.data.loc[mask, 'tiempo']
+        df_filtered['trajectory']   = self.data.loc[mask, 'trajectory']
+        #similarClusters['period']   = self.data.loc[mask, 'period']
 
-    #     # Apply dimensionality reduction and clustering
-    #     for algorithm in self.algorithms:
-    #         clusteringModel     = self.clusteringModels[algorithm]
-    #         clusterLabels       = clusteringModel.fit_predict(self.embeddingTrain[[f'{algorithm}_x', f'{algorithm}_y']])  #func(transformedData)
-            
-    #         similarClusters[f'cluster_{algorithm}'] = clusterLabels.astype('str')
+        # Apply dimensionality reduction and clustering
+        for algorithm in self.algorithms:
+            clusteringModel     = self.clusteringModels[algorithm]
+            clusterLabels       = clusteringModel.fit_predict(df_filtered[[f'{algorithm}_x', f'{algorithm}_y']])
+            df_filtered[f'cluster_{algorithm}'] = clusterLabels.astype('str')
 
-    #     # Store results in cluster Results
-    #     if trajectory is not None:
-    #         self.clustersResults[trajectory] = similarClusters
+        # Store results in cluster Results
+        if trajectory is not None:
+            self.clustersResults[trajectory] = df_filtered
+        else:
+            self.embedding = df_filtered
 
 
     # ===================================
@@ -93,7 +109,6 @@ class ClusteringTimeSeries:
         dfFiltered                = self.dataNormalized[self.data['trajectory']==trajectory]
         similarClusters           = dfFiltered.copy()
         similarClusters['tiempo'] = self.data[self.data['trajectory']==trajectory]['tiempo'] 
-
         similarClusters['period'] = self.data[self.data['trajectory']==trajectory]['period'] 
 
         for algorithm in self.algorithms:

@@ -21,7 +21,7 @@ def epoch_time(start_time, end_time):
 # -------------------------
 # function to train a model
 # -------------------------
-def train(model, iterator, optimizer, criterion, device):
+def train(model, iterator, optimizer, criterion, scheduler, device):
     model.train()
     total_loss  = 0
     total_acc   = 0
@@ -32,11 +32,12 @@ def train(model, iterator, optimizer, criterion, device):
         labels          = batch['labels'].to(device)
 
         optimizer.zero_grad()
-        outputs = model(input_ids, attention_mask).logits
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask)#.logits
         loss    = criterion(outputs, labels)
 
         loss.backward()
         optimizer.step()
+        scheduler.step()
         total_loss += loss.item()
         
         # Calculate accuracy
@@ -60,7 +61,7 @@ def evaluate(model, iterator, criterion, device):
             attention_mask  = batch['attention_mask'].to(device)
             labels          = batch['labels'].to(device)  
             
-            outputs = model(input_ids, attention_mask).logits
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)#.logits
             
             loss = criterion(outputs, labels)
             total_loss += loss.item()
@@ -77,7 +78,8 @@ def evaluate(model, iterator, criterion, device):
 # classification problem and returns the learning curves
 # ------------------------------------------------------
 def train_classification_model(model, 
-                               optimizer, 
+                               optimizer,
+                               scheduler, 
                                train_iterator, 
                                valid_iterator, 
                                test_iterator, 
@@ -100,7 +102,7 @@ def train_classification_model(model,
         start_time = time.time()
 
         # Train + validation cycles
-        train_loss, train_acc = train(model, train_iterator, optimizer, criterion, device)
+        train_loss, train_acc = train(model, train_iterator, optimizer, criterion, scheduler, device)
         valid_loss, valid_acc = evaluate(model, valid_iterator, criterion, device)
 
         # The best model is saved

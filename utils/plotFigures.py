@@ -10,6 +10,10 @@ from matplotlib.colors                  import ListedColormap
 from plotly.subplots                    import make_subplots
 
 
+#=================================
+# Func to graph a lineplot 
+# colored by a column using plotly
+#----------------------------------
 def linePlot(data, x, y, color=None, title=None):
     if color is not None:
         data        = data.copy()
@@ -22,6 +26,11 @@ def linePlot(data, x, y, color=None, title=None):
                   title = title)
     fig.show()
 
+
+#=====================================
+# Func to graph a lineplot with points 
+# colored by a column using plotly
+#-------------------------------------
 def lineAndScatterPlot(data, x, y, color, title='Time series'):
     data        = data.copy()
     data[color] = data[color].astype('str')
@@ -39,24 +48,56 @@ def lineAndScatterPlot(data, x, y, color, title='Time series'):
     fig.update_traces(line=dict(color='black'))
     fig.show()
 
-def scatterPlot2D(data, x, y, color=None, title='Scatterplot 2D', color_discrete_sequence=None, n_colors=None):
+
+# ======================================================
+# Function to graph a points in 2D colored by a column.
+# The background can be default, white or black
+# ------------------------------------------------------
+def scatterPlot2D(data, 
+                  x, 
+                  y, 
+                  color = None, 
+                  title = None, 
+                  style = 'white', 
+                  color_continuous_scale  = 'Magma', 
+                  color_discrete_sequence = None, 
+                  n_colors = None):
 
     if color_discrete_sequence is not None:
-        color_discrete_sequence = px.colors .sample_colorscale(colorscale   = "Plasma_r", 
-                                                               samplepoints = [n/(n_colors-1) for n in range(n_colors)])
-    if color is not None:
-        data        = data.copy()
-        data[color] = data[color].astype('str')
-        
+        color_discrete_sequence = px.colors.sample_colorscale(colorscale   = "Plasma_r", 
+                                                              samplepoints = [n/(n_colors-1) for n in range(n_colors)])    
     fig = px.scatter(data, 
                      x      = x, 
                      y      = y, 
                      color  = color,
                      title  = title, 
                      width  = 600, 
-                     height = 500,
-                     color_discrete_sequence = color_discrete_sequence)
+                     height = 400,
+                     color_discrete_sequence = color_discrete_sequence,
+                     color_continuous_scale  = color_continuous_scale)
+    
+    if style == 'white':
+        fig.update_layout(
+            template='plotly_white',
+            plot_bgcolor='rgba(255, 255, 255, 1)',
+            paper_bgcolor='rgba(255, 255, 255, 1)',
+            xaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor='black'),
+            yaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor='black'),
+            )
+    
+    elif style == 'black':
+        fig.update_layout(
+            template='plotly_dark',
+            plot_bgcolor='rgba(0, 0, 0, 1)',
+            paper_bgcolor='rgba(0, 0, 0, 1)',
+            xaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor='white', tickfont=dict(color='white'), titlefont=dict(color='white')),
+            yaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor='white', tickfont=dict(color='white'), titlefont=dict(color='white')),
+            font=dict(color='white')
+            )
+
+    fig.update_traces(marker={'size': 3})
     fig.show()
+
 
 def scatterPlot3D(data, x, y, z, color, title='Scatterplot 3D'):
     fig = px.scatter_3d(data,
@@ -115,7 +156,7 @@ def plotLabels(dataframe, variable='Piñón_ext(°C)', colorscale='HSV'):
     fig.update_layout(
         title       = f'"{variable}" colored by label',
         xaxis_title = 'tiempo',
-        yaxis_title = 'Piñón_ext(°C)',
+        yaxis_title = f'{variable}',
         showlegend  = True
         )
     fig.show()
@@ -131,8 +172,9 @@ def plotResults(trajectory,
                 variable    = 'Piñón_int(mm/s)', 
                 palette     = 'Spectral', 
                 hue         = 'period',
-                algorithm   = 'umap'):
-
+                algorithm_1 = 'umap',
+                algorithm_2 = 'pacmap'):
+        
         # Figure and axes
         fig  = plt.figure(figsize = (10, 6))
         gs   = gridspec.GridSpec(nrows          = 2, 
@@ -153,8 +195,8 @@ def plotResults(trajectory,
         )
 
         sns.scatterplot(
-            x       = f'{algorithm}_x', 
-            y       = f'{algorithm}_y', 
+            x       = f'{algorithm_1}_x', 
+            y       = f'{algorithm_1}_y', 
             data    = data1, 
             ax      = axes[1], 
             hue     = hue,
@@ -165,8 +207,8 @@ def plotResults(trajectory,
         )
 
         sns.scatterplot(
-            x       = f'{algorithm}_x', 
-            y       = f'{algorithm}_y', 
+            x       = f'{algorithm_2}_x', 
+            y       = f'{algorithm_2}_y', 
             data    = data2, 
             ax      = axes[2], 
             hue     = hue,
@@ -202,7 +244,8 @@ def plotResults(trajectory,
 def plotResultsPlotly(trajectory, 
                       data1, 
                       data2,
-                      algorithm   = 'umap', 
+                      algorithm_1   = 'umap',
+                      algorithm_2   = 'umap',  
                       variable    = 'Piñón_int(mm/s)', 
                       palette     = 'Spectral', 
                       color       = 'period'):
@@ -244,8 +287,8 @@ def plotResultsPlotly(trajectory,
 
     # subplot 2: idea 1 
     scatter_fig1 = px.scatter(data_frame                = data1, 
-                              x                         = f'{algorithm}_x', 
-                              y                         = f'{algorithm}_y', 
+                              x                         = f'{algorithm_1}_x', 
+                              y                         = f'{algorithm_1}_y', 
                               color                     = color, 
                               color_discrete_sequence   = palette, 
                               opacity                   = 0.3)
@@ -260,8 +303,8 @@ def plotResultsPlotly(trajectory,
 
     # subplot 3: idea 2 
     scatter_fig2 = px.scatter(data_frame                = data2, 
-                              x                         = f'{algorithm}_x', 
-                              y                         = f'{algorithm}_y', 
+                              x                         = f'{algorithm_2}_x', 
+                              y                         = f'{algorithm_2}_y', 
                               color                     = color, 
                               color_discrete_sequence   = palette, 
                               opacity                   = 0.3)
@@ -284,10 +327,10 @@ def plotResultsPlotly(trajectory,
 
     # update axes of each subfigure
     fig.update_yaxes(title_text=variable, titlefont=dict(size=12), row=1, col=1)
-    fig.update_xaxes(title_text=f'{algorithm}_x', titlefont=dict(size=12), row=2, col=1)
-    fig.update_yaxes(title_text=f'{algorithm}_y', titlefont=dict(size=12), row=2, col=1)
-    fig.update_xaxes(title_text=f'{algorithm}_x', titlefont=dict(size=12), row=2, col=2)
-    fig.update_yaxes(title_text=f'{algorithm}_y', titlefont=dict(size=12), row=2, col=2)
+    fig.update_xaxes(title_text=f'{algorithm_1}_x', titlefont=dict(size=12), row=2, col=1)
+    fig.update_yaxes(title_text=f'{algorithm_1}_y', titlefont=dict(size=12), row=2, col=1)
+    fig.update_xaxes(title_text=f'{algorithm_2}_x', titlefont=dict(size=12), row=2, col=2)
+    fig.update_yaxes(title_text=f'{algorithm_2}_y', titlefont=dict(size=12), row=2, col=2)
 
     # update title size from each subfigure
     for annotation in fig['layout']['annotations']:
@@ -296,7 +339,10 @@ def plotResultsPlotly(trajectory,
     fig.show() 
 
 
-
+# ============================
+# Function to graph loss and 
+# accuracy after train a model
+#-----------------------------
 def plot_learning_curves(train_acc_curve, val_acc_curve, train_loss_curve, val_loss_curve):
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     ax[0].plot(train_loss_curve, label="Train loss")

@@ -69,8 +69,8 @@ class ClusteringResults(ClusteringTimeSeries):
 
                 for j in range(ncols):
                     algorithm = self.algorithms[j]
-                    axes[j].scatter(x      = self.embeddingTrain[f'{algorithm}_x'], 
-                                    y      = self.embeddingTrain[f'{algorithm}_y'], 
+                    axes[j].scatter(x      = self.embedding[f'{algorithm}_x'], 
+                                    y      = self.embedding[f'{algorithm}_y'], 
                                     label  = 'train data', 
                                     #label  = f'trajectory {self.trainTrajectory} (train)',            
                                     marker = '.',
@@ -108,9 +108,9 @@ class ClusteringResults(ClusteringTimeSeries):
 
                 for j in range(ncols):
                     algorithm = self.algorithms[j]
-                    axes[j].scatter(xs     = self.embeddingTrain[f'{algorithm}_x'], 
-                                    ys     = self.embeddingTrain[f'{algorithm}_y'], 
-                                    zs     = self.embeddingTrain[f'{algorithm}_z'], 
+                    axes[j].scatter(xs     = self.embedding[f'{algorithm}_x'], 
+                                    ys     = self.embedding[f'{algorithm}_y'], 
+                                    zs     = self.embedding[f'{algorithm}_z'], 
                                     label  = 'train data', 
                                     #label  = f'trajectory {self.trainTrajectory} (train)',            
                                     marker = '.',
@@ -356,7 +356,8 @@ class ClusteringResults(ClusteringTimeSeries):
                           yaxis_title   = "clusters",
                           showlegend    = True,
                           width         = 900,
-                          height        = 700)
+                          height        = 700,
+                          )
         fig.show()
 
 
