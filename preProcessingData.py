@@ -336,7 +336,6 @@ class PreProcessData(object):
     # additional efficient variables
     # -----------------------------------
     def additionEfficiencyVar(self,df, window_size=30, use_global_mean=True):
-
         """
         # adding new feature columns that assess various aspects of operational efficiency and stability.
 
