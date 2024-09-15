@@ -81,6 +81,7 @@ class ClusteringTimeSeries:
             clusteringModel     = self.clusteringModels[algorithm]
             clusterLabels       = clusteringModel.fit_predict(df_filtered[[f'{algorithm}_x', f'{algorithm}_y']])
             df_filtered[f'cluster_{algorithm}'] = clusterLabels.astype('str')
+            #df_filtered[f'cluster'] = clusterLabels.astype('str')
 
         # Store results in cluster Results
         if trajectory is not None:

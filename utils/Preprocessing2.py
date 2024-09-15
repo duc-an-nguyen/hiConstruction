@@ -56,13 +56,13 @@ class PreProcessData(object):
         self.manipulated_cr1=[
             'corriente(A)',
             'nivel_tolva_compensacion(%)',
-            'presion_estanque_aire(bar)',
-            'Lubricación_depósito(%)',
             'Motor_Fase1(A)',
             'Motor_Fase2(A)',
             'Motor_Fase3(A)',
             'Motor_Fase1(V)',
             'Motor_Fase2(V)',
+            'Lubricación_principal(A)',
+            'Lubricación_respaldo(A)', 
             ]
 
 
@@ -70,6 +70,11 @@ class PreProcessData(object):
             'posicion_poste(%)',
             'Piñón_ext(°C)',
             'Piñón_int(°C)',
+            'Lubricación_depósito(%)',
+            'Lubricación_entrada_sup(psi)',
+            'Lubricación_entrada_inf(psi)',
+            'Lubricación_principal(psi)',
+            'presion_estanque_aire(bar)'
             ]
 
 
@@ -187,6 +192,9 @@ class PreProcessData(object):
         mask                        = self.crusher1['event'].isnull()
         groups                      = mask.ne(mask.shift()).cumsum().astype('str') 
         self.crusher1['trajectory'] = np.where(mask, groups, np.nan)
+        self.crusher1['trajectory'] = pd.factorize(self.crusher1['trajectory'])[0]+1
+        self.crusher1['trajectory'] = self.crusher1['trajectory'].astype('str')
+        self.crusher1['trajectory'] = self.crusher1['trajectory'].replace('0', np.nan)
         self.trajectories           = self.crusher1.trajectory.dropna().unique()
         self.crusher1.drop(columns='event', inplace=True)
         return self.crusher1
@@ -431,16 +439,18 @@ class PreProcessData(object):
     # =====================================================================
     # Function that returns the data preprocessed using the above functions
     # ---------------------------------------------------------------------
-    def preprocessing(self, scaler, window_size, time_aggregation, threshold =0, type_file='h5'):
+    def preprocessing(self, scaler, window_size, time_aggregation, threshold =0, trend_info=False, type_file='h5'):
         self.data_loading(type_file=type_file)
         self.clear_data()
         self.addition_var() 
         df = self.split_time_series()
         self.aggregation(time_aggregation=time_aggregation)
 
-        warnings.filterwarnings("ignore")
-        self.feature_engineering(window_size=window_size)
-        warnings.filterwarnings("default")
+        # Textual information is added about the trend of each variable
+        if trend_info:
+            warnings.filterwarnings("ignore")
+            self.feature_engineering(window_size=window_size)
+            warnings.filterwarnings("default")
         
         df          = self.remove_redundant_data(threshold=threshold)
         df_healthy  = self.get_healthy_state()

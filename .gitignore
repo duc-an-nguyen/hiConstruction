@@ -14,8 +14,10 @@ clusteringExperiments.ipynb
 clusteringExperimentsEfficiency.ipynb
 test_annotations.ipynb 
 test_vae.ipynb
-test1.ipynb
+test1.ipynb 
 languageModel_alfa.ipynb
+checkCodeD.ipynb
+TestVars.ipynb
 
 #folders
 data/
@@ -23,6 +25,7 @@ mmodal/
 figures/
 saved_models/
 codigo_desechado/
+utility/
 
 # Node artifact files
 node_modules/
