@@ -58,8 +58,8 @@ class vaeTKAN(Model):
 
         encodeInput = Input(shape=(self.seq_len, self.feat_dim),name = 'encoder_input')
         x           = TKAN(40, return_sequences=True)(encodeInput)
-        # x           = TKAN(20, return_sequences=True)(x)
-        # x       = TKAN(50,  sub_kan_output_dim=20, sub_kan_input_dim=20, return_sequences=False)(x)  # Final layer with return_sequences=False
+        # x           = TKAN(30, return_sequences=True)(x)
+        # x           = TKAN(20,  sub_kan_output_dim=20, sub_kan_input_dim=20, return_sequences=False)(x)  # Final layer with return_sequences=False
         x           = TKAN(10,  sub_kan_output_dim=128, return_sequences=False)(x)
 
         # -----------------------
@@ -86,7 +86,7 @@ class vaeTKAN(Model):
         repeatedLatent  = RepeatVector(self.seq_len)(latentInputs)
 
         x           = TKAN(10, return_sequences=True)(repeatedLatent)
-        # x           = TKAN(20, return_sequences=True)(x)
+        # x           = TKAN(30, return_sequences=True)(x)
         x           = TKAN(40, return_sequences=True)(x)
 
         decoderOut  = TimeDistributed(Dense(self.feat_dim))(x)
@@ -104,7 +104,8 @@ class vaeTKAN(Model):
             # print("Input shape",X.shape)
             inData = X[0]
             label  = X[1]
-            # print(inData.shape)
+            print("---------------------------------")
+            print(inData.shape)
             z_mean, z_log_var, z    = self.encoder(inData)
             reconstruction          = self.decoder(z)
 

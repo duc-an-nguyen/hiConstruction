@@ -23,11 +23,11 @@
     "latentDim":        2,
     "seqLength":        128,
     "overlap":          127,
-    "inFeatureDim":     7,
-    "outFeatureDim":    7,
+    "inFeatureDim":     17,
+    "outFeatureDim":    17,
 
     "batchSize":        64,
-    "nEpoch":           2,
+    "nEpoch":           10,
     "dir":              "ckpt/123/",
     "component":        "reactor",
     "case":             2

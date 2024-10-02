@@ -495,7 +495,8 @@ class PreProcessData(object):
         # print(indices)
         return self.healthyData,self.healthyExcellPos
     
-    def getTrajectory(self,data):
+    def getTrajectory(self,data, getValueOnly = False, headline = None):
+
         trajectoryIdx = {   "Válvula defectuosa":           [[0,5035], [198148, 198761],[198761,208449]],
                             "Falta de aceite hidráulico":   [[98574,101638]],
                             "Lubricación  deficiente":      [[158678,164501-2],[256591,256651]],
@@ -509,8 +510,10 @@ class PreProcessData(object):
         for key,values in trajectoryIdx.items():     # Run per each MOF
             trajectoryList[key] = []
             for idxValue in values:                  # Run per each list of index
-                trajectoryList[key].append(data[idxValue[0]: idxValue[1]])
-                
+                if getValueOnly:
+                    trajectoryList[key].append(data[idxValue[0]: idxValue[1]][headline])
+                else:
+                    trajectoryList[key].append(data[idxValue[0]: idxValue[1]])
 
         # print(trajectoryList)
         return trajectoryList
@@ -583,15 +586,16 @@ class PreProcessData(object):
     # This function is used to split data 
     # into sequences.
     # The input is a list of arrays with 
-    # different length
+    # different length, each arrays should
+    # have the size of (lengthOfData, featureDim)
     # reactor: 6sensors
     # sep: 7 sensors
     # strip: 5 sensors
     # -----------------------------------
     def splitAllDataIntoSequences(  self,
                                     data        = None,
-                                    seqLength   = 30,
-                                    overlap     = 29,):
+                                    seqLength   = 128,
+                                    overlap     = 127):
         aiLogger.info("Spliting data into sequences now ...")
 
         
@@ -599,15 +603,15 @@ class PreProcessData(object):
         allLabel = []
          
         for idx in range(len(data)):
-            transposedDt    = data[idx].transpose()
-            # transposedLb    = label[idx].transpose()
-            # print(transposedLb)
-            seqData,seqLabel    = self.splitAndPadSequences(transposedDt,
+            # transposedDt        = data[idx].transpose()
+            # print(transposedDt.shape)
+            seqData,seqLabel    = self.splitAndPadSequences(data[idx],
                                                             # transposedLb,
                                                             seqLength,
-                                                            overlap)     
+                                                            overlap,
+                                                            useLabel = False)     
             
-            # print(len(seqData))
+            # print((seqData))
             allSeq          = allSeq    + seqData
             allLabel        = allLabel  + seqLabel
 
@@ -615,7 +619,7 @@ class PreProcessData(object):
         tensorX =   np.stack(allSeq, axis=0)         
         tensorY =   np.stack(allLabel, axis=0)     
 
-        tensorX   = tensorX.transpose(0, 2, 1)        # resize to num_seq, lengh_seq, and num features
+        # tensorX   = tensorX.transpose(0, 2, 1)        # resize to num_seq, lengh_seq, and num features
              
         return tensorX,tensorY
     
@@ -625,15 +629,20 @@ class PreProcessData(object):
     # -----------------------------------
     def splitAndPadSequences(self,  data, 
                                     seqLength = 120, 
-                                    overlap   = 119):
+                                    overlap   = 119,
+                                    useLabel  = False):
         sequencesX      = []
         sequencesY      = []
-        dataX           = data[0]
-        dataY           = data[1]
+        if useLabel:
+            dataX       = data[0]
+            dataY       = data[1]
+        else:
+            dataX = data
+            dataY = data
         step_size       = seqLength - overlap
         totalLength     = len(dataX)
         
-        # print(dataY)
+        # print("Total length",totalLength)
 
         for start in range(0, totalLength-overlap, step_size):
             end = start + seqLength
@@ -651,15 +660,66 @@ class PreProcessData(object):
                 sequenceX = dataX[start:end].to_numpy()           # Get sentense
                 sequenceY = dataY[start:end].to_numpy()           # Get sentense
                 
-            sequencesX.append(sequenceX)
+            # print("Each sequence size",sequenceX.shape)
+                
+            sequencesX.append(sequenceX)                          # Append all of them into a list
             sequencesY.append(sequenceY)
 
+
+        # print("The length after merging list",len(sequencesX))
+        # tensorX =   np.stack(sequencesX, axis=0)
+        # tensorY =   np.stack(sequencesY, axis=0)
+           
+        return sequencesX,sequencesY
+    
+    # ===================================
+    # This function is used to split data 
+    # into sequences.
+    # -----------------------------------
+    def splitAndPadSequencesTensor(self,  data, 
+                                    seqLength = 128, 
+                                    overlap   = 127,
+                                    useLabel  = True):
+        sequencesX      = []
+        sequencesY      = []
+        if useLabel:
+            dataX       = data[0]
+            dataY       = data[1]
+        else:
+            dataX = data
+            dataY = data
+        step_size       = seqLength - overlap
+        totalLength     = len(dataX)
+        
+        # print("Total length",totalLength)
+
+        for start in range(0, totalLength-overlap, step_size):
+            end = start + seqLength
+            # ----------------------
+            # If the sequence would 
+            # go beyond the data length, 
+            # pad it
+            # ----------------------
+            if end > totalLength:                
+                padding  = end - totalLength
+                # sequence = torch.nn.functional.pad(dataX[:, start:], (0, padding), 'constant', 0)
+                aiLogger.error("Check again the for loop!!!")
+           
+            else:
+                sequenceX = dataX[start:end].to_numpy()           # Get sentense
+                sequenceY = dataY[start:end].to_numpy()           # Get sentense
+                
+            # print("Each sequence size",sequenceX.shape)
+                
+            sequencesX.append(sequenceX)                          # Append all of them into a list
+            sequencesY.append(sequenceY)
+
+
+        # print("The length after merging list",len(sequencesX))
         tensorX =   np.stack(sequencesX, axis=0)
         tensorY =   np.stack(sequencesY, axis=0)
            
         return [tensorX,tensorY]
-    
-
     # ===================================
     # This function is used to split data
     # to train, val, test groups
