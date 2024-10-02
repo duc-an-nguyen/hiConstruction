@@ -202,12 +202,14 @@ class PreProcessData(object):
     # Save to H5 file with numeric values from 
     # crusher 1 only, abandon some text column
     # -----------------------------------
-    def save2H5Format(self,rawData):
-    
+    def save2H5Format(self, rawData=None,
+                            loadFileToSave = True):
+        if loadFileToSave:
+            rawData     = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
         # savedData  = rawData[self.crusher1Value]
         savedData  = rawData
         aiLogger.info("Saving data to h5 file ...")
-        savedData.to_hdf('data/criticalMOFCrusher11.h5', key='crusher1', mode='w')
+        savedData.to_hdf('data/criticalMOFCrusher1.h5', key='crusher1', mode='w')
 
         aiLogger.info("Finish saving data to h5 file ...")
 
@@ -230,8 +232,8 @@ class PreProcessData(object):
     # redundant mode of failure inside the
     # excel file
     # -----------------------------------
-    def rmRedundantMOF(self,):
-        df_filtered  = self.crusher1
+    def rmRedundantMOF(self, orginalData):
+        df_filtered  = orginalData
         for idxFeature in self.notModeOfFailure:
             df_filtered = df_filtered[df_filtered['Modo de Falla'] != idxFeature]
             aiLogger.info(f"Removing {idxFeature}")
@@ -239,6 +241,8 @@ class PreProcessData(object):
 
         output_path = 'data/criticalMOFCrusher1.xlsx'  # Specify your output file path
         df_filtered.to_excel(output_path, index=False)
+        aiLogger.info("Finish to remove redundant data and save to a file xlsx ...")
+        return df_filtered.reset_index()
 
 
     # ===================================
@@ -246,28 +250,30 @@ class PreProcessData(object):
     # according to time which is inside 
     # the excell file into a concise way
     # -----------------------------------
-    def sumarryDataFromFile(self,):
+    def sumarryDataFromFile(self,crusher1):
         mofTable                = PrettyTable()
         mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
 
         no                      = 1
         usefulMOF               = []
-        mofCol                  = self.crusher1['Modo de Falla']
+        mofCol                  = crusher1['Modo de Falla']
         preMOF                  = None
         beginingRow             = 0
         beginingTime            = 0
         markedPoint             = {}
 
-
-        for idx in range(len(self.crusher1)):
+        print(mofCol[0:160])
+        lenCrusher1 = len(crusher1)
+        for idx in range(lenCrusher1):
             curIdx = idx
             preIdx = idx -1
-
+            if curIdx ==149:
+                a=1
             if (mofCol[curIdx] != preMOF) and curIdx!=0:
                 # --------------------------
                 # Collect the last state
                 # --------------------------
-                endingTime      = self.crusher1['tiempo'][preIdx] 
+                endingTime      = crusher1['tiempo'][preIdx] 
                 endingRow       = preIdx
                 
                 if not pd.isna(preMOF):
@@ -284,7 +290,7 @@ class PreProcessData(object):
                 # Assign new state
                 # --------------------------
                 preMOF          = mofCol[curIdx]
-                beginingTime    = self.crusher1['tiempo'][curIdx]
+                beginingTime    = crusher1['tiempo'][curIdx]
                 beginingRow     = curIdx
                 
         
@@ -675,9 +681,29 @@ class PreProcessData(object):
     
 if __name__ == '__main__':
 
+    generateH5file  = True
+    summaryFile     = True
+
     plot                = MatPlot()
     preData             = PreProcessData()
+
+    # --------------------------------
+    # Generate the data if it lacks 
+    # --------------------------------
+    if generateH5file is True:
+        orginalData     =   preData.dataLoadingOriginalData()
+        filterData      =   preData.rmRedundantMOF(orginalData)
+        preData.save2H5Format(filterData)
+
+    # --------------------------------
+    # Preprocess the data
+    # --------------------------------
     rawDataH5           = preData.loadCriticalData()
+
+    if summaryFile is True:
+        preData.sumarryDataFromFile(rawDataH5)
+
+
     addedVariablesData  = preData.additionEfficiencyVar(rawDataH5)
     normalizedData      = preData.normalizeBuilinFunction(addedVariablesData,  scaler = MinMaxScaler())
     trajectory          = preData.getTrajectory(normalizedData)
