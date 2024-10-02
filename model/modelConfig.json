@@ -12,6 +12,25 @@
 
     "batchSize":        64,
     "nEpoch":           5000
+},
+
+
+"kan": {
+    "_name":            "KAN",
+    "encLayer":         [40,20,10],       
+    "decLayer":         [10,20,40],
+    "reconstructionWt": 3,
+    "latentDim":        2,
+    "seqLength":        128,
+    "overlap":          127,
+    "inFeatureDim":     7,
+    "outFeatureDim":    7,
+
+    "batchSize":        64,
+    "nEpoch":           2,
+    "dir":              "ckpt/123/",
+    "component":        "reactor",
+    "case":             2
 }
 
 }
