@@ -336,6 +336,31 @@ class PreProcessData(object):
         print(allMofTable)
         for idx in self.criticalMOF:
             print(idx)
+    
+    # ===================================
+    # -----------------------------------
+    def fillNaNAndRemoveNoiseSpikes(self,signal,threshold=100):
+
+        # Check for NaN values
+        nan_positions = signal[signal.isna()].index
+
+        # Print positions of NaN values
+        if not nan_positions.empty:
+            print("NaN values found at positions:", list(nan_positions))
+        else:
+            print("No NaN values found in the signal.")    
+
+        signal              = signal.interpolate(method='linear')
+        zScores             = (signal - signal.mean()) / signal.std()
+        outliers            = signal[np.abs(zScores) > threshold]
+        print(signal)
+        print(signal.mean())
+        print(signal.std())
+        # signal[outliers]    = np.nan  # Set outliers to NaN
+        # signal              = signal.interpolate()  # Interpolate to fill NaNs
+
+
+        return signal
 
     # ===================================
     # This function is used to calculate
@@ -362,15 +387,23 @@ class PreProcessData(object):
     
 
         #-----------------------------
-        # Add efficiency performance:
-        # - Calculates efficiency by dividing performance in tons by power in kW.
+        # Efficiency performance: eficienciaRendimiento
+        # Performance in tons by power in kW.
         #-----------------------------
         step        = 1
         padSize     = window_size- step         # Step by 1 element so overlap is 29
         print(padSize)
         epsilon     = 1e-10  # A small number to prevent division by zero
+        
+        eficienciaRendimiento = df['rendimiento(ton)'] / (df['Potencia(kW)'] + epsilon)                                  
+        df['Eficiencia_Rendimiento'] = self.fillNaNAndRemoveNoiseSpikes(eficienciaRendimiento,threshold=100)
 
-        df['Eficiencia_Rendimiento'] = df['rendimiento(ton)'] / (df['Potencia(kW)']+ epsilon)
+
+        print(df['Eficiencia_Rendimiento'])
+        print(df['rendimiento(ton)'])
+        print(df['Potencia(kW)'])
+        
+
 
         #-----------------------------
         # Calculate Z-Scores for internal vibrations:
@@ -414,7 +447,12 @@ class PreProcessData(object):
         # Calculate the cooling efficiency:
         # - Divides the average temperature difference by the average power to assess the cooling system's efficiency.
         #-----------------------------
-        df['Eficiencia_Enfriamiento'] = df['Temperatura_Diferencia_Media'] / (df['Potencia_Media'] + epsilon)
+
+        df['Eficiencia_Enfriamiento'] = df['Temperatura_Diferencia_Media'] / (df['Potencia_Media'] + epsilon )
+
+        # print(df['Eficiencia_Enfriamiento'])
+        # print(df['Temperatura_Diferencia_Media'])
+        # print(df['Potencia_Media'])
 
         # print(df[self.addEfficiencyCr1])
         #-----------------------------
@@ -741,8 +779,8 @@ class PreProcessData(object):
     
 if __name__ == '__main__':
 
-    generateH5file  = True
-    summaryFile     = True
+    generateH5file  = False
+    summaryFile     = False
 
     plot                = MatPlot()
     preData             = PreProcessData()
@@ -765,90 +803,63 @@ if __name__ == '__main__':
 
 
     addedVariablesData  = preData.additionEfficiencyVar(rawDataH5)
-    normalizedData      = preData.normalizeBuilinFunction(addedVariablesData,  scaler = MinMaxScaler())
-    trajectory          = preData.getTrajectory(normalizedData)
 
+    plot.draw1D(addedVariablesData["Eficiencia_Rendimiento"])
 
-    dimReductionModels  =    umap.UMAP( n_components = 2,
-                                        n_neighbors  = 15, 
-                                        random_state = 40,
-                                        min_dist     = 0.5
-                                        )
-    
-    # --------------------------------
-    # Get the label and the trajectory
-    # --------------------------------
-    theTraject          = trajectory["Falla sistema de hidroset-poste"][0]           # Get the trajectory
+    # print(addedVariablesData["Eficiencia_Enfriamiento"])
 
-    
-    lengthData          = len(theTraject)
-    # if lengthData >= 1440:
-    #     sizeEachState   = 1440
-    # else:
-    #     sizeEachState   = 120
-    sizeEachState       = 900 # 15 hours = 900min, or 60 min
-    labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
-    num_full_groups     = theTraject.shape[0] // sizeEachState
-    remainder           = theTraject.shape[0] % sizeEachState
-    if (remainder) > 0:
-        labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
-    print(labels)
+    # print(addedVariablesData["Temperatura_Diferencia_Media"])
 
-    efficiencyTraject   = theTraject[preData.efficiencyCr1 + preData.addEfficiencyCr1 ]
-
-    print(efficiencyTraject)
-
-    embedding           = dimReductionModels.fit_transform(efficiencyTraject)
-                                                
-    
-    # sizeEachState       = 60
-    # lengthData          = len(theTraject)
-    # labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
-    # num_full_groups     = theTraject.shape[0] // sizeEachState
-    # remainder           = theTraject.shape[0] % sizeEachState
-    # if (remainder) > 0:
-    #     labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
-
-    plt.figure(figsize=(10, 6))
-    plt.scatter(embedding[:, 0], embedding[:, 1], c= labels, cmap='Spectral', s=10)
-    plt.gca().set_aspect('equal', 'datalim')
-    plt.colorbar(boundaries=np.arange(4)-0.5).set_ticks(np.arange(3))
-    plt.title('Supervised UMAP projection of the Iris dataset', fontsize=24)
-    plt.show()
-
-
-    # fig = plt.figure(figsize=(10, 6))
-    # ax = fig.add_subplot(111, projection='3d')
-    # sc = ax.scatter(embedding[:, 0], embedding[:, 1], embedding[:, 2], c=labels, cmap='Spectral', s=50)
-    # plt.colorbar(sc, label='Class Label')
-    # ax.set_title('3D UMAP Projection', fontsize=24)
-    # ax.set_xlabel('Component 1')
-    # ax.set_ylabel('Component 2')
-    # ax.set_zlabel('Component 3')
-    # plt.show()
+    # print(addedVariablesData["Potencia_Media"])
 
 
 
-
-    # htData, _       = preData.getHealthyState(addedVariables)
-    # scaler          = MinMaxScaler()
-
-    # scaledData      = preData.normalizeBuilinFunction(  data   = addedVariables, 
-    #                                                     scaler = scaler) 
-    # scaledHealthy   = preData.normalizeBuilinFunction(data   = htData, 
-    #                                                  scaler = scaler)
-    
-
-    # scaledEfficiency = scaledData[preData.efficiencyCr1 + preData.addEfficiencyCr1]
-    # dimReductionModels  =    umap.UMAP( n_components = 2,
-    #                                             n_neighbors  = 15, 
-    #                                             random_state = 40)
-    
+    if 0:
+        normalizedData      = preData.normalizeBuilinFunction(addedVariablesData,  scaler = MinMaxScaler())
+        trajectory          = preData.getTrajectory(normalizedData)
 
 
-    # dimReductionModels.fit(scaledEfficiency,scaledData)
-    # print(scaledData)
+        dimReductionModels  =    umap.UMAP( n_components = 2,
+                                            n_neighbors  = 15, 
+                                            random_state = 40,
+                                            min_dist     = 0.5
+                                            )
+        
+        # --------------------------------
+        # Get the label and the trajectory
+        # --------------------------------
+        theTraject          = trajectory["Falla sistema de hidroset-poste"][0]           # Get the trajectory
 
-    # print(scaledHealthy)
+        
+        lengthData          = len(theTraject)
+        # if lengthData >= 1440:
+        #     sizeEachState   = 1440
+        # else:
+        #     sizeEachState   = 120
+        sizeEachState       = 900 # 15 hours = 900min, or 60 min
+        labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
+        num_full_groups     = theTraject.shape[0] // sizeEachState
+        remainder           = theTraject.shape[0] % sizeEachState
+        if (remainder) > 0:
+            labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
+        print(labels)
+
+        efficiencyTraject   = theTraject[preData.efficiencyCr1 + preData.addEfficiencyCr1 ]
+
+        print(efficiencyTraject)
+
+        embedding           = dimReductionModels.fit_transform(efficiencyTraject)
+                                                    
+        
+
+        plt.figure(figsize=(10, 6))
+        plt.scatter(embedding[:, 0], embedding[:, 1], c= labels, cmap='Spectral', s=10)
+        plt.gca().set_aspect('equal', 'datalim')
+        plt.colorbar(boundaries=np.arange(4)-0.5).set_ticks(np.arange(3))
+        plt.title('Supervised UMAP projection of the Iris dataset', fontsize=24)
+        plt.show()
+
+
+
 
 
