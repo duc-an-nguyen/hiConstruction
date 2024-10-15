@@ -178,36 +178,36 @@ class vaeTKAN(Model):
     #======================================
     # Save checkpoint
     #--------------------------------------
-    # def save_weights(self, model_dir, file_pref): 
-    #     encoder_wts = self.encoder.get_weights()
-    #     decoder_wts = self.decoder.get_weights()
-    #     joblib.dump(encoder_wts, os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
-    #     joblib.dump(decoder_wts, os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
+    def save_weights(self, model_dir, file_pref): 
+        encoder_wts = self.encoder.get_weights()
+        decoder_wts = self.decoder.get_weights()
+        joblib.dump(encoder_wts, os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
+        joblib.dump(decoder_wts, os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
     
-    # def save(self, model_dir, file_pref): 
-    #     self.save_weights(model_dir, file_pref)
-    #     dict_params = {
-    #         'seq_len': self.seq_len,
-    #         'feat_dim': self.feat_dim,
-    #         'latent_dim': self.latent_dim,
-    #         'reconstruction_wt': self.reconstruction_wt,
-    #     }
-    #     params_file = os.path.join(model_dir, f'{file_pref}parameters.pkl') 
-    #     joblib.dump(dict_params, params_file)
+    def save(self, model_dir, file_pref): 
+        self.save_weights(model_dir, file_pref)
+        dict_params = {
+            'seq_len': self.seq_len,
+            'feat_dim': self.feat_dim,
+            'latent_dim': self.latent_dim,
+            'reconstruction_wt': self.reconstruction_wt,
+        }
+        params_file = os.path.join(model_dir, f'{file_pref}parameters.pkl') 
+        joblib.dump(dict_params, params_file)
     
 
     
-    # def load_weights(self, model_dir, file_pref):
-    #     encoder_wts = joblib.load(os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
-    #     decoder_wts = joblib.load(os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
+    def load_weights(self, model_dir, file_pref):
+        encoder_wts = joblib.load(os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
+        decoder_wts = joblib.load(os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
 
-    #     print(len(decoder_wts))
-    #     for value in decoder_wts:
-    #         print(value.shape)
-    #     # print(encoder_wts)
+        print(len(decoder_wts))
+        for value in decoder_wts:
+            print(value.shape)
+        # print(encoder_wts)
 
-    #     # self.encoder.set_weights(encoder_wts)
-    #     # self.decoder.set_weights(decoder_wts)
+        # self.encoder.set_weights(encoder_wts)
+        # self.decoder.set_weights(decoder_wts)
 
 if __name__ == '__main__':
     model = vaeTKAN()

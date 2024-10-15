@@ -4,7 +4,7 @@ import random
 from utility.logger             import aiLogger
 from prettytable                import PrettyTable
 from sklearn.preprocessing      import StandardScaler, MinMaxScaler
-import umap
+# import umap
 from utility.matpilotDraw       import MatPlot
 import matplotlib.pyplot        as plt
 
@@ -226,7 +226,35 @@ class PreProcessData(object):
         aiLogger.info("Finish loading data from files ...")
         # print(self.crusher1.columns)
         return self.crusher1
+    
 
+    # ===================================
+    # This function is used to convert
+    # time from ns to hours for caculation
+    # -----------------------------------
+    def addFloatTime(self,data):
+        df              = pd.DataFrame(data)
+        reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
+        data['tiempo']  = pd.to_datetime(df['tiempo'])
+        df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
+        return df['hours']
+    
+    # def addFloatTime(data):
+    #     # Ensure 'tiempo' is datetime64
+    #     data['tiempo'] = pd.to_datetime(data['tiempo'])
+
+    #     # Reference time is the first row in the "tiempo" column, ensuring it's a Timestamp
+    #     reference_time = pd.to_datetime(data['tiempo'].iloc[0])
+    #     # Ensure 'tiempo' is datetime64
+    #     data['tiempo'] = pd.to_datetime(data['tiempo'])
+
+    #     # Reference time is the first row in the "tiempo" column
+    #     reference_time = pd.to_datetime(data['tiempo'].iloc[0])
+
+    #     # Calculate the difference in hours from the reference time
+    #     data['hours'] = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
+
+    #     return data['hours']
     # ===================================
     # This func is used to remove some 
     # redundant mode of failure inside the
@@ -819,45 +847,45 @@ if __name__ == '__main__':
         trajectory          = preData.getTrajectory(normalizedData)
 
 
-        dimReductionModels  =    umap.UMAP( n_components = 2,
-                                            n_neighbors  = 15, 
-                                            random_state = 40,
-                                            min_dist     = 0.5
-                                            )
+        # dimReductionModels  =    umap.UMAP( n_components = 2,
+        #                                     n_neighbors  = 15, 
+        #                                     random_state = 40,
+        #                                     min_dist     = 0.5
+        #                                     )
         
-        # --------------------------------
-        # Get the label and the trajectory
-        # --------------------------------
-        theTraject          = trajectory["Falla sistema de hidroset-poste"][0]           # Get the trajectory
+        # # --------------------------------
+        # # Get the label and the trajectory
+        # # --------------------------------
+        # theTraject          = trajectory["Falla sistema de hidroset-poste"][0]           # Get the trajectory
 
         
-        lengthData          = len(theTraject)
-        # if lengthData >= 1440:
-        #     sizeEachState   = 1440
-        # else:
-        #     sizeEachState   = 120
-        sizeEachState       = 900 # 15 hours = 900min, or 60 min
-        labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
-        num_full_groups     = theTraject.shape[0] // sizeEachState
-        remainder           = theTraject.shape[0] % sizeEachState
-        if (remainder) > 0:
-            labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
-        print(labels)
+        # lengthData          = len(theTraject)
+        # # if lengthData >= 1440:
+        # #     sizeEachState   = 1440
+        # # else:
+        # #     sizeEachState   = 120
+        # sizeEachState       = 900 # 15 hours = 900min, or 60 min
+        # labels              = np.repeat(np.arange(1, (theTraject.shape[0] // sizeEachState) + 1), sizeEachState)
+        # num_full_groups     = theTraject.shape[0] // sizeEachState
+        # remainder           = theTraject.shape[0] % sizeEachState
+        # if (remainder) > 0:
+        #     labels = np.concatenate([labels, np.full(remainder, num_full_groups + 1)])
+        # print(labels)
 
-        efficiencyTraject   = theTraject[preData.efficiencyCr1 + preData.addEfficiencyCr1 ]
+        # efficiencyTraject   = theTraject[preData.efficiencyCr1 + preData.addEfficiencyCr1 ]
 
-        print(efficiencyTraject)
+        # print(efficiencyTraject)
 
-        embedding           = dimReductionModels.fit_transform(efficiencyTraject)
+        # embedding           = dimReductionModels.fit_transform(efficiencyTraject)
                                                     
         
 
-        plt.figure(figsize=(10, 6))
-        plt.scatter(embedding[:, 0], embedding[:, 1], c= labels, cmap='Spectral', s=10)
-        plt.gca().set_aspect('equal', 'datalim')
-        plt.colorbar(boundaries=np.arange(4)-0.5).set_ticks(np.arange(3))
-        plt.title('Supervised UMAP projection of the Iris dataset', fontsize=24)
-        plt.show()
+        # plt.figure(figsize=(10, 6))
+        # plt.scatter(embedding[:, 0], embedding[:, 1], c= labels, cmap='Spectral', s=10)
+        # plt.gca().set_aspect('equal', 'datalim')
+        # plt.colorbar(boundaries=np.arange(4)-0.5).set_ticks(np.arange(3))
+        # plt.title('Supervised UMAP projection of the Iris dataset', fontsize=24)
+        # plt.show()
 
 
 
