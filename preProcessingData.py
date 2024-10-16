@@ -583,6 +583,30 @@ class PreProcessData(object):
 
         # print(trajectoryList)
         return trajectoryList
+    
+    # ===================================
+    # This function is used to 
+    # get the healthy state of machine
+    # -----------------------------------
+    def splitTrainValTraject(self,effTrajectories, maniTrajectories,cycleTrajectories):
+        valEffData      = []
+        valManiData     = []
+        valCycleData    = []
+        trainEff        = []
+        trainMani       = []
+        trainCycle      = []
+        for key,value in effTrajectories.items():
+            if len(value) >= 2:
+                valEffData      = valEffData    + effTrajectories[key][-1:]
+                valManiData     = valManiData   + maniTrajectories[key][-1:]
+                valCycleData    = valCycleData  + cycleTrajectories[key][-1:]
+                trainEff        = trainEff      + effTrajectories[key][:-1]
+                trainMani       = trainMani     + maniTrajectories[key][:-1]
+                trainCycle      = trainCycle    + cycleTrajectories[key][:-1]
+
+                
+
+        return  trainEff, trainMani, trainCycle, valEffData, valManiData, valCycleData
 
 
     def cleanData(self, data, windowSize = 239):
@@ -660,11 +684,10 @@ class PreProcessData(object):
     # -----------------------------------
     def splitAllDataIntoSequences(  self,
                                     data        = None,
-                                    seqLength   = 128,
-                                    overlap     = 127):
+                                    seqLength   = 1024,
+                                    overlap     = 1023):
         aiLogger.info("Spliting data into sequences now ...")
 
-        
         allSeq   = []
         allLabel = []
          
