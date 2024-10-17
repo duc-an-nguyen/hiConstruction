@@ -69,14 +69,20 @@ class PreProcessData(object):
                                         'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
                                         'Motor_Fase3(V)',                   ]
         
+        # self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
+        #                                 'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
+        #                                 'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',
+        #                                 'posicion_poste(%)']
         self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
                                         'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
-                                        'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',]
+                                        'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',
+                                        ]
         
         self.beauManipulatedCr1 = [     'corriente(A)',                     'presion_estanque_aire(bar)', 
                                         'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 
                                         'Lubricación_entrada_sup(m3/h)',    'Lubricación_entrada_inf(m3/h)', 
-                                        ]
+                                        ]  
+      
         self.beauEfficiencyCr1  = self.efficiencyCr1
     
         self.addEfficiencyCr1 = [       'Eficiencia_Rendimiento',           'Z_Score_Int',                  'Z_Score_Ext',                              
@@ -682,8 +688,8 @@ class PreProcessData(object):
     # -----------------------------------
     def splitAllDataIntoSequences(  self,
                                     data        = None,
-                                    seqLength   = 512,
-                                    overlap     = 511):
+                                    seqLength   = 256,
+                                    overlap     = 255):
         aiLogger.info("Spliting data into sequences now ...")
 
         allSeq   = []
