@@ -73,6 +73,10 @@ class PreProcessData(object):
         #                                 'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
         #                                 'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',
         #                                 'posicion_poste(%)']
+        self.addEfficiencyCr1 = [       'Eficiencia_Rendimiento',           'Z_Score_Int',                  'Z_Score_Ext',                              
+                                        'Ratio_Flujo_Aceite',               'Rendimiento_por_Revolucion',   'Temperatura_Diferencia_Media',
+                                        'Potencia_Media',                   'Eficiencia_Enfriamiento']
+        
         self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
                                         'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
                                         'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',
@@ -85,11 +89,38 @@ class PreProcessData(object):
       
         self.beauEfficiencyCr1  = self.efficiencyCr1
     
-        self.addEfficiencyCr1 = [       'Eficiencia_Rendimiento',           'Z_Score_Int',                  'Z_Score_Ext',                              
-                                        'Ratio_Flujo_Aceite',               'Rendimiento_por_Revolucion',   'Temperatura_Diferencia_Media',
-                                        'Potencia_Media',                   'Eficiencia_Enfriamiento']
-        
 
+        
+        self.manipulated_cr1=[
+            'corriente(A)',
+            'nivel_tolva_compensacion(%)',
+            'Lubricación_principal(A)',
+            'Motor_Fase1(A)',
+            'Motor_Fase3(A)',
+            'Motor_Fase1(V)',
+            'Motor_Fase2(V)',
+            'Discrepancia_Corriente_Motor',
+            'Discrepancia_Voltaje_Motor',
+            'Sistema Lubricación(A)'
+            ]
+
+
+        self.efficiency_cr1 = [
+                                'posicion_poste(%)',
+                                'Piñón_ext(°C)',
+                                'Piñón_int(°C)',
+                                'Lubricación_entrada_inf(psi)',    
+                                'Lubricación_entrada_sup(psi)',
+                                'Lubricación_respaldo(psi)',
+                                'presion_estanque_aire(bar)',
+                                'Lubricación_depósito(%)',
+                                'Eficiencia_Rendimiento',
+                                'Vibracion_piñon_int_norm',  
+                                'Vibracion_piñon_ext_norm',
+                                'Discrepancia_Corriente_Motor',
+                                'Discrepancia_Voltaje_Motor',
+                                'Discrepancia_temperatura_lubricacion'
+                                ]
         # --------------------------
         # CRUSHER 2
         # --------------------------                                                 
@@ -500,7 +531,88 @@ class PreProcessData(object):
         # print(df[self.addEfficiencyCr1])
         return df
         
+    def addition_var(self, df, window_size=60, use_global_mean=True):
+        """
+        # adding new feature columns that assess various aspects of operational efficiency and stability.
 
+        Parameters:
+            - df (DataFrame): The input DataFrame that contains operational data.
+            - window_size (int): The size of the rolling window used for calculating moving averages. This affects how data smoothing is applied, particularly for new features that are based on rolling computations.
+            - use_global_mean (bool): A flag to determine whether to fill NaN values with the global mean of the respective columns. This can be helpful in maintaining data integrity when initial rows lack enough data due to the rolling window.
+
+        The function adds the following features to the DataFrame:
+            - Efficiency performance, based on the ratio of performance (tons) to power (kW).
+            - Z-scores for internal and external vibrations to assess the stability and anomaly in vibrations.
+            - Performance per revolution, using a rolling average to smooth the measurement over specified window sizes.
+            - Average power, smoothed with a rolling window.
+            - Standard deviation of internal and external vibrations.
+            - Discrepancy of current between motor phases.
+            - Standard deviation of air tank pressure.
+            - Optionally fills NaN values with the global mean across columns if specified.
+        """
+
+        epsilon = 1e-10  # A small number to prevent division by zero
+        df = self.crusher1
+
+        # The current variables of the lubrication system are unified
+        df['Sistema Lubricación(A)'] = df['Lubricación_respaldo(A)']
+        df.loc[df['Lubricación_principal(A)']!=0, 'Sistema Lubricación(A)'] = df['Lubricación_principal(A)']
+
+        # Calculate the total performance in the rolling window
+        df['Total_Rendimiento'] = df['rendimiento(ton)'].rolling(window=window_size, min_periods=1).sum()
+        
+        # Calculate the energy in the rolling window
+        df['Energía_Total'] = df['Potencia(kW)'].rolling(window=window_size, min_periods=1).sum()
+        
+        # Calculate the efficiency performance
+        df['Eficiencia_Rendimiento'] = df['Total_Rendimiento'] / (df['Energía_Total'] + epsilon)
+        df.loc[df['Eficiencia_Rendimiento'] > 30, 'Eficiencia_Rendimiento'] = 30 # upper threshold
+        df.loc[df['Eficiencia_Rendimiento'] < 0,  'Eficiencia_Rendimiento'] = 0  # lower threshold
+
+        # Normalizes internal and external vibrations of the pinion relative to their mean and standard deviation
+        df['Vibracion_piñon_int_norm'] = (df['Piñón_int(mm/s)'] - df['Piñón_int(mm/s)'].mean()) / (df['Piñón_int(mm/s)'].std() + epsilon)
+        df['Vibracion_piñon_ext_norm'] = (df['Piñón_ext(mm/s)'] - df['Piñón_ext(mm/s)'].mean()) / (df['Piñón_ext(mm/s)'].std() + epsilon)
+
+        # Calculate the average power using a sliding window: Smooths the consumed power using a moving average.
+        df['Potencia_Media'] = df['Potencia(kW)'].rolling(window=window_size, min_periods=1).mean()
+
+        # Calculate the standard deviation of internal and external vibrations
+        df['Desviacion_Vibracion_Int'] = df['Piñón_int(mm/s)'].rolling(window=window_size, min_periods=1).std()
+        df['Desviacion_Vibracion_Ext'] = df['Piñón_ext(mm/s)'].rolling(window=window_size, min_periods=1).std()
+
+        # Calculate the discrepancy of current and voltage between motor phases
+        df['Discrepancia_Corriente_Motor'] = df[['Motor_Fase1(A)', 'Motor_Fase2(A)', 'Motor_Fase3(A)']].std(axis=1).rolling(window=window_size, min_periods=1).mean()
+        df['Discrepancia_Voltaje_Motor']   = df[['Motor_Fase1(V)', 'Motor_Fase2(V)']].std(axis=1).rolling(window=window_size, min_periods=1).mean()
+
+        # Calculate the standard deviation of air tank pressure
+        df['Desviacion_Presion_Aire'] = df['presion_estanque_aire(bar)'].rolling(window=window_size, min_periods=1).std()
+
+        # Variables Diego
+        # Discrepancy between the temperature variables of the lubrication system
+        df['Discrepancia_temperatura_lubricacion'] = df[['Lubricación_retorno(°C)','Lubricación_depósito(°C)','Lubricación_entrada(°C)']].std(axis=1).rolling(window=window_size, min_periods=1).mean()   
+        
+        # Discrepancy between the flow of the lubrication system
+        df['Discrepancia_flujo_lubricacion'] = df[['Lubricación_entrada_sup(m3/h)', 'Lubricación_entrada_inf(m3/h)']].std(axis=1).rolling(window=window_size, min_periods=1).mean()
+
+        self.new_efficiency_cr1 = ['Eficiencia_Rendimiento',    'Vibracion_piñon_int_norm',  'Vibracion_piñon_ext_norm', 
+                                   'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion',   
+                                    #'Potencia_Media',          'Desviacion_Presion_Aire',   'Discrepancia_flujo_lubricacion'
+                                    ]
+        
+        # New manipulable variables
+        self.new_manipulable_cr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
+        self.variables_used = self.manipulated_cr1+self.new_manipulable_cr1+self.efficiency_cr1+self.new_efficiency_cr1
+
+        #-----------------------------
+        # Use the global mean to fill NaN if specified to use the global mean.
+        #-----------------------------
+        if use_global_mean:
+            try:
+                numeric_cols = df.select_dtypes(include=[np.number]).columns
+                df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+            except Exception as e:
+                print(f"Error filling NaN values: {e}")
+        return df
     # ===================================
     # This function is used to print the 
     # manipulated and efficiency variable
@@ -614,12 +726,14 @@ class PreProcessData(object):
 
 
     def cleanData(self, data, windowSize = 239):
-        output     = data.copy()
-        columnName = data.columns
-        for cl in columnName:
-            output[cl] = self.getMovingAverage(data[cl], windowSize=windowSize)
         
-        return output
+        data[self.efficiency_cr1 + self.manipulated_cr1].interpolate(method='linear')
+        # output     = data.copy()
+        # columnName = data.columns
+        # for cl in columnName:
+        #     output[cl] = self.getMovingAverage(data[cl], windowSize=windowSize)
+        
+        return data
     
     def getMovingAverage(self,values, windowSize = 119):
         
@@ -688,8 +802,8 @@ class PreProcessData(object):
     # -----------------------------------
     def splitAllDataIntoSequences(  self,
                                     data        = None,
-                                    seqLength   = 256,
-                                    overlap     = 255):
+                                    seqLength   = 1024,
+                                    overlap     = 1023):
         aiLogger.info("Spliting data into sequences now ...")
 
         allSeq   = []
