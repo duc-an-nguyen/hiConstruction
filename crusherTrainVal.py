@@ -1,5 +1,5 @@
-from tensorflow.keras.optimizers        import Adam
-from tensorflow.keras.callbacks         import EarlyStopping, ReduceLROnPlateau
+from keras.optimizers                   import Adam
+from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
 from preProcessingData                  import PreProcessData
 from utility.config                     import rulVAECNNConfig
 from model.vaeConv1DCustom              import vaeConv1DCustom 
@@ -23,7 +23,7 @@ random.seed(1)
 # This class to train the VAE
 # model with the application
 # ===========================
-class appVAE():
+class CrusherTrainerTester():
     def __init__(self):
         pass
     # ====================
@@ -40,7 +40,7 @@ class appVAE():
         if trainWithManipulatedVar:
             trainVarName = preData.beauManipulatedCr1
         else:
-            trainVarName = preData.beauefficiencyCr1
+            trainVarName = preData.beauEfficiencyCr1
 
         rawData     = preData.loadCriticalData()
         clearnData  = preData.cleanData(rawData[preData.crusher1Value])
@@ -173,12 +173,12 @@ if __name__ == '__main__':
     vaeConfig = config["vae"]
     
     if trainIsTrue:
-        seqTrainXY,seqValXY     = appVAE.dataPreprocessing(trainWithManipulatedVar = False)
-        history,model           = appVAE.trainer(seqTrainXY,seqValXY,vaeConfig)
-        appVAE.saveModelAndProgress(history,model,nameOfModel= "efficiencyReconstruction")
+        seqTrainXY,seqValXY     = CrusherTrainerTester.dataPreprocessing(trainWithManipulatedVar = False)
+        history,model           = CrusherTrainerTester.trainer(seqTrainXY,seqValXY,vaeConfig)
+        CrusherTrainerTester.saveModelAndProgress(history,model,nameOfModel= "efficiencyReconstruction")
 
     else:
-        _,seqData               = appVAE.dataPreprocessing(forTraining = False)
-        result                  = appVAE.predict(seqData,vaeConfig)
+        _,seqData               = CrusherTrainerTester.dataPreprocessing(forTraining = False)
+        result                  = CrusherTrainerTester.predict(seqData,vaeConfig)
 
     
