@@ -1,10 +1,13 @@
+# =============================================
+#                   IMPORT
+# =============================================
 from keras.optimizers                   import Adam
 from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
 from preProcessingData                  import PreProcessData
 from utility.config                     import rulVAECNNConfig
 from model.vaeConv1DCustom              import vaeConv1DCustom 
 from tqdm                               import tqdm
-
+import tensorflow                       as tf
 import numpy                            as np 
 import matplotlib.pyplot                as plt
 
@@ -20,16 +23,47 @@ np.random.seed(1)
 random.seed(1)
 
 # ===========================
-# This class to train the VAE
-# model with the application
+# MODEL WITH CRUSHER
 # ===========================
 class CrusherTrainerTester():
-    def __init__(self):
+    def __init__(self,model = None):
+        self.model                  = model
+        early_stop_loss             = 'loss'
+        self.early_stop_callback    = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=10) 
+        self.reduceLR               = ReduceLROnPlateau(monitor='loss', factor=0.01, patience=10)
+
+
+    def compileModel(self,):
+        model.compile(  optimizer   =   Adam(),
+                        loss        =   'mean_squared_error',
+                        metrics     =   ['mean_absolute_error'])
+
+
+    # ====================
+    # Application trainer
+    # --------------------
+    def train(self,seqTrainXY,seqValXY,vaeConfig):
+        history = self.model.fit(   x           =   seqTrainXY[0],
+                                    y           =   seqTrainXY[1],
+                                    batch_size  =   vaeConfig["batchSize"],
+                                    epochs      =   vaeConfig["nEpoch"],
+                                    shuffle     =   False,
+                                    callbacks   =   [self.early_stop_callback, self.reduceLR],
+                                    verbose     =   1,
+                                    validation_data = (seqValXY[0],seqValXY[1])               
+                                )
+    
+        return history,model
+    
+    def evaluate(self):
         pass
+
+
+
+
     # ====================
     # Preprocessing data
     # --------------------
-    @staticmethod
     def dataPreprocessing(forTraining = True, trainWithManipulatedVar = True):
         
         # ------------------------
@@ -67,32 +101,7 @@ class CrusherTrainerTester():
 
         return seqTrainXY,seqValXY
     
-    # ====================
-    # Application trainer
-    # --------------------
-    @staticmethod
-    def trainer(seqTrainXY,seqValXY,vaeConfig):
-        model                   =   vaeConv1DCustom(vaeConfig)
-        model.compile(optimizer =   Adam(),
-                    loss        =   'mean_squared_error',
-                    metrics     =   ['mean_absolute_error'])
-
-        early_stop_loss     = 'loss'
-        early_stop_callback = EarlyStopping(monitor=early_stop_loss, min_delta = 1e-1, patience=10) 
-        reduceLR            = ReduceLROnPlateau(monitor='loss', factor=0.01, patience=10)
-
-
-        history = model.fit(    x           =   seqTrainXY[0],
-                                y           =   seqTrainXY[1],
-                                batch_size  =   vaeConfig["batchSize"],
-                                epochs      =   vaeConfig["nEpoch"],
-                                shuffle     =   False,
-                                callbacks   =   [early_stop_callback, reduceLR],
-                                verbose     =   1,
-                                validation_data = (seqValXY[0],seqValXY[1])               
-                            )
     
-        return history,model
 
     # ====================    
     # Save model and image 
@@ -157,13 +166,40 @@ class CrusherTrainerTester():
 
         return lossResults,latentResults
     
-
-
-
 # ============================
 #       MAIN FUNCTION
 # ============================
 if __name__ == '__main__':
+    # ---------------------------
+    # Set debug level and 
+    # ---------------------------
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # or any {'0', '1', '2'}
+    warnings.filterwarnings('ignore') 
+
+    np.random.seed(1)
+    random.seed(1)
+    tf.random.set_seed(1)
+
+    # ----------------
+    # Config
+    # ----------------
+    with open('model/modelConfig.json', 'r') as configFile:
+        config = json.load(configFile)
+    vaeConfig   = config["vae"]
+   
+    preData     = PreProcessData(config = vaeConfig)                    # Preprocessing data
+    model       = vaeConv1DCustom(vaeConfig)                            # Model
+    trainer     = CrusherTrainerTester(model = model)                   # Trainer
+    trainer.compile_model()
+    history     = trainer.train(    epochs          = 10, 
+                                    batch_size      = 32,
+                                    preprocessor    = preData)
+    
+
+
+
+
     trainIsTrue = True
     # ----------------
     # Config

@@ -27,7 +27,7 @@
     "outFeatureDim":    17,
 
     "batchSize":        64,
-    "nEpoch":           10,
+    "nEpoch":           20,
     "dir":              "ckpt/123/",
     "component":        "reactor",
     "case":             2

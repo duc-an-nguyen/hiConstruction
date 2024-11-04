@@ -5,6 +5,7 @@
 
 
 data/
+*.h5
 
 ckpt/
 *.xlsx

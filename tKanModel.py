@@ -184,16 +184,16 @@ class vaeTKAN(Model):
         joblib.dump(encoder_wts, os.path.join(model_dir, f'{file_pref}encoder_wts.h5'))
         joblib.dump(decoder_wts, os.path.join(model_dir, f'{file_pref}decoder_wts.h5'))
     
-    def save(self, model_dir, file_pref): 
-        self.save_weights(model_dir, file_pref)
-        dict_params = {
-            'seq_len': self.seq_len,
-            'feat_dim': self.feat_dim,
-            'latent_dim': self.latent_dim,
-            'reconstruction_wt': self.reconstruction_wt,
-        }
-        params_file = os.path.join(model_dir, f'{file_pref}parameters.pkl') 
-        joblib.dump(dict_params, params_file)
+    # def save(self, model_dir, file_pref): 
+    #     self.save_weights(model_dir, file_pref)
+    #     dict_params = {
+    #         'seq_len': self.seq_len,
+    #         'feat_dim': self.feat_dim,
+    #         'latent_dim': self.latent_dim,
+    #         'reconstruction_wt': self.reconstruction_wt,
+    #     }
+    #     params_file = os.path.join(model_dir, f'{file_pref}parameters.pkl') 
+    #     joblib.dump(dict_params, params_file)
     
 
     
