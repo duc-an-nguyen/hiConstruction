@@ -220,13 +220,14 @@ class PreProcessData(object):
 
         rawData                         = self.loadCriticalData()                           # Load the data from critical file
         addedTimeData                   = self.addFloatTime(rawData)                        # Normalize the all data
-        cleanedData                     = self.cleanData(addedTimeData, headline = self.efficiency_cr1 + self.manipulated_cr1)
-        normalizedAllData               = self.normalizeBuilinFunction(cleanedData, headline = self.efficiency_cr1 + self.manipulated_cr1)  
+        cleanedData                     = self.cleanData(addedTimeData, headline = self.beauEfficiencyCr1 + self.beauManipulatedCr1)
+        normalizedAllData               = self.normalizeBuilinFunction(cleanedData, headline = self.beauEfficiencyCr1 + self.beauManipulatedCr1)  
         
         effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
-                                                                 headline       = [preData.efficiency_cr1,preData.manipulated_cr1,'hours'],
+                                                                 headline       = [self.beauEfficiencyCr1,self.beauManipulatedCr1,'hours'],
                                                                  mergeInAList   = True)
         
+        print(len(effTraj))
         seqEff,seqMani,seqCycle         = self.getTensor(data = [effTraj, maniTraj, cycleTraj], seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
 
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
@@ -733,11 +734,26 @@ class PreProcessData(object):
 
     # ===================================
     # -----------------------------------
-    def getTensor():
+    def getTensor(self, data = [], seqLength = 128, overlap = 127, shuffle = False):
         '''
         data: a list of data with different length
         '''
-        pass
+
+        allSeq = []
+        returnedData = []
+        for curData in data:
+            for idxSubList in curData:
+                seqData = self.splitAndPadSequences(data        = idxSubList, 
+                                                    seqLength   = self.config["seqLength"],
+                                                    overlap     = self.config["seqLength"] -1)
+                
+                allSeq = allSeq + seqData
+            
+            returnedData.append(np.stack(allSeq, axis=0)) 
+
+
+        # data = [effTraj, maniTraj, cycleTraj], seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
+        return returnedData
     # ===================================
     # This function is used to extract the
     # trajectory from the data
@@ -854,9 +870,7 @@ class PreProcessData(object):
     # ===================================
     # This function is used to split data 
     # into sequences.
-    # The input is a list of arrays with 
-    # different length, each arrays should
-    # have the size of (lengthOfData, featureDim)
+    # The input is 
     # reactor: 6sensors
     # sep: 7 sensors
     # strip: 5 sensors
@@ -865,6 +879,12 @@ class PreProcessData(object):
                                     data        = None,
                                     seqLength   = 1024,
                                     overlap     = 1023):
+        
+        '''
+        data: a list of arrays with  different length, each arrays should have the size of (lengthOfData, featureDim)
+        
+        
+        '''
         aiLogger.info("Spliting data into sequences now ...")
 
         allSeq   = []
@@ -895,23 +915,22 @@ class PreProcessData(object):
     # This function is used to split data 
     # into sequences.
     # -----------------------------------
-    def splitAndPadSequences(self,  data, 
-                                    seqLength = 120, 
-                                    overlap   = 119,
-                                    useLabel  = False):
-        sequencesX      = []
-        sequencesY      = []
-        if useLabel:
-            dataX       = data[0]
-            dataY       = data[1]
-        else:
-            dataX = data
-            dataY = data
+    def splitAndPadSequences(self,  data                = None, 
+                                    seqLength           = 128, 
+                                    overlap             = 127,
+                                    getLastElementOnly  = False ):
+        '''
+        data        : a pandas single trajectory with multiple column or 1 column
+        seqLength   : the length of window to split the data
+        overlap     : the overlap between previous window and the next window
+        getLastElementOnly : instead return a data from a window (start to end), return only the last point in each window (like Rul)
+        '''
+        sequences       = []
         step_size       = seqLength - overlap
-        totalLength     = len(dataX)
-        
-        # print("Total length",totalLength)
-
+        totalLength     = len(data)
+        # print("total length",totalLength)
+        # print(data.shape)
+        # print(data)
         for start in range(0, totalLength-overlap, step_size):
             end = start + seqLength
             # ----------------------
@@ -919,26 +938,21 @@ class PreProcessData(object):
             # go beyond the data length, 
             # pad it
             # ----------------------
-            if end > totalLength:                
-                padding  = end - totalLength
-                # sequence = torch.nn.functional.pad(dataX[:, start:], (0, padding), 'constant', 0)
-                aiLogger.error("Check again the for loop!!!")
-           
+            if end > totalLength:      
+                aiLogger.error("The ending loop should be lower totalLength, please check again!!!")
+                # raise Exception("The ending loop should be lower totalLength, please check again!!!")          
+                # padding  = end - totalLength
+                # # sequence = torch.nn.functional.pad(dataX[:, start:], (0, padding), 'constant', 0)
+                # curLalel = dataY[:,-1]
             else:
-                sequenceX = dataX[start:end].to_numpy()           # Get sentense
-                sequenceY = dataY[start:end].to_numpy()           # Get sentense
+                if getLastElementOnly:
+                    sequence = data[end-1]                  # Get the last element in the sequence
+                else:
+                    sequence = data[start:end]              # Get sentense
                 
-            # print("Each sequence size",sequenceX.shape)
-                
-            sequencesX.append(sequenceX)                          # Append all of them into a list
-            sequencesY.append(sequenceY)
-
-
-        # print("The length after merging list",len(sequencesX))
-        # tensorX =   np.stack(sequencesX, axis=0)
-        # tensorY =   np.stack(sequencesY, axis=0)
-           
-        return sequencesX,sequencesY
+            sequences.append(sequence)
+        
+        return sequences
     
     # ===================================
     # This function is used to split data 

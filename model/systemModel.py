@@ -236,7 +236,7 @@ class SystemModel(tf.keras.Model):
         self.config             = config
         
         vae                     = VAEConvInterpretable( seq_len             = config["seqLength"],  
-                                                        feat_dim            = config["featureDim"], 
+                                                        feat_dim            = config["inFeatureDim"], 
                                                         latent_dim          = config["latentDim"], 
                                                         hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                         )
