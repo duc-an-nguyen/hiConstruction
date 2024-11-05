@@ -71,10 +71,6 @@ class PreProcessData(object):
                                         'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
                                         'Motor_Fase3(V)',                   ]
         
-        # self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
-        #                                 'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
-        #                                 'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',
-        #                                 'posicion_poste(%)']
         self.addEfficiencyCr1 = [       'Eficiencia_Rendimiento',           'Z_Score_Int',                  'Z_Score_Ext',                              
                                         'Ratio_Flujo_Aceite',               'Rendimiento_por_Revolucion',   'Temperatura_Diferencia_Media',
                                         'Potencia_Media',                   'Eficiencia_Enfriamiento']
@@ -220,57 +216,27 @@ class PreProcessData(object):
     # ====================================
     # The whole process
     # ------------------------------------
-    def __call__(self,):
+    def getTrainData(self,):
 
-        rawData                         = self.loadCriticalData()                                            # Load the data from critical file
-        addedVariablesData              = self.addition_var(rawData)                                         # Add some additional efficiency variable
-        cleanedData                     = self.cleanData(rawData)
-        normalizedAllData               = self.normalizeBuilinFunction(cleanedData)                          # Normalize the all data
-        # normalizedHealthy,healthyPos    = preData.getHealthyState(normalizedAllData)                          # Load the healthy state
-        effTrajectories                 = self.getTrajectory(normalizedAllData, getValueOnly= True, headline= preData.efficiency_cr1 )         # Extract the trajectory
-        maniTrajectories                = self.getTrajectory(normalizedAllData, getValueOnly= True, headline= preData.manipulated_cr1)         # Extract the trajectory
+        rawData                         = self.loadCriticalData()                           # Load the data from critical file
+        addedTimeData                   = self.addFloatTime(rawData)                        # Normalize the all data
+        cleanedData                     = self.cleanData(addedTimeData, headline = self.efficiency_cr1 + self.manipulated_cr1)
+        normalizedAllData               = self.normalizeBuilinFunction(cleanedData, headline = self.efficiency_cr1 + self.manipulated_cr1)  
+        
+        effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
+                                                                 headline       = [preData.efficiency_cr1,preData.manipulated_cr1,'hours'],
+                                                                 mergeInAList   = True)
+        
+        seqEff,seqMani,seqCycle         = self.getTensor(data = [effTraj, maniTraj, cycleTraj], seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
 
+        # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
 
-        # ---------------------------------
-        # Create the cycles
-        # ---------------------------------
-        hours                           = self.addFloatTime(rawData)
-        cycleTrajectories               = self.getTrajectory(hours)         # Extract the trajectory
+        print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
+        seqCycle = seqCycle[:,:,-1]
+        xTrain = [seqEff, seqMani,seqCycle]
+        yTrain = rul = None
+        return xTrain, yTrain
 
-        # print("----------------------------")
-        # print(effTrajectories)
-
-        trainEff, trainMani,trainCycle, \
-        valEffData, valManiData, valCycleData = self.splitTrainValTraject(effTrajectories, maniTrajectories,cycleTrajectories)
-
-        print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
-        # ---------------------------
-        # All data
-        # --------------------------
-        trainEffNow     = trainEff + valEffData
-        trainManiNow    = trainMani + valManiData
-        trainCycleNow   = trainCycle + valCycleData
-        removedIdx      = []
-
-
-        trainSeqEffData,_     = self.splitAllDataIntoSequences(trainEffNow, seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        trainSeqManiData,_    = self.splitAllDataIntoSequences(trainManiNow, seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        trainSeqCycleData,_   = self.splitAllDataIntoSequences(trainCycleNow, seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        trainSeqCycleData     = np.mean(trainSeqCycleData, axis=1)
-
-        valSeqEffData,_     = self.splitAllDataIntoSequences(valEffData,seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        valSeqManiData,_    = self.splitAllDataIntoSequences(valManiData,seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        valSeqCycleData,_   = self.splitAllDataIntoSequences(valCycleData, seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        valSeqCycleData     = np.mean(valSeqCycleData, axis=1)
-
-        print(f"The size of the train data: {trainSeqEffData.shape} {trainSeqManiData.shape} {trainSeqCycleData.shape}")
-        print(f"The size of the test data: {valSeqEffData.shape} {valSeqManiData.shape} {valSeqCycleData.shape}")
-        print(type(trainSeqCycleData))
-
-        XDIM = trainSeqEffData.shape[2]
-        WDIM = trainSeqManiData.shape[2]
-
-        return
 
 
     # ===================================
@@ -329,24 +295,8 @@ class PreProcessData(object):
         reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
-        return df['hours']
+        return df
     
-    # def addFloatTime(data):
-    #     # Ensure 'tiempo' is datetime64
-    #     data['tiempo'] = pd.to_datetime(data['tiempo'])
-
-    #     # Reference time is the first row in the "tiempo" column, ensuring it's a Timestamp
-    #     reference_time = pd.to_datetime(data['tiempo'].iloc[0])
-    #     # Ensure 'tiempo' is datetime64
-    #     data['tiempo'] = pd.to_datetime(data['tiempo'])
-
-    #     # Reference time is the first row in the "tiempo" column
-    #     reference_time = pd.to_datetime(data['tiempo'].iloc[0])
-
-    #     # Calculate the difference in hours from the reference time
-    #     data['hours'] = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
-
-    #     return data['hours']
     # ===================================
     # This func is used to remove some 
     # redundant mode of failure inside the
@@ -734,6 +684,64 @@ class PreProcessData(object):
         # print(indices)
         return self.healthyData,self.healthyExcellPos
     
+    # ===================================
+    # This function is used to extract
+    # the trajectory in the data with the format
+    # of each trajectory is happened in real life
+    # without following any format
+    # -----------------------------------
+    def extractTrajectory(self,data =  None, headline = [], trajecIdx = None, mergeInAList = False):
+        '''
+        data                    : It is the whole data of a machine per time
+        headline                : It should be a list of headline group which need to extract. For example: [['headline1', 'headline2'], [headline3, 'headline4', 'headline5]]
+        trajecIdx               : It should be a dictionary of mode of failure, include the index of each trajectory
+        extractTrajectPerMof    : if this flag is enabled, the data of output will return the same format as trajectIdx, 
+                                and including the list of data of each trajectory. Otherwise, it will merge all the
+                                trajectories into a list without seperating the trajectory names
+        
+        returnedData            : return a list of trajectory which is the same order of headline
+        '''
+        if trajecIdx is None:
+            trajecIdx = {   "Válvula defectuosa":           [[0,5035], [198148, 198761],[198761,208449]],
+                            "Falta de aceite hidráulico":   [[98574,101638]],
+                            "Lubricación  deficiente":      [[158678,164501-2],[256591,256651]],
+                            "Temperatura fuera de rango":   [[164501-2,168035]],
+                            "Bomba hidráulica con fuga":    [[168033,168856], [284796,294328]],
+                            "Fuga de aceite":               [[168856,169796], [170335, 180620]],
+                            "Falla sistema de hidroset-poste": [[180620,187027], [187027,188517],[188517,188581]],
+                            "Mandibulas o revestimiento suelto": [[225441, 249970], [249970, 250188],[250188, 256591]],
+                            }
+        returnedData = []
+        # -----------------------------
+        # Init the values
+        # -----------------------------
+        for idxHeadline in headline:                    # Run per list of headline
+            if not mergeInAList:
+                trajectoryList = {}
+                for key,values in trajecIdx.items():        # Run per each MOF
+                    trajectoryList[key] = []                # Make the same format as trajecIdx
+                    for idxValue in values:                 # Run per each list of index
+                        trajectoryList[key].append(data[idxValue[0]: idxValue[1]][idxHeadline])
+            else:
+                 trajectoryList = []
+                 for key,values in trajecIdx.items():       # Run per each MOF
+                    for idxValue in values:                 # Run per each list of index
+                        trajectoryList.append(data[idxValue[0]: idxValue[1]][idxHeadline])
+            returnedData.append(trajectoryList)
+        return returnedData
+
+
+    # ===================================
+    # -----------------------------------
+    def getTensor():
+        '''
+        data: a list of data with different length
+        '''
+        pass
+    # ===================================
+    # This function is used to extract the
+    # trajectory from the data
+    # -----------------------------------
     def getTrajectory(self,data, getValueOnly = False, headline = None):
 
         trajectoryIdx = {   "Válvula defectuosa":           [[0,5035], [198148, 198761],[198761,208449]],
@@ -778,17 +786,13 @@ class PreProcessData(object):
                 trainCycle      = trainCycle    + cycleTrajectories[key][:-1]
 
                 
-
         return  trainEff, trainMani, trainCycle, valEffData, valManiData, valCycleData
 
 
-    def cleanData(self, data, windowSize = 239):
+    def cleanData(self, data, headline = None):
         
-        data[self.efficiency_cr1 + self.manipulated_cr1].interpolate(method='linear')
-        # output     = data.copy()
-        # columnName = data.columns
-        # for cl in columnName:
-        #     output[cl] = self.getMovingAverage(data[cl], windowSize=windowSize)
+        data[headline].interpolate(method='linear')
+
         
         return data
     
@@ -839,12 +843,12 @@ class PreProcessData(object):
     # This function is used to normalize
     # with build-in function
     # -----------------------------------
-    def normalizeBuilinFunction(self, data, scaler = MinMaxScaler()):
-        variablesToNormalize                                 = data.select_dtypes('number')
-        scaledData                                           = scaler.fit_transform(variablesToNormalize)
-        self.scaledData                                      = data.copy()
-        self.scaledData.loc[:, variablesToNormalize.columns] = scaledData
-        return self.scaledData
+    def normalizeBuilinFunction(self, data, scaler = MinMaxScaler(), headline = None):
+        handledData             = data[headline]
+        scaledData              = scaler.fit_transform(handledData)
+        # self.scaledData.loc[:, handledData.columns] = scaledData
+        data[headline]          = scaledData
+        return data
     
 
     # ===================================
