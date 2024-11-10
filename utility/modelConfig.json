@@ -1,18 +1,17 @@
 {
-"vae": {
-    "_name":            "Variational autoencoder with 1D CNN - vaeConv1DCustom",
-    "encLayer":         [200,100,50],       
-    "decLayer":         [50,100,200],
-    "hiddenVAESize":    [200,100,50],
-    "reconstructionWt": 3,
-    "latentDim":        2,
-    "seqLength":        60,
-    "overlap":          59,
-    "inFeatureDim":     9,
-    "outFeatureDim":    9,
-
+"system": {
+    "_name":            "SystemHI",
+    "hiddenVAESize":    [128,64,12],
+    "latentDim":        1,
+    "seqLength":        48,
+    "overlap":          47,
+    "efficiencyDim":    14,
+    "manipulationDim":  12,
+    "inFeatureDim":     14,
     "batchSize":        64,
-    "nEpoch":           5000
+    "nEpoch":           50,
+
+    "latentConstrains": true
 },
 
 
@@ -27,7 +26,7 @@
     "inFeatureDim":     17,
     "outFeatureDim":    17,
 
-    "batchSize":        64,
+    "batchSize":        256,
     "nEpoch":           20,
     "dir":              "ckpt/123/",
     "component":        "reactor",

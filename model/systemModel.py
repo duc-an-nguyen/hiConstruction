@@ -12,8 +12,9 @@ from utility.logger                 import aiLogger
 from scipy.stats                    import spearmanr
 import  numpy                       as np
 import  tensorflow                  as tf
+import time
 import  os, warnings, sys
-import  joblib
+import  joblib, random, json
 
 
 # -----------------------
@@ -67,6 +68,7 @@ class SubclassModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 class VAEConvInterpretable(BaseVariationalAutoencoder):    
     def __init__(   self,  
                     hidden_layer_sizes, 
+                    config      = None,
                     **kwargs   ):
         '''
             hidden_layer_sizes  : list of number of filters in convolutional layers in encoder and residual connection of decoder. 
@@ -84,79 +86,97 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         self.encoder            = self.get_encoder()
         self.decoder            = self.get_decoder() 
 
+        self.config             = config
+
+    # ================================
+    # Full AE
+    # --------------------------------
+    def getUnsymetricDecoder(self,kernelSize = 3, stride = 1): 
+        z   = Input(shape=(self.latent_dim,), name="decoder_input")
+        wIn = Input(shape=(self.seq_len,self.config["manipulationDim"]), name="manipulatedVar")
+
+        x = tf.keras.layers.RepeatVector(self.seq_len,name='repeat')(z)
+        x = tf.keras.layers.Concatenate(axis  =-1)([x, wIn])
+
+        for numFilters in reversed(self.hidden_layer_sizes):
+            x = tf.keras.layers.Conv1D(filters      =   numFilters,
+                                       kernel_size  =   kernelSize,
+                                       strides      =   stride,
+                                       activation   =   'relu',
+                                       padding = 'same')(x)
+        
+        reconsData  = tf.keras.layers.Dense(self.config["efficiencyDim"],name='X')(x)   
+    
+        decoder     = tf.keras.models.Model([z, wIn],reconsData)
+        return decoder
+
     # ================================
     # Create module Encoder separately
     # --------------------------------
-    def get_encoder(self):
+    def get_encoder(self, kernelSize = 3, stride = 2):
         # --------------------
         # Input
         # --------------------
         encoder_inputs  = Input(shape   = (self.seq_len, self.feat_dim), 
                                 name    = 'encoder_input')
         x               = encoder_inputs
-
         # --------------------
         # Repeat to create Conv1D
         # --------------------
         for i, num_filters in enumerate(self.hidden_layer_sizes):
             x = Conv1D( filters     = num_filters, 
-                        kernel_size = 3, 
-                        strides     = 2, 
+                        kernel_size = kernelSize, 
+                        strides     = stride, 
                         activation  = 'relu', 
                         padding     = 'same',
                         name        = f'enc_conv_{i}')(x)
-
         sysHILayer = Conv1D(    filters     = 5, 
-                                kernel_size = 3, 
-                                strides     = 2, 
+                                kernel_size = kernelSize, 
+                                strides     = stride, 
                                 activation  = 'relu', 
                                 padding     = 'same',
                                 name        = 'extractedSysHiLayer')(x)
-        # print("------------------------------------------------")
-        # print(sysHILayer.get_shape())
         # --------------------
         # Flat and create latent
         # --------------------
         x                       = Flatten(name='enc_flatten')(x)
         self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
         
-        
         # ----------------------
         # For VAE
         # ----------------------
-        zMean                   = Dense(self.latent_dim, name="zMean")(x)           # Collect mean and logVar of the model
-        zLogVar                 = Dense(self.latent_dim, name="zLogVar")(x)
-        
-        # encoder_output          = Sampling()([zMean, zLogVar])     
         encoder_output          = Dense(self.latent_dim, name="encoder_output")(x)
         self.encoder_output     = encoder_output
-
-        # encoder                 = Model(encoder_inputs, [zMean, zLogVar, encoder_output], name="encoder")
-        encoder                 = Model(encoder_inputs, [zMean, zLogVar, encoder_output, sysHILayer], name="encoder")
+        
+        encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
         return encoder
 
-
-    def get_decoder(self):
+    # =================================
+    # --------------------------------
+    def get_decoder(self, kernelSize = 3, stride = 2):
         decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
 
         x = decoder_inputs
         x = Dense(self.encLastDenseDim, name="dec_dense", activation="relu")(x)
+
+
         x = Reshape(target_shape=(-1, self.hidden_layer_sizes[-1]), name="dec_reshape")(x)
-            
+     
 
         for i, num_filters in enumerate(reversed(self.hidden_layer_sizes[:-1])):
             x = Conv1DTranspose(    filters     = num_filters,
-                                    kernel_size = 3,
-                                    strides     = 2,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
                                     padding     = "same",
                                     activation  = "relu",
                                     name        = f"dec_deconv_{i}",
                                 )(x)
+       
 
         # last de-convolution
         x = Conv1DTranspose(        filters     = self.feat_dim,
-                                    kernel_size = 3,
-                                    strides     = 2,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
                                     padding     = "same",
                                     activation  = "relu",
                                     name        = f"dec_deconv__{i+1}",
@@ -239,22 +259,23 @@ class SystemModel(tf.keras.Model):
                                                         feat_dim            = config["inFeatureDim"], 
                                                         latent_dim          = config["latentDim"], 
                                                         hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
+                                                        config              = config
                                                         )
         
 
-        self.encoder     = vae.get_encoder()
-        self.decoder     = vae.get_decoder()
-
-        self.hiSystemAndRul  = HiSystemAndRul()
+        self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
+        # self.decoder     = vae.get_decoder(kernelSize = 85, stride = 2)
+        self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
+        # self.hiSystemAndRul  = HiSystemAndRul()
 
         # ----------------------------
         # For loss tracker
         # ----------------------------
         self.totalLossTracker               = Mean(name="totalLoss")
-        self.reacConstructionTracker        = Mean( name="cstrReLoss" )
-        self.reacKlLossTracker              = Mean(name="klReLoss")
-        self.reacZLossTracker               = Mean(name = "zReLoss")
-        self.rulLossTracker                 = Mean(name= "rulLoss")
+        self.cr1ConstructionTracker        = Mean( name="cstrReLoss" )
+        # self.reacKlLossTracker              = Mean(name="klReLoss")
+        self.cr1ZLossTracker               = Mean(name = "zReLoss")
+        # self.rulLossTracker                 = Mean(name= "rulLoss")
 
 
         self.bestLoss                       = tf.Variable(float('inf'), trainable=False)
@@ -265,71 +286,29 @@ class SystemModel(tf.keras.Model):
     # ------------------------------------------
     def call(self,input):
 
-        seqEff,seqMani,seqCycle    = input
-        # ------------------------------------
-        # Sensor selection
-        # ------------------------------------
-        selectionMap,compIn          = self.sensorSelection(seqEff)
-        
-        selectedReac    = compIn[:,:,:self.config["featureDim"]]
-        selectedSep     = compIn[:,:,self.config["featureDim"]:self.config["featureDim"]*2]
-        selectedStrip   = compIn[:,:,self.config["featureDim"]*2:self.config["featureDim"]*3]
-
+        seqEff,seqMani     = input
         
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
-        print("Encoder ")
-        zMeanReac,  zLogReac,   zReac,  sysHILayerReac    = self.encoderReac(selectedReac)
-        zMeanSep,   zLogSep,    zSep,   sysHILayerSep     = self.encoderSep(selectedSep)
-        zMeanStrip, zLogStrip,  zStrip, sysHILayerStrip   = self.encoderStrip(selectedStrip)
-
-        print(zReac.shape)
-
-        # print("Latent size",z_mean.shape)
-
-        print("Decoder")
-        reconsReac  = self.decoderReac(zReac)
-        reconsSep   = self.decoderSep(zSep)
-        reconsStrip = self.decoderStrip(zStrip)
-
-        # ------------------------------------
-        # Create RUL and HI System
-        # ------------------------------------
-
-        print("HI and system rul")
-        # hiSystem, predictedRul = self.hiSystemAndRul([zReac,zSep,zStrip])
-        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerReac, sysHILayerSep, sysHILayerStrip,zReac, zSep, zStrip])
-        return [reconsReac,reconsSep,reconsStrip,hiSystem,predictedRul]
+        # print("Encoder ")
+        zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+        # reconsCr1                   = self.decoder(zCr1)
+        return zCr1
 
     # ==========================================
     # Get custom layer
     # ------------------------------------------
-    def getHIandRUL(self, input):
-        seqXTrainEnv,seqXAllSensorTrain,seqTimeTrain  = input
-        # ------------------------------------
-        # Sensor selection
-        # ------------------------------------
-        # allSensor   = Input(shape=(128,47))(seqXAllSensorTrain)
-        selectionMap,compIn = self.sensorSelection(seqXAllSensorTrain)
+    def getHIandRUL(self,input):
+        seqEff,seqMani     = input
         
-        selectedReac    = compIn[:,:,:self.config["featureDim"]]
-        selectedSep     = compIn[:,:,self.config["featureDim"]:self.config["featureDim"]*2]
-        selectedStrip   = compIn[:,:,self.config["featureDim"]*2:self.config["featureDim"]*3]
-
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
-        zMeanReac,  zLogReac,   zReac,  sysHILayerReac    = self.encoderReac(selectedReac)
-        zMeanSep,   zLogSep,    zSep,   sysHILayerSep     = self.encoderSep(selectedSep)
-        zMeanStrip, zLogStrip,  zStrip, sysHILayerStrip   = self.encoderStrip(selectedStrip)
-        
-        # ------------------------------------
-        # Create RUL and HI System
-        # ------------------------------------
-        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerReac, sysHILayerSep, sysHILayerStrip,zReac, zSep, zStrip])
-
-        return [zReac,zSep,zStrip,hiSystem,predictedRul]
+        # print("Encoder ")
+        zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+        # reconsCr1                   = self.decoder(zCr1)
+        return zCr1
 
     # ==========================================
     # Training (replace the default)
@@ -342,14 +321,12 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             seqEff,seqMani,seqCycle     = input[0]
             rulY                        = input[1]
-         
             # ------------------------------------
             # Encoder and Decoder for 3 components
             # ------------------------------------
             # print("Encoder ")
-            zCr1,  sysHILayerCr1      = self.encoderReac(seqEff)
-            reconsReac                = self.decoderReac(zCr1)
-
+            zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+            reconsCr1                   = self.decoder([zCr1, seqMani])
             # ------------------------------------
             # Create RUL and HI System
             # ------------------------------------
@@ -364,26 +341,27 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             # Loss for reconstruction
             # ------------------------------------
-            reconLossReac   = self._get_reconstruction_loss(seqEff, reconsReac)
-
+            # reconLossCr1   = self._get_reconstruction_loss(seqEff, reconsCr1)
+            reconLossCr1    = tf.keras.losses.mae(seqEff,reconsCr1)
+            reconLossCr1    = tf.reduce_mean(reconLossCr1)
             # ------------------------------------
             # Loss for RUL
             # ------------------------------------
             # rulLoss = tf.keras.losses.mse(predictedRul,rulY)
             # rulLoss = tf.reduce_mean(rulLoss)
 
-            # totalLoss = reconLossReac +    rulLoss         
+            totalLoss = reconLossCr1    
                         
             # ------------------------------------
             # Add the constrain to the latent space
             # ------------------------------------
             if self.config["latentConstrains"] :
-                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurve",initCurve=64.8295,kRate=0.044, tMovement = 20)
+                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=1)
+                # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
-              
-
+            
         # --------------------------------
         # Update gradient
         # --------------------------------
@@ -397,10 +375,10 @@ class SystemModel(tf.keras.Model):
         # self.rulLossTracker.update_state(rulLoss)
 
         # Construction loss 
-        self.reacConstructionTracker.update_state(reconLossReac)
+        self.cr1ConstructionTracker.update_state(reconLossCr1)
         
         # Latent loss
-        self.reacZLossTracker.update_state(zReacLoss)
+        self.cr1ZLossTracker.update_state(zReacLoss)
        
         # KL Loss
         # self.reacKlLossTracker.update_state(klLossReac)
@@ -410,8 +388,8 @@ class SystemModel(tf.keras.Model):
         return {
             "totalLoss"             : self.totalLossTracker.result(),
             # "rulLoss"               : self.rulLossTracker.result(),        
-            "cstrReLoss"            : self.reacConstructionTracker.result(),
-            "zReLoss"               : self.reacZLossTracker.result(),
+            "cstrReLoss"            : self.cr1ConstructionTracker.result(),
+            "zReLoss"               : self.cr1ZLossTracker.result(),
         }
 
     # -----------------------------
@@ -485,8 +463,8 @@ class SystemModel(tf.keras.Model):
         # Loss for reconstruction
         # ------------------------------------
 
-        reconLossReac   = tf.keras.losses.mse(reconsReac,   reacSensorY)
-        reconLossReac   = tf.reduce_mean(reconLossReac)
+        reconLossCr1   = tf.keras.losses.mse(reconsReac,   reacSensorY)
+        reconLossCr1   = tf.reduce_mean(reconLossCr1)
         reconLossSep    = tf.keras.losses.mse(reconsSep,    sepSensorY)
         reconLossSep    = tf.reduce_mean(reconLossSep)
         reconLossStrip  = tf.keras.losses.mse(reconsStrip,  stripSensorY)
@@ -498,7 +476,7 @@ class SystemModel(tf.keras.Model):
         rulLoss = tf.reduce_mean(rulLoss)
 
         totalLoss = (sensorReacLoss + sensorSepLoss + sensorStripLoss) +            \
-                    (reconLossReac + reconLossSep + reconLossStrip) +               \
+                    (reconLossCr1 + reconLossSep + reconLossStrip) +               \
                     2*rulLoss 
             
         # --------------------------------
@@ -513,7 +491,7 @@ class SystemModel(tf.keras.Model):
         self.stripSensorTracker.update_state(sensorStripLoss)
 
         # Construction loss 
-        self.reacConstructionTracker.update_state(reconLossReac)
+        self.reacConstructionTracker.update_state(reconLossCr1)
         self.sepConstructionTracker.update_state(reconLossSep)
         self.stripConstructionTracker.update_state(reconLossStrip)
 
@@ -574,31 +552,54 @@ class SystemModel(tf.keras.Model):
             # greater than zero
             # -------------------------
             loss = tf.cond(tf.math.is_finite(std) & (std > 0), lambda: cov / (std), lambda: self.bestLoss)  # Use last loss if std is not finite
-            self.add_udpate(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
+            self.add_update(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
             loss = tf.abs(1/loss)                               # Making positive values and increase
+            return loss
+
+
+            # class C_Constraint(nn.Module):
+            #     def __init__(self, alpha):
+            #         super(C_Constraint, self).__init__()
+            #         self.alpha = alpha
+
+            #     def forward(self, x, t):
+            #         x_mu = torch.mean(x)
+            #         t_mu = torch.mean(t)
+            #         cov = torch.sum((x - x_mu) * (t - t_mu))
+            #         std = torch.sqrt(torch.sum((x - x_mu)**2)) * torch.sqrt(torch.sum((t - t_mu)**2))
+            #         loss = cov / std
+            #         loss = torch.mean(loss)
+
+            #         return x, self.alpha*loss
 
         elif type == "reliability":
-            # A, B, C, BETA, P    = 0.012, 4.95, 0.89, 6.7, 0.5
-            A = tf.constant(0.012, dtype=tf.float32)
-            B = tf.constant(4.95, dtype=tf.float32)
-            C = tf.constant(0.89, dtype=tf.float32)
-            BETA = tf.constant(6.7, dtype=tf.float32)
-            P = tf.constant(0.5, dtype=tf.float32)
+            # A       = 0.012
+            # B       = 4.95
+            # C       = 0.89
+            # BETA    = 6.7
+            # P       = 0.5
 
-            x, t        = inputData
-            exp_part    = tf.pow(-tf.math.log(1 - P), -1 / BETA)
-            HI          = C - tf.pow((t * exp_part) * A, B)
-            # Use tf.where to ensure no negative HI values
-            HI          = tf.where(HI < 0, tf.zeros_like(HI), HI)
-            loss        = tf.reduce_mean(tf.abs(x - HI))    
+            A       = 3.24689126e-04
+            B       = 6.75139693e-01
+            C       = 1.02044605e+00
+            BETA    = 3.5
+            P       = 0.5
 
+            # x, t        = inputData
+            # exp_part    = tf.pow(-tf.math.log(1 - P), -1 / BETA)
+            # HI          = C - tf.pow((t * exp_part) * A, B)
+            # # Use tf.where to ensure no negative HI values
+            # HI          = tf.where(HI < 0, tf.zeros_like(HI), HI)
+            # loss        = tf.reduce_mean(tf.abs(x - HI))    
 
+            z, t    = inputData
+            HI      = C - ((t * (-np.log(1 - P))**(-1/BETA))*A)**B
+            mask    = tf.math.less(HI,0)
+            HI      = tf.where(mask,0.0,HI)
 
-            # x, t                = inputData
-            # HI                  = C - ((t * (-np.log(1 - P))**(-1/BETA))*A)**B
-            # mask                = tf.math.less(HI,0)
-            # HI                  = tf.where(mask,0.0,HI)
-            # loss                = tf.reduce_mean(tf.abs(x-HI))
+            # print(HI.shape, z.shape)
+            
+            loss    = tf.reduce_mean(tf.abs(z-HI))
 
         elif type == "expertCurve":
             x, t    = inputData
@@ -612,14 +613,13 @@ class SystemModel(tf.keras.Model):
     # Save weight of each block
     # --------------------------------
     def save_weights(self, modelDir, type = "subclass"):
-
         encoderReacWts      = self.encoder.get_weights()
         decoderReacWts      = self.decoder.get_weights()
-        hiAndRulWts         = self.hiSystemAndRul.get_weights()
+        # hiAndRulWts         = self.hiSystemAndRul.get_weights()
         
         joblib.dump(encoderReacWts, os.path.join(modelDir, "encoderReacWts.h5"))
         joblib.dump(decoderReacWts, os.path.join(modelDir, "decoderReacWts.h5"))
-        joblib.dump(hiAndRulWts, os.path.join(modelDir, "hiAndRulWts.h5"))
+        # joblib.dump(hiAndRulWts, os.path.join(modelDir, "hiAndRulWts.h5"))
 
 
 
@@ -631,13 +631,11 @@ class SystemModel(tf.keras.Model):
         aiLogger.info(f"Loading the model at the direction: {model_dir}")
         encoderReacWts      = joblib.load(os.path.join(model_dir, "encoderReacWts.h5"))
         decoderReacWts      = joblib.load(os.path.join(model_dir, "decoderReacWts.h5"))
-        hiAndRulWts         = joblib.load(os.path.join(model_dir, "hiAndRulWts.h5"))
-            
+        # hiAndRulWts         = joblib.load(os.path.join(model_dir, "hiAndRulWts.h5"))
       
-        self.encoderReac.set_weights(encoderReacWts)
-        self.decoderReac.set_weights(decoderReacWts)
-        self.hiSystemAndRul.set_weights(hiAndRulWts)
-
+        self.encoder.set_weights(encoderReacWts)
+        self.decoder.set_weights(decoderReacWts)
+        # self.hiSystemAndRul.set_weights(hiAndRulWts)
         aiLogger.info(f"Loaded the model at the direction:{model_dir} successfully!!!")
 
     # --------------------------------
@@ -650,15 +648,37 @@ class SystemModel(tf.keras.Model):
         os.makedirs(model_dir, exist_ok=True)
         self.save_weights(model_dir)
 
+        # print(config)
         # ---------------------
         # Save parameter if possible
-        if config is not None:
-            parameters = {  "seqLength"             : config["seqLength"],
-                            "featureDim"            : config["featureDim"],
-                            "latentDim"             : config["latentDim"],
-                            "hiddenVAESize"         : config["hiddenVAESize"],
-                            }
-            parameterFile = os.path.join(model_dir, "parameters.pkl")
-            joblib.dump(parameters, parameterFile)
+        # if config is not None:
+        #     parameters = {  "seqLength"             : config["seqLength"],
+        #                     "featureDim"            : config["inFeatureDim"],
+        #                     "latentDim"             : config["latentDim"],
+        #                     "hiddenVAESize"         : config["hiddenVAESize"],
+        #                     }
+        #     parameterFile = os.path.join(model_dir, "parameters.pkl")
+        #     joblib.dump(parameters, parameterFile)
         aiLogger.info(f"Saved the model at the direction:{model_dir} successfully!!!")
+
+
+
+# if __name__ == '__main__':
+#     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  
+#     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # or any {'0', '1', '2'}
+#     warnings.filterwarnings('ignore') 
+
+#     np.random.seed(1)
+#     random.seed(1)
+#     tf.random.set_seed(1)
+
+#     # ====================================
+#     # Config
+#     # ------------------------------------
+#     with open('utility/modelConfig.json', 'r') as configFile:
+#         config = json.load(configFile)
+#     myConfig   = config["system"]
+
+#     model       = SystemModel(myConfig)       
+#     model.compile( optimizer   =   Adam())
 

@@ -4,9 +4,13 @@ import random
 from utility.logger             import aiLogger
 from prettytable                import PrettyTable
 from sklearn.preprocessing      import StandardScaler, MinMaxScaler
+from itertools                  import accumulate
+
 # import umap
 from utility.matpilotDraw       import MatPlot
 import matplotlib.pyplot        as plt
+import json
+
 
 class PreProcessData(object):
     def __init__(self,  config = None
@@ -58,67 +62,36 @@ class PreProcessData(object):
                                         'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
                                         'Motor_Fase3(V)',                   ]
         
-        self.manipulatedCr1 =  [    
-                                        'corriente(A)', 
-                                        'velocidad(rpm)',                   'Potencia(kW)', 
-                                        'posicion_poste(%)',                'presion_estanque_aire(bar)',   'Eje_piñón_aceite(%)',          
-                                        
-                                        'Lubricación_principal(psi)',
-                                        'Lubricación_principal(A)',         'Lubricación_respaldo(psi)',    'Lubricación_respaldo(A)', 
-                                        'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 'Lubricación_entrada_sup(psi)',
-                                        'Lubricación_entrada_inf(psi)',     'Lubricación_entrada_sup(m3/h)','Lubricación_entrada_inf(m3/h)', 
-                                        'Lubricación_depósito(%)',          'Motor_Fase1(A)',               'Motor_Fase2(A)', 
-                                        'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
-                                        'Motor_Fase3(V)',                   ]
         
-        self.addEfficiencyCr1 = [       'Eficiencia_Rendimiento',           'Z_Score_Int',                  'Z_Score_Ext',                              
-                                        'Ratio_Flujo_Aceite',               'Rendimiento_por_Revolucion',   'Temperatura_Diferencia_Media',
-                                        'Potencia_Media',                   'Eficiencia_Enfriamiento']
-        
-        self.efficiencyCr1 = [          'nivel_tolva_compensacion(%)',      'rendimiento(ton)',             'Piñón_ext(°C)',          
-                                        'Piñón_int(°C)',                    'Piñón_int(mm/s)',              'Piñón_ext(mm/s)',
-                                        'Lubricación_retorno(°C)',          'Lubricación_depósito(°C)',     'Lubricación_entrada(°C)',
-                                        ]
-        
-        self.beauManipulatedCr1 = [     'corriente(A)',                     'presion_estanque_aire(bar)', 
-                                        'Lubricación_post_filtros(psi)',    'Lubricación_válvula_MPS(psi)', 
-                                        'Lubricación_entrada_sup(m3/h)',    'Lubricación_entrada_inf(m3/h)', 
-                                        ]  
-      
-        self.beauEfficiencyCr1  = self.efficiencyCr1
-    
-
-        
-        self.manipulated_cr1=[
-            'corriente(A)',
-            'nivel_tolva_compensacion(%)',
-            'Lubricación_principal(A)',
-            'Motor_Fase1(A)',
-            'Motor_Fase3(A)',
-            'Motor_Fase1(V)',
-            'Motor_Fase2(V)',
-            'Discrepancia_Corriente_Motor',
-            'Discrepancia_Voltaje_Motor',
-            'Sistema Lubricación(A)'
-            ]
+        # self.addEfficiencyCr1 = ['Eficiencia_Rendimiento',    'Vibracion_piñon_int_norm',  'Vibracion_piñon_ext_norm', 
+        #                         'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion']
+        # self.addedManipulatedCr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
 
 
-        self.efficiency_cr1 = [
-                                'posicion_poste(%)',
-                                'Piñón_ext(°C)',
-                                'Piñón_int(°C)',
-                                'Lubricación_entrada_inf(psi)',    
-                                'Lubricación_entrada_sup(psi)',
-                                'Lubricación_respaldo(psi)',
-                                'presion_estanque_aire(bar)',
-                                'Lubricación_depósito(%)',
-                                'Eficiencia_Rendimiento',
-                                'Vibracion_piñon_int_norm',  
-                                'Vibracion_piñon_ext_norm',
-                                'Discrepancia_Corriente_Motor',
-                                'Discrepancia_Voltaje_Motor',
-                                'Discrepancia_temperatura_lubricacion'
-                                ]
+
+        
+        self.manipulatedCr1=[               'corriente(A)',
+                                            'nivel_tolva_compensacion(%)',
+                                            'Motor_Fase1(A)',
+                                            'Motor_Fase2(A)',
+                                            'Motor_Fase3(A)',
+                                            'Motor_Fase1(V)',
+                                            'Motor_Fase2(V)',
+                                            'Lubricación_principal(A)',
+                                            'Lubricación_respaldo(A)', 
+                                            ]
+
+
+        self.efficiencyCr1 = [              'posicion_poste(%)',
+                                            'Piñón_ext(°C)',
+                                            'Piñón_int(°C)',
+                                            'Lubricación_depósito(%)',
+                                            'Lubricación_entrada_sup(psi)',
+                                            'Lubricación_entrada_inf(psi)',
+                                            'Lubricación_principal(psi)',
+                                            'presion_estanque_aire(bar)'
+                                            ]
+        
         # --------------------------
         # CRUSHER 2
         # --------------------------                                                 
@@ -217,29 +190,125 @@ class PreProcessData(object):
     # The whole process
     # ------------------------------------
     def getTrainData(self,):
-
         rawData                         = self.loadCriticalData()                           # Load the data from critical file
-        addedTimeData                   = self.addFloatTime(rawData)                        # Normalize the all data
-        cleanedData                     = self.cleanData(addedTimeData, headline = self.beauEfficiencyCr1 + self.beauManipulatedCr1)
-        normalizedAllData               = self.normalizeBuilinFunction(cleanedData, headline = self.beauEfficiencyCr1 + self.beauManipulatedCr1)  
+        addedTimeData                   = self.addFloatTime(rawData)                        # Add the time to the data
+        cleanedData                     = self.cleanData(addedTimeData, headline = self.crusher1Value)
+        addedData                       = self.addition_var(cleanedData) 
+        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1)  
         
         effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
-                                                                 headline       = [self.beauEfficiencyCr1,self.beauManipulatedCr1,'hours'],
+                                                                 headline       = [self.efficiencyCr1 + self.addedEfficiencyCr1, self.manipulatedCr1 + self.addedManipulatedCr1,'hours'],
                                                                  mergeInAList   = True)
-        
-        print(len(effTraj))
-        seqEff,seqMani,seqCycle         = self.getTensor(data = [effTraj, maniTraj, cycleTraj], seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
+
+        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, cycleTraj], 
+                                                             seqLength  = self.config['seqLength'], 
+                                                             overlap    = self.config['seqLength']-1,
+                                                             typeInput  = "listOfList")
 
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
 
         print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
-        seqCycle = seqCycle[:,:,-1]
-        xTrain = [seqEff, seqMani,seqCycle]
-        yTrain = rul = None
+
+        # print(seqCycle.shape)
+        seqCycle    = seqCycle[:,-1,:]
+        xTrain      = [seqEff, seqMani,seqCycle]
+        # print(seqCycle.shape)
+        yTrain      = rul = [np.array(777)]
+        return xTrain, yTrain
+    
+
+    def getTrainDataTest(self,):
+        rawData                         = self.loadCriticalData()                           # Load the data from critical file
+        
+        cleanedData                     = self.cleanDataTest(rawData, headline = self.crusher1Value)
+        addedData                       = self.addition_var(cleanedData) 
+        addedTraject                    = self.split_time_series(addedData)
+ 
+        nonRedundantData                = self.remove_redundant_data(df = addedTraject, threshold = 48)
+
+        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline =  self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1)  
+        normalizedAllData               = self.addFloatTime(normalizedAllData)                        # Add the time to the data
+        # effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
+        #                                                          headline       = [self.efficiencyCr1,self.manipulatedCr1,'hours'],
+        #                                                          mergeInAList   = True)
+        effTraj                         = normalizedAllData[self.efficiencyCr1 + self.addedEfficiencyCr1]
+        maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
+        cycleTraj                       = normalizedAllData["rul"]
+        trajectID                       = normalizedAllData["trajectory"]
+        
+        print(trajectID)
+
+        trajectID = trajectID.astype(int)
+        # print(trajectID.values)
+        # print(type(trajectID), trajectID)
+        # for idx in range(trajectID.astype(int).max()):
+        #     trajectory    = effTraj[trajectID.values == (idx + 1)] 
+        #     print(trajectory.shape)
+
+        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, cycleTraj], 
+                                                             trajectId  = trajectID,
+                                                             seqLength  = self.config['seqLength'], 
+                                                             overlap    = self.config['seqLength']-1,
+                                                             typeInput  = "listOfPandas")
+
+        # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
+
+        print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
+        seqCycle    = seqCycle[:,:,-1]
+        xTrain      = [seqEff, seqMani,seqCycle]
+        yTrain      = rul = [np.array(777)]
         return xTrain, yTrain
 
+    # ===================================
+    # This func divides the time series into 
+    # trajectories between events.
+    # -----------------------------------
+    def split_time_series(self,data):
+        data.reset_index(drop=True, inplace=True)
+
+        # --------------------------------------------
+        # 'event' column assigns an ID to all rows that 
+        # belong to an event, such as maintenance and 
+        # failure modes.
+        # --------------------------------------------
+        filtered_condition                      = data['Modo de Falla'].isin(self.criticalMOF)
+        data.loc[filtered_condition, 'event']   = data[filtered_condition].groupby(['Inicio Reportado', 
+                                                                                    'Fin Reportado']).ngroup().astype('str')
+
+        # --------------------------------------------
+        # With 'event' column, the 'trajectory' 
+        # column is created which assigns an ID 
+        # to all the rows that are between two events
+        # --------------------------------------------
+        mask                        = data['event'].isnull()
+        groups                      = mask.ne(mask.shift()).cumsum().astype('str') 
+        data['trajectory'] = np.where(mask, groups, np.nan)
+        data['trajectory'] = pd.factorize(data['trajectory'])[0]+1
+        data['trajectory'] = data['trajectory'].astype('str')
+        data['trajectory'] = data['trajectory'].replace('0', np.nan)
+        self.trajectories           = data.trajectory.dropna().unique()
+        data.drop(columns='event', inplace=True)
+
+        data = data.dropna(subset=['trajectory'])
+        data['trajectory'].astype("int")
+        return data
+    
+    def remove_redundant_data(self, df=None, threshold=200):
+        df['tiempo']  = pd.to_datetime(df['tiempo'])
 
 
+        # Many sensors have zero value during this time period
+        df.drop(df[df['tiempo'].between('2023-11-14 20:01:00', '2023-11-17 04:30:00')].index, inplace=True)
+
+        # Trajectories that have a duration less than the threshold are removed
+        count = df.groupby('trajectory').size().reset_index(name='count')
+        df = pd.merge(df, count, on='trajectory')
+        df = df[df['count']>threshold] 
+        df['period'] = df['tiempo'].dt.strftime('%d-%m-%Y %H')
+        df.drop(columns='count', inplace=True)
+        self.trajectories = df.trajectory.dropna().unique() 
+
+        return df
     # ===================================
     # Loading the excell file, take more
     # time to load, so prefer to load by
@@ -296,6 +365,9 @@ class PreProcessData(object):
         reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
+   
+        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
+        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     # ===================================
@@ -602,15 +674,14 @@ class PreProcessData(object):
         # Discrepancy between the flow of the lubrication system
         df['Discrepancia_flujo_lubricacion'] = df[['Lubricación_entrada_sup(m3/h)', 'Lubricación_entrada_inf(m3/h)']].std(axis=1).rolling(window=window_size, min_periods=1).mean()
 
-        self.new_efficiency_cr1 = ['Eficiencia_Rendimiento',    'Vibracion_piñon_int_norm',  'Vibracion_piñon_ext_norm', 
+        self.addedEfficiencyCr1     = ['Eficiencia_Rendimiento',    'Vibracion_piñon_int_norm',  'Vibracion_piñon_ext_norm', 
                                    'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion',   
                                     #'Potencia_Media',          'Desviacion_Presion_Aire',   'Discrepancia_flujo_lubricacion'
                                     ]
         
         # New manipulable variables
-        self.new_manipulable_cr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
-        self.variables_used = self.manipulated_cr1+self.new_manipulable_cr1+self.efficiency_cr1+self.new_efficiency_cr1
-
+        self.addedManipulatedCr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
+        # self.variables_used = self.manipulated_cr1 + self.new_manipulable_cr1 + self.efficiency_cr1 + self.new_efficiency_cr1
         #-----------------------------
         # Use the global mean to fill NaN if specified to use the global mean.
         #-----------------------------
@@ -694,7 +765,8 @@ class PreProcessData(object):
     def extractTrajectory(self,data =  None, headline = [], trajecIdx = None, mergeInAList = False):
         '''
         data                    : It is the whole data of a machine per time
-        headline                : It should be a list of headline group which need to extract. For example: [['headline1', 'headline2'], [headline3, 'headline4', 'headline5]]
+        headline                : It should be a list of headline group which need to extract. For example: [['headline1', 'headline2'], [headline3, 'headline4', 'headline5]],
+                                    all the headline should be extract in the data column, which make the output have the same length for next steps
         trajecIdx               : It should be a dictionary of mode of failure, include the index of each trajectory
         extractTrajectPerMof    : if this flag is enabled, the data of output will return the same format as trajectIdx, 
                                 and including the list of data of each trajectory. Otherwise, it will merge all the
@@ -731,29 +803,165 @@ class PreProcessData(object):
             returnedData.append(trajectoryList)
         return returnedData
 
-
     # ===================================
+    # This function is used to split data
+    # into each sequences and return the 
+    # tensor data for each component
     # -----------------------------------
-    def getTensor(self, data = [], seqLength = 128, overlap = 127, shuffle = False):
+    def getTensorData(self, dataList        = [None], 
+                            trajectId       = None, 
+                            getAtIdx        = None,
+                            shuffle         = False,
+                            getLastOnly     = False,
+                            seqLength       = 128,
+                            overlap         = 127,
+                            typeInput       = 'listOfPandas'):
         '''
-        data: a list of data with different length
+        dataList(*)     :   a list of pandas with multiple trajectory which is identified through IDs. Each should be the length of rowxcol (row: IDxrowInEachTrajectory, col: features),
+                            Each element should be the same 1st Dimention-shape(0), for example [data1, data2, data3] with the length of (221918, 60) (221918, 6) (221918,)
+                            and it must be a list of numpy or pandas consistenly  
+                            OR
+                            a list of list of pandas. Each sub list is a trajectory, but it should have the same length between parent list. For example [data1, data2, data3], in which 
+                            the shape inside is [[(1000,5),(965,5), (1003,5)], [(1000,3), (965,3), (1003,3)], [(1000,7), (965,7), (1003,7)]]. If we use this one, a trajectID will be generated
+                            automaticly
+        trajectId(*)    :   the matrix to have the same row with pandasData aiming to identify the which row belong to which Id
+
+        getAtIdx        :   Access a specific Idx
+        shuffle         :   Shuffle the order of windows or not
+        getLastOnly     :   Only get the last element in each window
+        typeInput       :   it should be a list of pandas (listOfPandas) or a list of list of pandas (listOfList)
+
+        - Use for a specific case:
+        seqXAllSensorTrain,seqXRulTrainEnv     = preData.getTensorData( dataList    = [allSensor,env],
+                                                                        trajectId   = trajectId
+                                                                        getAtIdx   = idx)
+        - Use for training:
+        seqXReacTrain,          \
+        seqXSepTrain,           \
+        seqXStripTrain,         \
+        seqXAllSensorTrain,     \
+        seqXRulTrain,           \
+        seqXRulTrainEnv     = preData.getTensorData(dataList    = [reactor,separator,stripper,allSensor,rul,env],
+                                                    trajectId   = trajectID,  
+                                                    shuffle     = True          
+                                                    )
+                                                                                                                                
+        (*): obligation
         '''
 
-        allSeq = []
-        returnedData = []
-        for curData in data:
-            for idxSubList in curData:
-                seqData = self.splitAndPadSequences(data        = idxSubList, 
-                                                    seqLength   = self.config["seqLength"],
-                                                    overlap     = self.config["seqLength"] -1)
-                
-                allSeq = allSeq + seqData
+        aiLogger.info("Spliting data into sequences now ...")
+
+        # -----------------------
+        # Attach the ID to each 
+        # trajectory the dataList is 
+        # a list of traject
+        # -----------------------
+        # lengthTotal = 0
+        # for idx in dataList[0]:
+        #     lengthTotal += idx.shape[0]
+        if typeInput == "listOfList"  and trajectId is None:
+            trajectId, dataList = self.generateTrajectoryId(dataList)
+
+        # print(trajectId)
+        # print(len(trajectId),len(dataList) )
+
+        # print(trajectId)
+        # print(dataList[0].shape)
+        # -----------------------
+        # Check if getAtIdx out
+        # of range
+        # -----------------------
+        # if getAtIdx is not None and getAtIdx not in trajectId:
+        #     print("Test again the getAtIdx value, it's out of range!!!")
+
+        pandasDataList  = [pd.DataFrame(array) for array in dataList] if isinstance(dataList[0], np.ndarray) else dataList      # Convert to pandas if numpy         
+        pandasData      = [value.to_frame() if value.ndim == 1 else value for value in pandasDataList]                          # Add new dimension if pandas has 1 dimension only
+
+        storedDimIdx2   = [value.shape[1] for value in pandasData]                                                              # Get the size of each entry to extract later
+        storedDimIdx2   = list(accumulate(storedDimIdx2))
+        storedDimIdx1   = [0] + storedDimIdx2[:-1]
+        # mergedAll       = np.concatenate(pandasData, axis=1)                                                                  # Merge in the same numpy to suffle and extract train and val, stack with col together because we have the same row
+        mergedAll       = pd.concat(pandasData, axis=1)
+
+        # -----------------------
+        # Declare sequence list
+        # and tensor list for each
+        # components
+        # -----------------------
+        allSeq      = []   
+
+        # ---------------------------
+        # Get the tensor for all idx
+        # in each case
+        # ---------------------------
+        # numOfTraj = int(trajectId.max().iloc[0])
+        numOfTraj = int(trajectId.max())
+        if getAtIdx is None:
+            for idxId in range(numOfTraj):                                                                  # Get each ID
+                trajectory          = mergedAll[trajectId.values == (idxId + 1)]                                   # Extract tracjectory from ID
+                # print(trajectory.shape)
+                componentTrajectory = trajectory.reset_index(drop = True)                                   # Reset the index of pandas                          
+
+                if len(componentTrajectory) < seqLength:
+                    continue
+                    # raise ValueError(f"The lenghth of trajectory {idxId + 1} should be larger than the seqLength.")
+                sequences           = self.splitAndPadSequences(data                = componentTrajectory, 
+                                                                seqLength           = seqLength, 
+                                                                overlap             = overlap,
+                                                                getLastElementOnly  = getLastOnly)           # Split the each trajectory into each seq
+                # print(len(sequences))
+                allSeq      = allSeq     + sequences                     # trajectories
+
+        # ---------------------------
+        # Get the tensor at a specific
+        # index
+        # ---------------------------
+        else:
+            trajectory          = mergedAll[trajectId.values == getAtIdx]                           # Extract tracjectory from ID
+            componentTrajectory = trajectory.reset_index(drop = True)     # Get the only sensors for each component
             
-            returnedData.append(np.stack(allSeq, axis=0)) 
+            sequences           = self.splitAndPadSequences(data                = componentTrajectory, 
+                                                            seqLength           = seqLength, 
+                                                            overlap             = overlap,
+                                                            getLastElementOnly  = getLastOnly)           # Split the each trajectory into each seq
+            
+            allSeq      = allSeq     + sequences                     # trajectories
+
+        # -------------------
+        # Convert the list 
+        # to tensor with np
+        # -------------------
+        tensor =   np.stack(allSeq, axis=0)   
+
+        if shuffle:
+            np.random.shuffle(tensor)
+
+        # -------------------
+        # Extract these sensors
+        # -------------------
+        tensorList    = [tensor[:,:,idx1:idx2]   for (idx1,idx2) in zip(storedDimIdx1,storedDimIdx2)]
+        return tensorList
 
 
-        # data = [effTraj, maniTraj, cycleTraj], seqLength= self.config['seqLength'], overlap=self.config['seqLength']-1)
-        return returnedData
+    # -------------------------------------
+    # This is the sub function of the getTensor()
+    # -------------------------------------
+    def generateTrajectoryId(self,listOfData):
+        withIdList          = []
+        idPandas            = pd.DataFrame()
+        
+        # -----------------------
+        # Generate Id for data
+        # -----------------------
+        for curId, idxSubList in enumerate(listOfData[0]):             # [[(1000,5),(965,5), (1003,5)], [(1000,3), (965,3), (1003,3)], [(1000,7), (965,7), (1003,7)]]
+            curLength   = idxSubList.shape[0]
+            # mtId        = np.full((curLength, 1), curId +1)
+            mtId        = pd.Series([float(curId + 1)] * curLength)
+            idPandas    = pd.concat([idPandas, mtId], ignore_index=True)
+
+        withIdList = [pd.concat(curData, ignore_index=True) for curData in listOfData]          # Generate the data in continious way
+        return idPandas, withIdList
+
     # ===================================
     # This function is used to extract the
     # trajectory from the data
@@ -804,9 +1012,15 @@ class PreProcessData(object):
                 
         return  trainEff, trainMani, trainCycle, valEffData, valManiData, valCycleData
 
+    def cleanDataTest(self,data,headline=None):
+        data.dropna(subset=headline, inplace=True)
+        data.drop_duplicates(subset='tiempo', inplace=True)
+
+        return data
 
     def cleanData(self, data, headline = None):
-        
+        # data    = data.dropna(subset=headline, inplace=True)
+        # data    = data.drop_duplicates(subset='tiempo', inplace=True)
         data[headline].interpolate(method='linear')
 
         
@@ -860,6 +1074,7 @@ class PreProcessData(object):
     # with build-in function
     # -----------------------------------
     def normalizeBuilinFunction(self, data, scaler = MinMaxScaler(), headline = None):
+        aiLogger.info("Normalizing the data ....")
         handledData             = data[headline]
         scaledData              = scaler.fit_transform(handledData)
         # self.scaledData.loc[:, handledData.columns] = scaledData
@@ -955,54 +1170,6 @@ class PreProcessData(object):
         return sequences
     
     # ===================================
-    # This function is used to split data 
-    # into sequences.
-    # -----------------------------------
-    def splitAndPadSequencesTensor(self,  data, 
-                                    seqLength = 128, 
-                                    overlap   = 127,
-                                    useLabel  = True):
-        sequencesX      = []
-        sequencesY      = []
-        if useLabel:
-            dataX       = data[0]
-            dataY       = data[1]
-        else:
-            dataX = data
-            dataY = data
-        step_size       = seqLength - overlap
-        totalLength     = len(dataX)
-        
-        # print("Total length",totalLength)
-
-        for start in range(0, totalLength-overlap, step_size):
-            end = start + seqLength
-            # ----------------------
-            # If the sequence would 
-            # go beyond the data length, 
-            # pad it
-            # ----------------------
-            if end > totalLength:                
-                padding  = end - totalLength
-                # sequence = torch.nn.functional.pad(dataX[:, start:], (0, padding), 'constant', 0)
-                aiLogger.error("Check again the for loop!!!")
-           
-            else:
-                sequenceX = dataX[start:end].to_numpy()           # Get sentense
-                sequenceY = dataY[start:end].to_numpy()           # Get sentense
-                
-            # print("Each sequence size",sequenceX.shape)
-                
-            sequencesX.append(sequenceX)                          # Append all of them into a list
-            sequencesY.append(sequenceY)
-
-
-        # print("The length after merging list",len(sequencesX))
-        tensorX =   np.stack(sequencesX, axis=0)
-        tensorY =   np.stack(sequencesY, axis=0)
-           
-        return [tensorX,tensorY]
-    # ===================================
     # This function is used to split data
     # to train, val, test groups
     # -----------------------------------
@@ -1018,49 +1185,60 @@ class PreProcessData(object):
         
         return [trainX,trainY],[valX,valY]
     
-
-    
     
 if __name__ == '__main__':
 
     generateH5file  = False
     summaryFile     = False
 
+    with open('utility/modelConfig.json', 'r') as configFile:
+        config = json.load(configFile)
+    myConfig   = config["system"]
+
     plot                = MatPlot()
-    preData             = PreProcessData()
-
-    # --------------------------------
-    # Generate the data if it lacks 
-    # --------------------------------
-    if generateH5file is True:
-        orginalData     =   preData.dataLoadingOriginalData()
-        filterData      =   preData.rmRedundantMOF(orginalData)
-        preData.save2H5Format(filterData)
-
-    # --------------------------------
-    # Preprocess the data
-    # --------------------------------
-    rawDataH5           = preData.loadCriticalData()
-
-    if summaryFile is True:
-        preData.sumarryDataFromFile(rawDataH5)
-
-
-    addedVariablesData  = preData.additionEfficiencyVar(rawDataH5)
-
-    plot.draw1D(addedVariablesData["Eficiencia_Rendimiento"])
-
-    # print(addedVariablesData["Eficiencia_Enfriamiento"])
-
-    # print(addedVariablesData["Temperatura_Diferencia_Media"])
-
-    # print(addedVariablesData["Potencia_Media"])
+    preData             = PreProcessData(config=myConfig)
+    train,test          = preData.getTrainDataTest()
+    print(train[0].shape, train[1].shape,train[2].shape)
 
 
 
-    if 0:
-        normalizedData      = preData.normalizeBuilinFunction(addedVariablesData,  scaler = MinMaxScaler())
-        trajectory          = preData.getTrajectory(normalizedData)
+
+
+
+
+
+    # # --------------------------------
+    # # Generate the data if it lacks 
+    # # --------------------------------
+    # if generateH5file is True:
+    #     orginalData     =   preData.dataLoadingOriginalData()
+    #     filterData      =   preData.rmRedundantMOF(orginalData)
+    #     preData.save2H5Format(filterData)
+
+    # # --------------------------------
+    # # Preprocess the data
+    # # --------------------------------
+    # rawDataH5           = preData.loadCriticalData()
+
+    # if summaryFile is True:
+    #     preData.sumarryDataFromFile(rawDataH5)
+
+
+    # addedVariablesData  = preData.additionEfficiencyVar(rawDataH5)
+
+    # plot.draw1D(addedVariablesData["Eficiencia_Rendimiento"])
+
+    # # print(addedVariablesData["Eficiencia_Enfriamiento"])
+
+    # # print(addedVariablesData["Temperatura_Diferencia_Media"])
+
+    # # print(addedVariablesData["Potencia_Media"])
+
+
+
+    # if 0:
+    #     normalizedData      = preData.normalizeBuilinFunction(addedVariablesData,  scaler = MinMaxScaler())
+    #     trajectory          = preData.getTrajectory(normalizedData)
 
 
         # dimReductionModels  =    umap.UMAP( n_components = 2,
