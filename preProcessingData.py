@@ -67,7 +67,33 @@ class PreProcessData(object):
         #                         'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion']
         # self.addedManipulatedCr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
 
-
+        self.beauEfficiencyCr1 = [      'posicion_poste(%)',
+                                        'Piñón_ext(°C)',
+                                        'Piñón_int(°C)',
+                                        'Lubricación_entrada_inf(psi)',    
+                                        'Lubricación_entrada_sup(psi)',
+                                        'Lubricación_respaldo(psi)',
+                                        'presion_estanque_aire(bar)',
+                                        'Lubricación_depósito(%)',
+                                        'Eficiencia_Rendimiento',
+                                        'Vibracion_piñon_int_norm',  
+                                        'Vibracion_piñon_ext_norm',
+                                        'Discrepancia_Corriente_Motor',
+                                        'Discrepancia_Voltaje_Motor',
+                                        'Discrepancia_temperatura_lubricacion'
+                                        ]
+        
+        self.beauManipulatedCr1 = [     'corriente(A)',
+                                        'nivel_tolva_compensacion(%)',
+                                        'Lubricación_principal(A)',
+                                        'Motor_Fase1(A)',
+                                        'Motor_Fase3(A)',
+                                        'Motor_Fase1(V)',
+                                        'Motor_Fase2(V)',
+                                        'Discrepancia_Corriente_Motor',
+                                        'Discrepancia_Voltaje_Motor',
+                                        'Sistema Lubricación(A)'
+                                        ]
 
         
         self.manipulatedCr1=[               'corriente(A)',
@@ -191,16 +217,18 @@ class PreProcessData(object):
     # ------------------------------------
     def getTrainData(self,):
         rawData                         = self.loadCriticalData()                           # Load the data from critical file
-        addedTimeData                   = self.addFloatTime(rawData)                        # Add the time to the data
+        addedTimeData                   = self.addFloatTimeOld(rawData)                        # Add the time to the data
         cleanedData                     = self.cleanData(addedTimeData, headline = self.crusher1Value)
         addedData                       = self.addition_var(cleanedData) 
-        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1)  
+        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = self.beauEfficiencyCr1 + self.beauManipulatedCr1)  
         
         effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
-                                                                 headline       = [self.efficiencyCr1 + self.addedEfficiencyCr1, self.manipulatedCr1 + self.addedManipulatedCr1,'hours'],
+                                                                 headline       = [self.beauEfficiencyCr1, self.beauManipulatedCr1,'hours'],
                                                                  mergeInAList   = True)
-
-        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, cycleTraj], 
+        # rul_trajectories = [(traj - traj.min()) for traj in cycleTraj]
+        rul_trajectories = [(traj.max() - traj) for traj in cycleTraj]
+        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
+        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, rul_trajectories], 
                                                              seqLength  = self.config['seqLength'], 
                                                              overlap    = self.config['seqLength']-1,
                                                              typeInput  = "listOfList")
@@ -368,6 +396,15 @@ class PreProcessData(object):
    
         # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
         df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
+        return df
+    
+    def addFloatTimeOld(self,data):
+        df              = pd.DataFrame(data)
+        reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
+        data['tiempo']  = pd.to_datetime(df['tiempo'])
+        df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
+   
+        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
         return df
     
     # ===================================
@@ -1197,7 +1234,7 @@ if __name__ == '__main__':
 
     plot                = MatPlot()
     preData             = PreProcessData(config=myConfig)
-    train,test          = preData.getTrainDataTest()
+    train,test          = preData.getTrainData()
     print(train[0].shape, train[1].shape,train[2].shape)
 
 

@@ -110,7 +110,7 @@ if __name__ == '__main__':
     trainer     = CrusherTrainerTester(model = model, config = myConfig)                  # Trainer
     trainer.compileModel()
 
-    seqXTrain,seqYTrain         = preData.getTrainDataTest()
+    seqXTrain,seqYTrain         = preData.getTrainData()
     # print(seqXTrain.shape)
     history     = trainer.train(    seqXTrain   = seqXTrain,
                                     seqYTrain   = seqYTrain,                                 

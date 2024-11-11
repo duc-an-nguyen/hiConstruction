@@ -356,7 +356,7 @@ class SystemModel(tf.keras.Model):
             # Add the constrain to the latent space
             # ------------------------------------
             if self.config["latentConstrains"] :
-                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=1)
+                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
                 totalLoss    += zReacLoss
             else:

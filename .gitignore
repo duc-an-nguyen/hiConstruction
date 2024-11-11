@@ -10,6 +10,7 @@ data/
 ckpt/
 *.xlsx
 */checkpoint/*
+*logs/*
 
 # Node artifact files
 node_modules/
