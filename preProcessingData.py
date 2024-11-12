@@ -401,8 +401,6 @@ class PreProcessData(object):
    
         df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
         # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
-<<<<<<< HEAD
-=======
         return df
     
     def addFloatTimeOld(self,data):
@@ -412,7 +410,6 @@ class PreProcessData(object):
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
    
         # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
->>>>>>> ducan
         return df
     
     # ===================================
