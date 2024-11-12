@@ -48,6 +48,7 @@ class PreProcessData(object):
                                         'Motor_Fase3(A)',                   'Motor_Fase1(V)',               'Motor_Fase2(V)', 
                                         'Motor_Fase3(V)',                   'Equipo']
         
+        
         self.crusher1Value    = [    
                                         'corriente(A)', 
                                         'velocidad(rpm)',                   'nivel_tolva_compensacion(%)',  'Potencia(kW)', 
@@ -63,9 +64,9 @@ class PreProcessData(object):
                                         'Motor_Fase3(V)',                   ]
         
         
-        # self.addEfficiencyCr1 = ['Eficiencia_Rendimiento',    'Vibracion_piñon_int_norm',  'Vibracion_piñon_ext_norm', 
-        #                         'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion']
-        # self.addedManipulatedCr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
+        self.addEfficiencyCr1 = ['Eficiencia_Rendimiento',    'Vibracion_piñon_int_norm',  'Vibracion_piñon_ext_norm', 
+                                'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion']
+        self.addedManipulatedCr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
 
         self.beauEfficiencyCr1 = [      'posicion_poste(%)',
                                         'Piñón_ext(°C)',
@@ -216,36 +217,56 @@ class PreProcessData(object):
     # The whole process
     # ------------------------------------
     def getTrainData(self,):
+        curHeadline                     = self.beauEfficiencyCr1  + self.beauManipulatedCr1
         rawData                         = self.loadCriticalData()                           # Load the data from critical file
         addedTimeData                   = self.addFloatTimeOld(rawData)                        # Add the time to the data
         cleanedData                     = self.cleanData(addedTimeData, headline = self.crusher1Value)
         addedData                       = self.addition_var(cleanedData) 
-        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = self.beauEfficiencyCr1 + self.beauManipulatedCr1)  
+        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = curHeadline)  
         
-        effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
-                                                                 headline       = [self.beauEfficiencyCr1, self.beauManipulatedCr1,'hours'],
+        effTraj, cycleTraj    = self.extractTrajectory(          data           = normalizedAllData, 
+                                                                 headline       = [curHeadline,'hours'],
                                                                  mergeInAList   = True)
-        # rul_trajectories = [(traj - traj.min()) for traj in cycleTraj]
-        rul_trajectories = [(traj.max() - traj) for traj in cycleTraj]
+        rul_trajectories = [(traj - traj.min()) for traj in cycleTraj]
+        # rul_trajectories = [(traj.max() - traj) for traj in cycleTraj]
         # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
-        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, rul_trajectories], 
+        seqEff,seqCycle         = self.getTensorData(dataList   = [effTraj, rul_trajectories], 
                                                              seqLength  = self.config['seqLength'], 
                                                              overlap    = self.config['seqLength']-1,
                                                              typeInput  = "listOfList")
 
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
 
-        print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
+        print(f"The size of the train data: {seqEff.shape} {seqCycle.shape}")
 
         # print(seqCycle.shape)
         seqCycle    = seqCycle[:,-1,:]
-        xTrain      = [seqEff, seqMani,seqCycle]
+        xTrain      = [seqEff,seqCycle]
         # print(seqCycle.shape)
         yTrain      = rul = [np.array(777)]
         return xTrain, yTrain
     
+    def getTestData(self,):
+        curHeadline                     = self.beauEfficiencyCr1  + self.beauManipulatedCr1
+        rawData                         = self.loadCriticalData()                           # Load the data from critical file
+        addedTimeData                   = self.addFloatTimeOld(rawData)                        # Add the time to the data
+        cleanedData                     = self.cleanData(addedTimeData, headline = self.crusher1Value)
+        addedData                       = self.addition_var(cleanedData) 
+        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = curHeadline)  
+        
+        effTraj, cycleTraj    = self.extractTrajectory(          data           = normalizedAllData, 
+                                                                 headline       = [curHeadline,'hours'],
+                                                                 mergeInAList   = True)
+        rul_trajectories = [(traj - traj.min()) for traj in cycleTraj]
+        # rul_trajectories = [(traj.max() - traj) for traj in cycleTraj]
+        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
+
+        # print(seqCycle.shape)
+        return effTraj, cycleTraj
+    
 
     def getTrainDataTest(self,):
+        curHeadline                     = self.efficiencyCr1 + self.manipulatedCr1
         rawData                         = self.loadCriticalData()                           # Load the data from critical file
         
         cleanedData                     = self.cleanDataTest(rawData, headline = self.crusher1Value)
@@ -254,13 +275,14 @@ class PreProcessData(object):
  
         nonRedundantData                = self.remove_redundant_data(df = addedTraject, threshold = 48)
 
-        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline =  self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1)  
+        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline = curHeadline)         
+
         normalizedAllData               = self.addFloatTime(normalizedAllData)                        # Add the time to the data
         # effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
         #                                                          headline       = [self.efficiencyCr1,self.manipulatedCr1,'hours'],
         #                                                          mergeInAList   = True)
-        effTraj                         = normalizedAllData[self.efficiencyCr1 + self.addedEfficiencyCr1]
-        maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
+        effTraj                         = normalizedAllData[curHeadline]
+        # maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
         cycleTraj                       = normalizedAllData["rul"]
         trajectID                       = normalizedAllData["trajectory"]
         
@@ -273,19 +295,46 @@ class PreProcessData(object):
         #     trajectory    = effTraj[trajectID.values == (idx + 1)] 
         #     print(trajectory.shape)
 
-        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, cycleTraj], 
+        seqEff,seqCycle             = self.getTensorData(dataList   = [effTraj, cycleTraj], 
                                                              trajectId  = trajectID,
                                                              seqLength  = self.config['seqLength'], 
                                                              overlap    = self.config['seqLength']-1,
                                                              typeInput  = "listOfPandas")
 
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
-
-        print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
-        seqCycle    = seqCycle[:,:,-1]
-        xTrain      = [seqEff, seqMani,seqCycle]
+        seqCycle    = seqCycle[:,-1, 0]
+        print(f"The size of the train data: {seqEff.shape} {seqCycle.shape}")
+        
+        xTrain      = [seqEff,seqCycle]
         yTrain      = rul = [np.array(777)]
         return xTrain, yTrain
+    
+    def getTestDataTest(self,):
+        curHeadline                     = self.efficiencyCr1 + self.manipulatedCr1
+        rawData                         = self.loadCriticalData()                           # Load the data from critical file
+        
+        cleanedData                     = self.cleanDataTest(rawData, headline = self.crusher1Value)
+        addedData                       = self.addition_var(cleanedData) 
+        addedTraject                    = self.split_time_series(addedData)
+ 
+        nonRedundantData                = self.remove_redundant_data(df = addedTraject, threshold = 48)
+
+        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline = self.crusher1Value)         
+
+        normalizedAllData               = self.addFloatTime(normalizedAllData)                        # Add the time to the data
+        # effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
+        #                                                          headline       = [self.efficiencyCr1,self.manipulatedCr1,'hours'],
+        #                                                          mergeInAList   = True)
+        effTraj                         = normalizedAllData[curHeadline]
+        # maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
+        cycleTraj                       = normalizedAllData["rul"]
+        trajectID                       = normalizedAllData["trajectory"]
+        
+        print(trajectID)
+
+        trajectID = trajectID.astype(int)
+
+        return effTraj, cycleTraj ,trajectID
 
     # ===================================
     # This func divides the time series into 
@@ -394,8 +443,8 @@ class PreProcessData(object):
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
    
-        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
-        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
+        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
+        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     def addFloatTimeOld(self,data):

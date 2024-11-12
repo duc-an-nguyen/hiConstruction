@@ -46,7 +46,7 @@ class CrusherTrainerTester():
         self.tensorboardCallback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
         earlyStopLoss       = 'totalLoss'
-        self.earlyStop_Callback = EarlyStopping(monitor=earlyStopLoss, min_delta = 0.001, patience=10) # change to 5
+        self.earlyStop_Callback = EarlyStopping(monitor=earlyStopLoss, min_delta = 0.01, patience=10) # change to 5
         self.reduceLR            = ReduceLROnPlateau(monitor='totalLoss', factor=0.1, patience=3)
 
     # ==============================
