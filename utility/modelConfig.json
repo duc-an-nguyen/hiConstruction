@@ -8,7 +8,7 @@
     "efficiencyDim":    14,
     "manipulationDim":  12,
     "inFeatureDim":     14,
-    "batchSize":        64,
+    "batchSize":        256,
     "nEpoch":           50,
 
     "latentConstrains": true

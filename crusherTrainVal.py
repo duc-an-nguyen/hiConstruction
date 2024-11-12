@@ -53,7 +53,7 @@ class CrusherTrainerTester():
     # Train function
     # ------------------------------
     def compileModel(self,):
-        model.compile( optimizer   =   Adam(learning_rate= 0.0001))
+        model.compile( optimizer   =   Adam(learning_rate= 0.001))
     # ==============================
     # Train function
     # ------------------------------

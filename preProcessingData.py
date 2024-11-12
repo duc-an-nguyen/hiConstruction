@@ -254,7 +254,7 @@ class PreProcessData(object):
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
 
         print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
-        seqCycle    = seqCycle[:,:,-1]
+        seqCycle    = seqCycle[:,-1,:]
         xTrain      = [seqEff, seqMani,seqCycle]
         yTrain      = rul = [np.array(777)]
         return xTrain, yTrain
