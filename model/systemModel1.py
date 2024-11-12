@@ -338,6 +338,7 @@ class SystemModel(tf.keras.Model):
         # ------------------------------------
         # print("Encoder ")
         # print(input.shape)
+        binaryMask = None
         if self.config["useMask"]:
             encIn, probs, binaryMask    = self.mask(input)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
@@ -347,7 +348,7 @@ class SystemModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(input)
           
      
-        return zCr1
+        return zCr1, binaryMask
 
     # ==========================================
     # Training (replace the default)
@@ -364,15 +365,15 @@ class SystemModel(tf.keras.Model):
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encIn, probs, binaryMask    = self.mask(seqEff)
+                encIn, _, _    = self.mask(seqEff)
 
-                zCr1,  sysHILayerCr1        = self.encoder(encIn)
+                zCr1,  _        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
 
                 decOut,_,_                  = self.mask(reconsCr1)
             else:
                 encIn                       = seqEff
-                zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+                zCr1,  _        = self.encoder(seqEff)
                 decOut                      = self.decoder(zCr1)
 
             # reconsCr1                   = self.decoder([zCr1,seqMani])

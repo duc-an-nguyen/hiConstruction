@@ -10,7 +10,7 @@
     "inFeatureDim":     26,
     "batchSize":        256,
     "nEpoch":           100,
-    "useMask":          false,
+    "useMask":          true,
     "latentConstrains": true
 },
 
