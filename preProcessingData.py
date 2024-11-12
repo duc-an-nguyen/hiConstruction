@@ -248,7 +248,6 @@ class PreProcessData(object):
     
 
     def getTrainDataTest(self,):
-        curHeadline                     = self.efficiencyCr1 + self.manipulatedCr1
         rawData                         = self.loadCriticalData()                           # Load the data from critical file
         
         cleanedData                     = self.cleanDataTest(rawData, headline = self.crusher1Value)

@@ -63,6 +63,21 @@ class SubclassModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
             
 
 # ====================================
+# Attention convolution
+# ====================================
+class AttentionMaskedConv1D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size, strides=2,  activation='relu', padding = 'same', **kwargs):
+        super(AttentionMaskedConv1D, self).__init__(**kwargs)
+        self.conv = Conv1D(filters, kernel_size, strides=strides, padding=padding, activation=activation)
+        self.attention_weights = Dense(filters, activation='sigmoid')
+        
+    def call(self, inputs):
+        conv_output = self.conv(inputs)
+        attn_weights = self.attention_weights(conv_output)
+        attended_output = conv_output * attn_weights
+        return attended_output
+    
+# ====================================
 # VAE Time (VariationalAutoencoderConv)
 # ====================================
 class VAEConvInterpretable(BaseVariationalAutoencoder):    
@@ -85,7 +100,6 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         self.hidden_layer_sizes = hidden_layer_sizes
         self.encoder            = self.get_encoder()
         self.decoder            = self.get_decoder() 
-
         self.config             = config
 
     # ================================
@@ -101,7 +115,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         for numFilters in reversed(self.hidden_layer_sizes):
             x = tf.keras.layers.Conv1D(filters      =   numFilters,
                                        kernel_size  =   kernelSize,
-                                       strides      =   stride,
+                                       stride      =   stride,
                                        activation   =   'relu',
                                        padding = 'same')(x)
         
@@ -109,7 +123,44 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
     
         decoder     = tf.keras.models.Model([z, wIn],reconsData)
         return decoder
-
+    
+    # ================================
+    # Attention encoder
+    # --------------------------------
+    def getAttentionEncoder(self, kernelSize = 3, stride = 2):
+        encoder_inputs  = Input(shape   = (self.seq_len, self.feat_dim), 
+                                name    = 'encoder_input')
+        x               = encoder_inputs
+        # --------------------
+        # Repeat to create Conv1D
+        # --------------------
+        for i, num_filters in enumerate(self.hidden_layer_sizes):
+            x = AttentionMaskedConv1D(  filters     = num_filters, 
+                                        kernel_size = kernelSize, 
+                                        strides     = stride, 
+                                        activation  = 'relu', 
+                                        padding     = 'same',
+                                        name        = f'enc_conv_{i}')(x)
+        sysHILayer = AttentionMaskedConv1D(     filters     = 5, 
+                                                kernel_size = kernelSize, 
+                                                strides     = stride, 
+                                                activation  = 'relu', 
+                                                padding     = 'same',
+                                                name        = 'extractedSysHiLayer')(x)
+        # --------------------
+        # Flat and create latent
+        # --------------------
+        x                       = Flatten(name='enc_flatten')(x)
+        self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
+        
+        # ----------------------
+        # For VAE
+        # ----------------------
+        encoder_output          = Dense(self.latent_dim, name="encoder_output")(x)
+        self.encoder_output     = encoder_output
+        
+        encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
+        return encoder
     # ================================
     # Create module Encoder separately
     # --------------------------------
@@ -248,12 +299,12 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, hiddenSize=64, seqLength = 128, outputSize=45*3):
+    def __init__(self, inFeature = 45, hiddenSize=64, seqLength = 128, outputSize=45*3, baseline=0.01):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
-      
+        self.baseline    = baseline
         self.mask_logits = self.add_weight(shape        = (inFeature,),
                                            initializer  = 'zeros',
                                            trainable    = True,
@@ -267,10 +318,13 @@ class SensorSelection(tf.keras.Model):
         binary_mask     = tf.cast(tf.less(random_uniform, probs), tf.float32)
         mask            = binary_mask + probs - tf.stop_gradient(probs)
         mask            = tf.expand_dims(mask, axis=0)
-
-        return rawData * mask, probs, binary_mask
-
         
+        # maskedData      = rawData * mask + (1 - mask) * self.baseline
+        maskedData      = rawData * mask
+
+        return maskedData, probs, binary_mask
+
+
 
 # ==================================================
 #                   SYSTEM MODEL
@@ -292,7 +346,7 @@ class SystemModel(tf.keras.Model):
         
         self.mask           = SensorSelection(inFeature= config["inFeatureDim"])
 
-        self.encoder        = vae.get_encoder(kernelSize = 3, stride = 2)
+        self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         
         self.decoder        = vae.get_decoder(kernelSize = 3, stride = 2)
 
