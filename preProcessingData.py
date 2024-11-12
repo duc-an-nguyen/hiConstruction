@@ -226,17 +226,18 @@ class PreProcessData(object):
  
         nonRedundantData                = self.remove_redundant_data(df = addedTraject, threshold = 48)
 
-        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline =  self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1)  
+        handledHeadline                 = self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1
+        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline = handledHeadline)  
         normalizedAllData               = self.addFloatTime(normalizedAllData)                        # Add the time to the data
         # effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
         #                                                          headline       = [self.efficiencyCr1,self.manipulatedCr1,'hours'],
         #                                                          mergeInAList   = True)
-        effTraj                         = normalizedAllData[self.efficiencyCr1 + self.addedEfficiencyCr1]
-        maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
+        effTraj                         = normalizedAllData[handledHeadline]
+        # maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
         cycleTraj                       = normalizedAllData["rul"]
         trajectID                       = normalizedAllData["trajectory"]
         
-        print(trajectID)
+        print(trajectID.shape,effTraj.shape)
 
         trajectID = trajectID.astype(int)
         # print(trajectID.values)
@@ -245,7 +246,7 @@ class PreProcessData(object):
         #     trajectory    = effTraj[trajectID.values == (idx + 1)] 
         #     print(trajectory.shape)
 
-        seqEff,seqMani,seqCycle         = self.getTensorData(dataList   = [effTraj, maniTraj, cycleTraj], 
+        seqEff,seqCycle         = self.getTensorData(       dataList   = [effTraj, cycleTraj], 
                                                              trajectId  = trajectID,
                                                              seqLength  = self.config['seqLength'], 
                                                              overlap    = self.config['seqLength']-1,
@@ -253,9 +254,9 @@ class PreProcessData(object):
 
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
 
-        print(f"The size of the train data: {seqEff.shape} {seqMani.shape} {seqCycle.shape}")
+        print(f"The size of the train data: {seqEff.shape} {seqCycle.shape}")
         seqCycle    = seqCycle[:,-1,:]
-        xTrain      = [seqEff, seqMani,seqCycle]
+        xTrain      = [seqEff,seqCycle]
         yTrain      = rul = [np.array(777)]
         return xTrain, yTrain
 
@@ -366,8 +367,8 @@ class PreProcessData(object):
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
    
-        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
-        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
+        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
+        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     # ===================================

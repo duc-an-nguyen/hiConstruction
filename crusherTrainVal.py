@@ -5,8 +5,8 @@ from keras.optimizers                   import Adam
 from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
 from preProcessingData                  import PreProcessData
 # from preprocessingData2                 import PreProcessData
-from model.systemModel                  import SystemModel
-from model.systemModel                  import SubclassModelCheckpoint
+from model.systemModel1                  import SystemModel
+from model.systemModel1                  import SubclassModelCheckpoint
 
 from tqdm                               import tqdm
 from datetime                           import datetime

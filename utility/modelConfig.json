@@ -3,14 +3,14 @@
     "_name":            "SystemHI",
     "hiddenVAESize":    [128,64,12],
     "latentDim":        1,
-    "seqLength":        48,
-    "overlap":          47,
-    "efficiencyDim":    14,
+    "seqLength":        30,
+    "overlap":          29,
+    "efficiencyDim":    26,
     "manipulationDim":  12,
-    "inFeatureDim":     14,
+    "inFeatureDim":     26,
     "batchSize":        256,
-    "nEpoch":           50,
-
+    "nEpoch":           100,
+    "useMask":          false,
     "latentConstrains": true
 },
 
