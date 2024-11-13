@@ -206,7 +206,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         return encoder
 
     # =================================
-    # --------------------------------
+    # ---------------------------------
     def get_decoder(self, kernelSize = 3, stride = 2):
         decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
 
@@ -315,9 +315,10 @@ class SensorSelection(tf.keras.Model):
         binary_mask     = tf.cast(tf.less(random_uniform, probs), tf.float32)
         mask            = binary_mask + probs - tf.stop_gradient(probs)
         mask            = tf.expand_dims(mask, axis=0)
+
         
-        # maskedData      = rawData * mask + (1 - mask) * self.baseline
-        maskedData      = rawData * mask
+        # maskedData      = rawData * mask
+        maskedData      = rawData * probs
 
         return maskedData, probs, binary_mask
 
@@ -399,7 +400,7 @@ class SystemModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(input)
           
      
-        return zCr1, binaryMask
+        return zCr1, binaryMask,probs
 
     # ==========================================
     # Training (replace the default)
@@ -416,7 +417,7 @@ class SystemModel(tf.keras.Model):
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encIn, _, _                 = self.mask(seqEff)
+                encIn, probsMask, binaryMask= self.mask(seqEff)
 
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
@@ -443,7 +444,7 @@ class SystemModel(tf.keras.Model):
             # L1 regularization to promote sparsity
             # l1_reg = tf.reduce_sum(probs)
             # # Binarization regularization
-            # binary_reg = tf.reduce_sum(probs * (1 - probs))
+            maskLoss = 10* tf.reduce_sum(probsMask * (1 - probsMask))
             # maskLoss = l1_reg + binary_reg
 
 
@@ -461,13 +462,13 @@ class SystemModel(tf.keras.Model):
             rulLoss = tf.keras.losses.mae(predictedRul,rulY)
             rulLoss = tf.reduce_mean(rulLoss)
 
-            totalLoss = reconLossCr1   +  rulLoss
+            totalLoss = reconLossCr1   +  rulLoss + maskLoss
                         
             # ------------------------------------
             # Add the constrain to the latent space
             # ------------------------------------
             if self.config["latentConstrains"] :
-                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1000)
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
                 totalLoss    += zReacLoss
             else:
@@ -491,7 +492,7 @@ class SystemModel(tf.keras.Model):
         # Latent loss
         if self.config["latentConstrains"] :
             self.cr1ZLossTracker.update_state(zReacLoss)
-        # self.maskLossTracker.update_state(maskLoss)
+        self.maskLossTracker.update_state(maskLoss)
        
 
         return {
@@ -499,7 +500,7 @@ class SystemModel(tf.keras.Model):
             "rulLoss"               : self.rulLossTracker.result(),        
             "cstrReLoss"            : self.cr1ConstructionTracker.result(),
             "zReLoss"               : self.cr1ZLossTracker.result(),
-            # "maskLoss"              : self.maskLossTracker.result()
+            "maskLoss"              : self.maskLossTracker.result()
         }
 
     # -----------------------------
