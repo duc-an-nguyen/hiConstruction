@@ -264,7 +264,8 @@ class PreProcessData(object):
         #                                                          mergeInAList   = True)
         effTraj                         = normalizedAllData[handledHeadline]
         # maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
-        cycleTraj                       = normalizedAllData["rul"]
+        cycleTraj                       = normalizedAllData["cycle"]
+        rulTraj                         = normalizedAllData["rul"]
         trajectID                       = normalizedAllData["trajectory"]
         
         print(trajectID.shape,effTraj.shape)
@@ -276,7 +277,7 @@ class PreProcessData(object):
         #     trajectory    = effTraj[trajectID.values == (idx + 1)] 
         #     print(trajectory.shape)
 
-        seqEff,seqCycle         = self.getTensorData(       dataList   = [effTraj, cycleTraj], 
+        seqEff,seqCycle, rulTraj         = self.getTensorData(       dataList   = [effTraj, cycleTraj, rulTraj], 
                                                              trajectId  = trajectID,
                                                              seqLength  = self.config['seqLength'], 
                                                              overlap    = self.config['seqLength']-1,
@@ -286,8 +287,9 @@ class PreProcessData(object):
 
         print(f"The size of the train data: {seqEff.shape} {seqCycle.shape}")
         seqCycle    = seqCycle[:,-1,:]
+        rul         = rulTraj[:,-1,:]
         xTrain      = [seqEff,seqCycle]
-        yTrain      = rul = [np.array(777)]
+        yTrain      = rul
         return xTrain, yTrain
     
 
@@ -398,8 +400,8 @@ class PreProcessData(object):
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
    
-        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
-        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
+        df["cycle"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
+        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     def addFloatTimeOld(self,data):

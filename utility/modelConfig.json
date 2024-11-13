@@ -1,10 +1,10 @@
 {
 "system": {
     "_name":            "SystemHI",
-    "hiddenVAESize":    [128,64,32,16],
+    "hiddenVAESize":    [250,100,50],
     "latentDim":        1,
-    "seqLength":        30,
-    "overlap":          29,
+    "seqLength":        60,
+    "overlap":          59,
     "efficiencyDim":    26,
     "manipulationDim":  12,
     "inFeatureDim":     26,
