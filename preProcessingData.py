@@ -170,6 +170,9 @@ class PreProcessData(object):
                                         'Mandibulas o revestimiento suelto', 
                                     ] 
         
+
+
+
         self.criticalMOF        = [ "Válvula defectuosa",
                                     "Mantención programada", 
                                     "Falta de aceite hidráulico",
@@ -210,6 +213,8 @@ class PreProcessData(object):
                                     "Otra falla operacional",
                                     "Sensor de flujo lectura errónea",
                                     "Sobrecarga, Rebalses y atollos"
+                                    
+
                                     ]
                                                                          
  
@@ -345,17 +350,20 @@ class PreProcessData(object):
     # time to load, so prefer to load by
     # h5 function
     # -----------------------------------
-    def dataLoadingOriginalData(self,):
+    def dataLoadingOriginalData(self, component = "crusher1"):
         aiLogger.info("Loading data from files ...")
-    
-        self.crusher1       = pd.read_excel('data/3200CR001_26-3-2024_fixed.xlsx',engine='openpyxl')
-        # self.crusher2       = pd.read_excel('data/3200CR002_26-3-2024_fixed.xlsx',engine='openpyxl')
-        # self.conveyor       = pd.read_excel('data/3200CV002_26-3-2024_fixed.xlsx',engine='openpyxl')
+
+        if component == "crusher1":
+            componentData       = pd.read_excel('data/3200CR001_26-3-2024_fixed.xlsx',engine='openpyxl')
+        elif component == "crusher2":
+            componentData       = pd.read_excel('data/3200CR002_26-3-2024_fixed.xlsx',engine='openpyxl')
+        elif component == "conveyorBell":
+            componentData       = pd.read_excel('data/3200CV002_26-3-2024_fixed.xlsx',engine='openpyxl')
 
         aiLogger.info("Finishing loading data ...")
 
-        print(self.crusher1.columns)
-        return self.crusher1
+        print(componentData.columns)
+        return componentData
     
     # ===================================
     # Save to H5 file with numeric values from 
@@ -422,7 +430,7 @@ class PreProcessData(object):
             aiLogger.info(f"Removing {idxFeature}")
 
 
-        output_path = 'data/criticalMOFCrusher1.xlsx'  # Specify your output file path
+        output_path = 'data/criticalMOFCrusher11.xlsx'  # Specify your output file path
         df_filtered.to_excel(output_path, index=False)
         aiLogger.info("Finish to remove redundant data and save to a file xlsx ...")
         return df_filtered.reset_index()
