@@ -467,6 +467,7 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             # Add the constrain to the latent space
             # ------------------------------------
+            
             if self.config["latentConstrains"] :
                 zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
@@ -668,13 +669,6 @@ class SystemModel(tf.keras.Model):
             self.add_update(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
             # loss = tf.abs(1/loss)                               # Making positive values and increase
 
-
-
-            # std_x = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu)))
-            # std_t = tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
-            # loss    = cov / (std_x * std_t)
-            # Loss: 1 - abs(correlation) to ensure the loss is bounded between 0 and 1
-            # loss = 1 - tf.abs(correlation)
 
 
         elif type == "reliability":

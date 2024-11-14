@@ -272,11 +272,7 @@ class PreProcessData(object):
         print(trajectID.shape,effTraj.shape)
 
         trajectID = trajectID.astype(int)
-        # print(trajectID.values)
-        # print(type(trajectID), trajectID)
-        # for idx in range(trajectID.astype(int).max()):
-        #     trajectory    = effTraj[trajectID.values == (idx + 1)] 
-        #     print(trajectory.shape)
+
 
         seqEff,seqCycle, rulTraj         = self.getTensorData(      dataList   = [effTraj, cycleTraj, rulTraj], 
                                                                     trajectId  = trajectID,
