@@ -278,11 +278,11 @@ class PreProcessData(object):
         #     trajectory    = effTraj[trajectID.values == (idx + 1)] 
         #     print(trajectory.shape)
 
-        seqEff,seqCycle, rulTraj         = self.getTensorData(       dataList   = [effTraj, cycleTraj, rulTraj], 
-                                                             trajectId  = trajectID,
-                                                             seqLength  = self.config['seqLength'], 
-                                                             overlap    = self.config['seqLength']-1,
-                                                             typeInput  = "listOfPandas")
+        seqEff,seqCycle, rulTraj         = self.getTensorData(      dataList   = [effTraj, cycleTraj, rulTraj], 
+                                                                    trajectId  = trajectID,
+                                                                    seqLength  = self.config['seqLength'], 
+                                                                    overlap    = self.config['seqLength']-1,
+                                                                    typeInput  = "listOfPandas")
 
         # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
 

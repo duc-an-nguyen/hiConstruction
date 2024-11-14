@@ -468,7 +468,7 @@ class SystemModel(tf.keras.Model):
             # Add the constrain to the latent space
             # ------------------------------------
             if self.config["latentConstrains"] :
-                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1000)
+                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
                 totalLoss    += zReacLoss
             else:
@@ -656,31 +656,26 @@ class SystemModel(tf.keras.Model):
             # standard deviation
             # -------------------------
             cov = tf.reduce_sum((x - x_mu) * (t - t_mu))
-            std = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu))) * tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
+            
 
+            # Calculate standard deviations
+            std = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu))) * tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
             # -------------------------
             # Check if std is finite and 
             # greater than zero
             # -------------------------
             loss = tf.cond(tf.math.is_finite(std) & (std > 0), lambda: cov / (std), lambda: self.bestLoss)  # Use last loss if std is not finite
             self.add_update(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
-            loss = tf.abs(1/loss)                               # Making positive values and increase
+            # loss = tf.abs(1/loss)                               # Making positive values and increase
 
 
-            # class C_Constraint(nn.Module):
-            #     def __init__(self, alpha):
-            #         super(C_Constraint, self).__init__()
-            #         self.alpha = alpha
 
-            #     def forward(self, x, t):
-            #         x_mu = torch.mean(x)
-            #         t_mu = torch.mean(t)
-            #         cov = torch.sum((x - x_mu) * (t - t_mu))
-            #         std = torch.sqrt(torch.sum((x - x_mu)**2)) * torch.sqrt(torch.sum((t - t_mu)**2))
-            #         loss = cov / std
-            #         loss = torch.mean(loss)
+            # std_x = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu)))
+            # std_t = tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
+            # loss    = cov / (std_x * std_t)
+            # Loss: 1 - abs(correlation) to ensure the loss is bounded between 0 and 1
+            # loss = 1 - tf.abs(correlation)
 
-            #         return x, self.alpha*loss
 
         elif type == "reliability":
             # A       = 0.012
