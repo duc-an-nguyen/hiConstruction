@@ -256,7 +256,8 @@ class PreProcessData(object):
  
         nonRedundantData                = self.remove_redundant_data(df = addedTraject, threshold = 48)
 
-        handledHeadline                 = self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1
+        handledHeadline                 = self.crusher1Value + self.addedEfficiencyCr1 + self.addedManipulatedCr1
+        # handledHeadline                 = self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1
         normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline = handledHeadline)  
         normalizedAllData               = self.addFloatTime(normalizedAllData)                        # Add the time to the data
         # effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 

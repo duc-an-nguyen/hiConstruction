@@ -9,8 +9,7 @@ data/
 
 ckpt/
 *.xlsx
-*/checkpoint/*
-*/logs/*
+*/checkpoint/bestModel*
 
 # Node artifact files
 node_modules/
