@@ -10,6 +10,7 @@ from itertools                  import accumulate
 from utility.matpilotDraw       import MatPlot
 import matplotlib.pyplot        as plt
 import json
+import os
 
 
 class PreProcessData(object):
@@ -357,7 +358,7 @@ class PreProcessData(object):
             componentData       = pd.read_excel('data/3200CR001_26-3-2024_fixed.xlsx',engine='openpyxl')
         elif component == "crusher2":
             componentData       = pd.read_excel('data/3200CR002_26-3-2024_fixed.xlsx',engine='openpyxl')
-        elif component == "conveyorBell":
+        elif component == "conveyorBelt":
             componentData       = pd.read_excel('data/3200CV002_26-3-2024_fixed.xlsx',engine='openpyxl')
 
         aiLogger.info("Finishing loading data ...")
@@ -366,33 +367,76 @@ class PreProcessData(object):
         return componentData
     
     # ===================================
-    # Save to H5 file with numeric values from 
-    # crusher 1 only, abandon some text column
+    # This function is used to save an available
+    # data into a H5 format
     # -----------------------------------
-    def save2H5Format(self, rawData=None,
-                            loadFileToSave = True):
-        if loadFileToSave:
-            rawData     = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
-        # savedData  = rawData[self.crusher1Value]
-        savedData  = rawData
-        aiLogger.info("Saving data to h5 file ...")
-        savedData.to_hdf('data/criticalMOFCrusher1.h5', key='crusher1', mode='w')
+    def save2H5Format(self, rawData         =   [None],
+                            name            =   "criticalMOFCrusher1",
+                            dir             =   "data/",
+                            keys             =   ["defaultName1"],
+                            ):
+        '''
+        rawData:    it should be a list of the pandas data or numpy
+        name:       the name of the one wanting to save
+        dir:        directory to save
+        key:        if many cases in a same file, use key to denote the difference
+        '''
+        if rawData[0] is None:
+            raise KeyError("The value of rawData should not be None, please put valid values into a list")
 
-        aiLogger.info("Finish saving data to h5 file ...")
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+
+        for idx, data in enumerate(rawData):
+            aiLogger.info("Saving data to h5 file ...")
+            data.to_hdf(dir + name + ".h5", key=keys[idx], mode='a')
+            
+            aiLogger.info(f"Finish saving data {keys[idx]} to h5 file ...")
+    
+    # ===================================
+    # This function is used to load multiple
+    # file or a single file with different 
+    # format
+    # -----------------------------------
+    def loadH5File(self,    dir     = "data/",
+                            name    = "default",
+                            keys    = [None]
+                        ):
+        '''
+        rawData:    it should be a list of the pandas data or numpy
+        name:       the name of the one wanting to save
+        dir:        directory to save
+        key:        it should be a list of keys, if many cases in a same file, use key to denote the difference
+        '''
+        if keys[0] is None:
+            raise KeyError("The value of key should not be None, please put valid values into a list")
+
+        aiLogger.info("Loading H5 file ...")
+        
+        returnedData = []
+        for idxKey in keys:
+            data = pd.read_hdf(dir + name + '.h5', key= idxKey)
+            returnedData.append(data)
+        aiLogger.info("Finish loading data from files ...")
+        # print(self.crusher1.columns)
+        return returnedData
+
 
     # ===================================
     # This function is used to load the h5 file
     # -----------------------------------
-    def loadCriticalData(self,type='h5'):
-        aiLogger.info("Loading critical MOF data from files ...")
+    def loadFile(self,          dir     = "data/",
+                                name    = "default",
+                                type    ='h5'):
+        aiLogger.info(f"Loading the {type} file at the directory {dir + name} ...")
         if type == 'h5':
-            self.crusher1 = pd.read_hdf('data/criticalMOFCrusher1.h5', key='crusher1')
+            data = pd.read_hdf(dir + name + '.' + type)
         else:
-            self.crusher1 = pd.read_excel('data/criticalMOFCrusher1.xlsx',engine='openpyxl')
+            data = pd.read_excel(dir + name + '.' + type,engine='openpyxl')
 
-        aiLogger.info("Finish loading data from files ...")
-        # print(self.crusher1.columns)
-        return self.crusher1
+        aiLogger.info(f"Finish loading the {type} file at the directory {dir + name}.")
+        print(data.columns)
+        return data
     
 
     # ===================================
