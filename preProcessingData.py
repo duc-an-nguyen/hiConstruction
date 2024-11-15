@@ -30,7 +30,22 @@ class PreProcessData(object):
         self.machine            = ["crusher1","crusher2","conveyor"]
         self.rawData            = {"crusher1":[],"crusher2":[],"conveyor":[]}
                 
-        
+        self.allShutdownType    = ['Válvula defectuosa',                            'Otra falla control',               'Mandibulas o revestimiento suelto',            'Factor Climático',      
+                                   'Tronadura',                                     'Stand by',                         'Corte energía interno',                        'Falla en sistema hidráulico',   
+                                   'Otra falla eléctrica',                          'Sensor de flujo lectura errónea',  'Puesta en Marcha o sistema en vació',          'Filtros saturados',
+                                    'Falta de equipo carguío mina',                 'Fuga de aceite',                   'Cortes de Alimentación',                       'Lubricación \xa0deficiente', 
+                                    'Detector metales con alarma',                  'Otra falla instrumentación',       'Sensor temperatura lectura errónea',           'Limpiezas (fuera de plan)', 
+                                    'Chutes/tolva/tolvines con rotura',             'Bomba hidráulica con fuga',        'Falta de inventario',                          'Correas\xa0 transmisión con tensión fuera de rango', 
+                                    'Inspección de equipo ante evento operacional', 'Falta de Equipos de Apoyo',        'Falla sistema de hidroset-poste',              'Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (ins)', 
+                                    'Inspección de equipo ante evento operacional (chatarra, falsa alarma etc)',        'Sobrecarga, Rebalses y atollos',               'Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (mec)', 
+                                    'Bloqueo de Equipos',                           'Correas transmisión \xa0con deflexión', 'Toma de muestra',                         'Cambio de Turno', 
+                                    'Colación',                                     'Falta de aceite hidráulico',       'Stock de producto lleno',                      'Falla o problemas aguas abajo', 
+                                    'Sensor nivel lectura errónea',                 'Factor Externo (huelgas, manifestaciones, cortes de caminos, etc)',                'Correas de transmisión dañadas y/o cortadas', 'Limpieza equipo', 
+                                    'Polín de carga en mal estado',                 'Desalineamiento con alarma',       'Otra falla operacional',                       'Falta de Operador', 
+                                    'Polín de retorno en mal estado',               'Inchancable',                      'Puesta en marcha de equipos o sistemas en vacío', 'Corte correa con alarma', 
+                                    'Detención por Enclavamiento',                  'Falla o problemas aguas arriba',   'Ajuste de Setting (Asociado al Plan)',         'Otra falla mecánica', 
+                                    'Temperatura fuera de rango',                   'Mantención programada']
+
         # --------------------------
         # CRUSHER 1
         # --------------------------
@@ -485,39 +500,48 @@ class PreProcessData(object):
     # according to time which is inside 
     # the excell file into a concise way
     # -----------------------------------
-    def sumarryDataFromFile(self,crusher1):
+    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False):
+        '''
+        inData: the time series data overtime with the MOF column
+
+        markedPoint:
+        mofTable: Content the concise content of the data to print
+        '''
         mofTable                = PrettyTable()
         mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
 
         no                      = 1
         usefulMOF               = []
-        mofCol                  = crusher1['Modo de Falla']
+        mofCol                  = inData['Modo de Falla']
         preMOF                  = None
         beginingRow             = 0
         beginingTime            = 0
         markedPoint             = {}
 
-        print(mofCol[0:160])
-        lenCrusher1 = len(crusher1)
+        # print(mofCol[0:160])
+        lenCrusher1 = len(inData)
         for idx in range(lenCrusher1):
             curIdx = idx
             preIdx = idx -1
-            if curIdx ==149:
-                a=1
-            if (mofCol[curIdx] != preMOF) and curIdx!=0:
+
+            # ------------------------------------------
+            # If the current state differs the previous 
+            # state, record the difference, otherwise,
+            # Let it continue
+            if (mofCol[curIdx] != preMOF) and curIdx!=0:                   
                 # --------------------------
                 # Collect the last state
                 # --------------------------
-                endingTime      = crusher1['tiempo'][preIdx] 
+                endingTime      = inData['tiempo'][preIdx] 
                 endingRow       = preIdx
                 
-                if not pd.isna(preMOF):
+                if not pd.isna(preMOF):                                     # If previous one is not nan value, to ensure that we are at the last point of a MOF (MOF to Nah), not the trasition from Nah to MOF                   
                     mofTable.add_row([no,preMOF, beginingTime,endingTime,beginingRow+2,endingRow+2])
                     no +=1
                     
-                    if preMOF not in usefulMOF:
-                        usefulMOF.append(preMOF)
-                        markedPoint[preMOF] = [[beginingRow,endingRow]]
+                    if preMOF not in usefulMOF:                             # If we haven't recored the MOF in a "set - python type" of MOF, write it
+                        usefulMOF.append(preMOF)    
+                        markedPoint[preMOF] = [[beginingRow,endingRow]]     # record the marked point of the beginging and ending point of each MOF   
 
                     else:
                         markedPoint[preMOF].append([beginingRow,endingRow])
@@ -525,13 +549,16 @@ class PreProcessData(object):
                 # Assign new state
                 # --------------------------
                 preMOF          = mofCol[curIdx]
-                beginingTime    = crusher1['tiempo'][curIdx]
+                beginingTime    = inData['tiempo'][curIdx]
                 beginingRow     = curIdx
-                
         
-        print("All the mode of failure:",usefulMOF)
-        print(markedPoint)
         print(mofTable)
+        if printUsefulMOF:
+            print("All the mode of failure:",usefulMOF)
+        
+        if printMarkedPoint:
+            print(markedPoint)
+        
         return markedPoint
 
 
