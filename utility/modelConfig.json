@@ -7,9 +7,12 @@
     "overlap":          59,
     "efficiencyDim":    41,
     "manipulationDim":  12,
+    "inCr1":            32,
+    "inCr2":            30,
+    "inCv2":            2,
     "inFeatureDim":     41,
     "batchSize":        256,
-    "nEpoch":           100,
+    "nEpoch":           200,
     "useMask":          true,
     "latentConstrains": true
 },

@@ -61,7 +61,7 @@ class CrusherTrainerTester():
         
         
         history = self.model.fit(   x           = seqXTrain, 
-                                    y           = [seqXTrain[1]],
+                                    y           = seqYTrain,
                                     batch_size  = self.config["batchSize"],
                                     epochs      = self.config["nEpoch"],
                                     shuffle     = True,

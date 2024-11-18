@@ -30,22 +30,8 @@ class PreProcessData(object):
         self.machine            = ["crusher1","crusher2","conveyor"]
         self.rawData            = {"crusher1":[],"crusher2":[],"conveyor":[]}
                 
-        self.allShutdownType    = ['Válvula defectuosa',                            'Otra falla control',               'Mandibulas o revestimiento suelto',            'Factor Climático',      
-                                   'Tronadura',                                     'Stand by',                         'Corte energía interno',                        'Falla en sistema hidráulico',   
-                                   'Otra falla eléctrica',                          'Sensor de flujo lectura errónea',  'Puesta en Marcha o sistema en vació',          'Filtros saturados',
-                                    'Falta de equipo carguío mina',                 'Fuga de aceite',                   'Cortes de Alimentación',                       'Lubricación \xa0deficiente', 
-                                    'Detector metales con alarma',                  'Otra falla instrumentación',       'Sensor temperatura lectura errónea',           'Limpiezas (fuera de plan)', 
-                                    'Chutes/tolva/tolvines con rotura',             'Bomba hidráulica con fuga',        'Falta de inventario',                          'Correas\xa0 transmisión con tensión fuera de rango', 
-                                    'Inspección de equipo ante evento operacional', 'Falta de Equipos de Apoyo',        'Falla sistema de hidroset-poste',              'Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (ins)', 
-                                    'Inspección de equipo ante evento operacional (chatarra, falsa alarma etc)',        'Sobrecarga, Rebalses y atollos',               'Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (mec)', 
-                                    'Bloqueo de Equipos',                           'Correas transmisión \xa0con deflexión', 'Toma de muestra',                         'Cambio de Turno', 
-                                    'Colación',                                     'Falta de aceite hidráulico',       'Stock de producto lleno',                      'Falla o problemas aguas abajo', 
-                                    'Sensor nivel lectura errónea',                 'Factor Externo (huelgas, manifestaciones, cortes de caminos, etc)',                'Correas de transmisión dañadas y/o cortadas', 'Limpieza equipo', 
-                                    'Polín de carga en mal estado',                 'Desalineamiento con alarma',       'Otra falla operacional',                       'Falta de Operador', 
-                                    'Polín de retorno en mal estado',               'Inchancable',                      'Puesta en marcha de equipos o sistemas en vacío', 'Corte correa con alarma', 
-                                    'Detención por Enclavamiento',                  'Falla o problemas aguas arriba',   'Ajuste de Setting (Asociado al Plan)',         'Otra falla mecánica', 
-                                    'Temperatura fuera de rango',                   'Mantención programada']
 
+        
         # --------------------------
         # CRUSHER 1
         # --------------------------
@@ -84,56 +70,7 @@ class PreProcessData(object):
                                 'Desviacion_Vibracion_Int',  'Desviacion_Vibracion_Ext',  'Discrepancia_temperatura_lubricacion']
         self.addedManipulatedCr1 = ['Discrepancia_Corriente_Motor', 'Discrepancia_Voltaje_Motor', 'Sistema Lubricación(A)']
 
-        self.beauEfficiencyCr1 = [      'posicion_poste(%)',
-                                        'Piñón_ext(°C)',
-                                        'Piñón_int(°C)',
-                                        'Lubricación_entrada_inf(psi)',    
-                                        'Lubricación_entrada_sup(psi)',
-                                        'Lubricación_respaldo(psi)',
-                                        'presion_estanque_aire(bar)',
-                                        'Lubricación_depósito(%)',
-                                        'Eficiencia_Rendimiento',
-                                        'Vibracion_piñon_int_norm',  
-                                        'Vibracion_piñon_ext_norm',
-                                        'Discrepancia_Corriente_Motor',
-                                        'Discrepancia_Voltaje_Motor',
-                                        'Discrepancia_temperatura_lubricacion'
-                                        ]
-        
-        self.beauManipulatedCr1 = [     'corriente(A)',
-                                        'nivel_tolva_compensacion(%)',
-                                        'Lubricación_principal(A)',
-                                        'Motor_Fase1(A)',
-                                        'Motor_Fase3(A)',
-                                        'Motor_Fase1(V)',
-                                        'Motor_Fase2(V)',
-                                        'Discrepancia_Corriente_Motor',
-                                        'Discrepancia_Voltaje_Motor',
-                                        'Sistema Lubricación(A)'
-                                        ]
 
-        
-        self.manipulatedCr1=[               'corriente(A)',
-                                            'nivel_tolva_compensacion(%)',
-                                            'Motor_Fase1(A)',
-                                            'Motor_Fase2(A)',
-                                            'Motor_Fase3(A)',
-                                            'Motor_Fase1(V)',
-                                            'Motor_Fase2(V)',
-                                            'Lubricación_principal(A)',
-                                            'Lubricación_respaldo(A)', 
-                                            ]
-
-
-        self.efficiencyCr1 = [              'posicion_poste(%)',
-                                            'Piñón_ext(°C)',
-                                            'Piñón_int(°C)',
-                                            'Lubricación_depósito(%)',
-                                            'Lubricación_entrada_sup(psi)',
-                                            'Lubricación_entrada_inf(psi)',
-                                            'Lubricación_principal(psi)',
-                                            'presion_estanque_aire(bar)'
-                                            ]
         
         # --------------------------
         # CRUSHER 2
@@ -174,21 +111,12 @@ class PreProcessData(object):
                                         'Inicio Reportado',                 'Fin Reportado',                'Corriente(A)', 
                                         'Pesómetro(ton/h)',                 'Equipo']        
 
+        self.conveyorValue      = [     'Corriente(A)', 'Pesómetro(ton/h)',]
+                                        
 
         # --------------------------
         # MODES OF FAILURE
         # --------------------------
-        self.usedCriticalMOF      = [   'Válvula defectuosa', 
-                                        'Lubricación  deficiente',
-                                        'Bomba hidráulica con fuga',
-                                        'Fuga de aceite',
-                                        'Falla sistema de hidroset-poste',                     
-                                        'Mandibulas o revestimiento suelto', 
-                                    ] 
-        
-
-
-
         self.criticalMOF        = [ "Válvula defectuosa",
                                     "Mantención programada", 
                                     "Falta de aceite hidráulico",
@@ -228,10 +156,51 @@ class PreProcessData(object):
                                     "Factor Externo (huelgas, manifestaciones, cortes de caminos, etc)",
                                     "Otra falla operacional",
                                     "Sensor de flujo lectura errónea",
-                                    "Sobrecarga, Rebalses y atollos"
-                                    
+                                    "Sobrecarga, Rebalses y atollos",
 
+                                    "Otra falla eléctrica",                  # only CR2
+                                    'Inchancable',
+                                    'Filtros saturados',
+                                    'Toma de muestra',
+                                    'Otra falla control',
+
+                                    'Inspección de equipo ante evento operacional', # only CV2
+                                    'Limpiezas (fuera de plan)',
+                                    'Detector metales con alarma',
+                                    "Falta de Operador",
+                                    'Chutes/tolva/tolvines con rotura',
+                                    "Cortes de Alimentación"
+                                    
                                     ]
+        
+        # [ 'Sensor temperatura lectura errónea', 
+        #  'Falla en sistema hidráulico', 
+        #  'Fuga de aceite',  , 
+        #  'Correas de transmisión dañadas y/o cortadas', 
+        #  'Correas transmisión \xa0con deflexión', 
+        #  'Correas\xa0 transmisión con tensión fuera de rango',  ] cr2
+        
+        # [ 'Polín de retorno en mal estado', 
+        #  'Polín de carga en mal estado', , 
+        #  'Corte correa con alarma',,
+        #     'Desalineamiento con alarma' 
+
+
+        self.allShutdownType    = ['Válvula defectuosa',                            'Otra falla control',               'Mandibulas o revestimiento suelto',            'Factor Climático',      
+                                    'Tronadura',                                     'Stand by',                         'Corte energía interno',                        'Falla en sistema hidráulico',   
+                                    'Otra falla eléctrica',                          'Sensor de flujo lectura errónea',  'Puesta en Marcha o sistema en vació',          'Filtros saturados',
+                                    'Falta de equipo carguío mina',                 'Fuga de aceite',                   'Cortes de Alimentación',                       'Lubricación \xa0deficiente', 
+                                    'Detector metales con alarma',                  'Otra falla instrumentación',       'Sensor temperatura lectura errónea',           'Limpiezas (fuera de plan)', 
+                                    'Chutes/tolva/tolvines con rotura',             'Bomba hidráulica con fuga',        'Falta de inventario',                          'Correas\xa0 transmisión con tensión fuera de rango', 
+                                    'Inspección de equipo ante evento operacional', 'Falta de Equipos de Apoyo',        'Falla sistema de hidroset-poste',              'Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (ins)', 
+                                    'Inspección de equipo ante evento operacional (chatarra, falsa alarma etc)',        'Sobrecarga, Rebalses y atollos',               'Esperas de personal de reparación y/o repuestos y/o equipos de apoyo y/o movimiento de traslado (mec)', 
+                                    'Bloqueo de Equipos',                           'Correas transmisión \xa0con deflexión', 'Toma de muestra',                         'Cambio de Turno', 
+                                    'Colación',                                     'Falta de aceite hidráulico',       'Stock de producto lleno',                      'Falla o problemas aguas abajo', 
+                                    'Sensor nivel lectura errónea',                 'Factor Externo (huelgas, manifestaciones, cortes de caminos, etc)',                'Correas de transmisión dañadas y/o cortadas', 'Limpieza equipo', 
+                                    'Polín de carga en mal estado',                 'Desalineamiento con alarma',       'Otra falla operacional',                       'Falta de Operador', 
+                                    'Polín de retorno en mal estado',               'Inchancable',                      'Puesta en marcha de equipos o sistemas en vacío', 'Corte correa con alarma', 
+                                    'Detención por Enclavamiento',                  'Falla o problemas aguas arriba',   'Ajuste de Setting (Asociado al Plan)',         'Otra falla mecánica', 
+                                    'Temperatura fuera de rango',                   'Mantención programada']
                                                                          
  
     # ====================================
@@ -267,49 +236,109 @@ class PreProcessData(object):
         yTrain      = rul = [np.array(777)]
         return xTrain, yTrain
     
-
+    # ====================================
+    # This function is used to generate 
+    # the data which are alight with the
+    # input of AI
+    # ------------------------------------
     def getTrainDataTest(self,):
-        rawData                         = self.loadCriticalData()                           # Load the data from critical file
+        cr1, cr2, cv2           = self.loadH5File(name = "criticalAllData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+
+        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2])
+
+        # -----------------------------
+        # Normalize
+        normalizedCr1           = self.normalizeBuilinFunction(withIDCr1, headline = self.crusher1Value)  
+        normalizedCr2           = self.normalizeBuilinFunction(withIDCr2, headline = self.crusher2Value)  
+        normalizedCv2           = self.normalizeBuilinFunction(withIDCv2, headline = self.conveyorValue)  
+
+        # -----------------------------
+        # Add the Cycle and RUL to 
+        # each component
+        withTimeDataCr1         = self.addCycleAndRul(normalizedCr1)                        # Add the time to the data
+        withTimeDataCr2         = self.addCycleAndRul(normalizedCr2)                        # Add the time to the data
+        withTimeDataCv2         = self.addCycleAndRul(normalizedCv2)                        # Add the time to the data
+
+        # -----------------------------
+        # Add the cycle and RUL of system
+        systemData                  = pd.DataFrame()
+        systemData['tiempo']        = withTimeDataCr1["tiempo"]
+        systemData['trajectoryID']  = IdSys
+        withTimeDataSys             = self.addCycleAndRul(systemData)
+
+        # -----------------------------
+        # Extract before split
+        dataCr1                 = withTimeDataCr1[self.crusher1Value]
+        cycleCr1                = withTimeDataCr1["cycle"]
+        dataCr2                 = withTimeDataCr2[self.crusher2Value]
+        cycleCr2                = withTimeDataCr2["cycle"]
+        dataCv2                 = withTimeDataCv2[self.conveyorValue]
+        cycleCv2                = withTimeDataCv2["cycle"]
+        systemRUL               = withTimeDataSys["rul"]
+
+        # -----------------------------
+        # Split with the system ID
+        seqDataCr1,seqCycleCr1,     \
+        seqDataCr2,seqCycleCr2 ,    \
+        seqDataCv2,seqCycleCv2, seqRulTraj         = self.getTensorData(    dataList   = [dataCr1, cycleCr1, dataCr2, cycleCr2, dataCv2, cycleCv2, systemRUL], 
+                                                                            trajectId  = IdSys,
+                                                                            seqLength  = self.config['seqLength'], 
+                                                                            overlap    = self.config['seqLength']-1,
+                                                                            typeInput  = "listOfPandas")
         
-        cleanedData                     = self.cleanDataTest(rawData, headline = self.crusher1Value)
-        addedData                       = self.addition_var(cleanedData) 
-        addedTraject                    = self.split_time_series(addedData)
- 
-        nonRedundantData                = self.remove_redundant_data(df = addedTraject, threshold = 48)
-
-        handledHeadline                 = self.crusher1Value + self.addedEfficiencyCr1 + self.addedManipulatedCr1
-        # handledHeadline                 = self.efficiencyCr1 + self.addedEfficiencyCr1 + self.manipulatedCr1 + self.addedManipulatedCr1
-        normalizedAllData               = self.normalizeBuilinFunction(nonRedundantData, headline = handledHeadline)  
-        normalizedAllData               = self.addFloatTime(normalizedAllData)                        # Add the time to the data
-        # effTraj, maniTraj, cycleTraj    = self.extractTrajectory(data           = normalizedAllData, 
-        #                                                          headline       = [self.efficiencyCr1,self.manipulatedCr1,'hours'],
-        #                                                          mergeInAList   = True)
-        effTraj                         = normalizedAllData[handledHeadline]
-        # maniTraj                        = normalizedAllData[self.manipulatedCr1 + self.addedManipulatedCr1]
-        cycleTraj                       = normalizedAllData["cycle"]
-        rulTraj                         = normalizedAllData["rul"]
-        trajectID                       = normalizedAllData["trajectory"]
-        
-        print(trajectID.shape,effTraj.shape)
-
-        trajectID = trajectID.astype(int)
-
-
-        seqEff,seqCycle, rulTraj         = self.getTensorData(      dataList   = [effTraj, cycleTraj, rulTraj], 
-                                                                    trajectId  = trajectID,
-                                                                    seqLength  = self.config['seqLength'], 
-                                                                    overlap    = self.config['seqLength']-1,
-                                                                    typeInput  = "listOfPandas")
-
-        # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
-
-        print(f"The size of the train data: {seqEff.shape} {seqCycle.shape}")
-        seqCycle    = seqCycle[:,-1,:]
-        rul         = rulTraj[:,-1,:]
-        xTrain      = [seqEff,seqCycle]
-        yTrain      = rul
+        print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulTraj[:,-1,:].shape}")
+        # seqCycle    = seqCycle[:,-1,:]
+        # rul         = rulTraj[:,-1,:]
+        xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
+        yTrain      = seqRulTraj[:,-1,:]
+     
         return xTrain, yTrain
     
+    # ===================================
+    # This function is used to attach the ID
+    # for each trajectory between period 
+    # of 2 shutdown time , or a period between
+    # mainternance and shutdown. 
+    def attachIDPerEvent(self, df = [None], throughEvent = "2Shutdown"):
+        '''
+        df: A list of of MOF column
+        results: return the same order of pandas df with an addition of trajectoryID, and return with the system ID
+        '''
+        # --------------------------
+        # Assign the critical MOF
+        # --------------------------
+        results       = []
+        sdSystemEvent   = pd.DataFrame()
+
+        for idx,curDf in enumerate(df):
+            machineMOF      = curDf['Modo de Falla'].dropna().unique()
+            elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
+            criticalMOF     = [x for x in machineMOF if x not in elimination]
+            # print(machineMOF, elimination,criticalMOF)
+            # --------------------------
+            # Assign the ID over event
+            # --------------------------
+            curDf["isShutdown"]    = curDf['Modo de Falla'].isin(criticalMOF)                                                               # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
+            curDf['tempId']        = [1 if idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True else 0    # Seach the end of the shutdown event
+                                        for idx in range(len(curDf))]                                                                     
+            curDf['trajectoryID']  = curDf['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+            curDf['trajectoryID']  += 1
+            
+            results.append(curDf)
+
+            if idx == 0:    # Initialize the system-wide shutdown event DataFrame
+                sdSystemEvent['isShutdown'] = curDf["isShutdown"]
+            else:
+                sdSystemEvent['isShutdown'] |= curDf["isShutdown"]
+        # -----------------------------
+        # Handling the trajectory of system
+        # -----------------------------
+        sdSystemEvent['tempId']             = [1 if idx > 0 and sdSystemEvent["isShutdown"][idx] == False and sdSystemEvent["isShutdown"][idx - 1] == True else 0
+                                                                                                                for idx in range(len(sdSystemEvent))]                                                                     
+        sdSystemEvent['trajectoryID']       = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+        sdSystemEvent['trajectoryID']       += 1
+        results.append(sdSystemEvent['trajectoryID'])
+        return results
 
     # ===================================
     # This func divides the time series into 
@@ -458,14 +487,14 @@ class PreProcessData(object):
     # This function is used to convert
     # time from ns to hours for caculation
     # -----------------------------------
-    def addFloatTime(self,data):
+    def addCycleAndRul(self,data):
         df              = pd.DataFrame(data)
         reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
    
-        df["cycle"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
-        df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x.max() - x)
+        df["cycle"]     = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x      - x.min())
+        df["rul"]       = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     def addFloatTimeOld(self,data):
@@ -478,21 +507,133 @@ class PreProcessData(object):
         return df
     
     # ===================================
-    # This func is used to remove some 
-    # redundant mode of failure inside the
-    # excel file
+    # This function is used to clean the 
+    # string values
     # -----------------------------------
-    def rmRedundantMOF(self, orginalData):
-        df_filtered  = orginalData
-        for idxFeature in self.notModeOfFailure:
-            df_filtered = df_filtered[df_filtered['Modo de Falla'] != idxFeature]
-            aiLogger.info(f"Removing {idxFeature}")
+    def cleanStringInNumeric(self, data):
+        validColumn         = data.columns.difference(['tiempo',          'Descripción Equipo',   'Modo de Falla', 
+                                                        'Comentario',       'Especialidad',          'Motivo',
+                                                        'Inicio Reportado',  'Fin Reportado',       'Equipo'])
+    
+        maskNonNumeric = data[validColumn].applymap(lambda x: not isinstance(x, (int, float)))
+        
+        data[maskNonNumeric] = np.nan                                                           # Set non-numeric values to NaN
+        data[validColumn] = data[validColumn].interpolate(method='linear')                      # Interpolate
+
+        # -------------------------------
+        # Print the non-numeric positions
+        # -------------------------------
+        nonNumericIndices = maskNonNumeric.stack()[maskNonNumeric.stack()].index.tolist()
+        print(f"Indices with non-numeric values: {nonNumericIndices}")
+
+        return data
+    
+
+    def removeJointNonCriticalMOF(self,df = []):
+        removedColumn = pd.DataFrame()
+        removedLog = pd.DataFrame(columns=['DataFrame_Index', 'Row_Index', 'Modo de Falla'])
+        for idx,curDf in enumerate(df):
+            machineMOF      = curDf['Modo de Falla'].dropna().unique()
+            elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
+            # print(machineMOF, elimination,criticalMOF)
+            # --------------------------
+            # Assign the ID over event
+            # --------------------------
+            eliminatedRow    = curDf['Modo de Falla'].isin(elimination)  
+            if idx == 0:    # Initialize the system-wide shutdown event DataFrame
+                removedColumn['isElimined'] = eliminatedRow
+            else:
+                removedColumn['isElimined'] &= eliminatedRow
+
+            
+        for df_idx, curDf in enumerate(df):
+            removedRows = curDf[removedColumn['isElimined'].values]
+            if not removedRows.empty:
+                print(f"DataFrame {df_idx}: Rows to be removed:\n{removedRows[['Modo de Falla']].reset_index()}")
+            # for row_idx, row in removedRows.iterrows():
+            #     removedLog = pd.concat(
+            #         [removedLog, pd.DataFrame({
+            #             'DataFrame_Index': [df_idx],
+            #             'Row_Index': [row_idx],
+            #             'Modo de Falla': [row['Modo de Falla']]
+            #         })],
+            #         ignore_index=True
+            #     )
+        
+        result = [curDf[~removedColumn['isElimined'].values].reset_index(drop=True) for curDf in df]
+
+        return result
+
+    # ===================================
+    # This function is used to clean the 
+    # redundant MOF.
+    # -----------------------------------
+    def handlingRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = True, typeToSave = 'h5', nameOfSaving = "default"):
+        '''
+        originalData    : it should be a pandas with continious running time of singal. 
+        typeOfPadding   : the type of inference. 
+                            "linear":  linear inference, 
+                            "spline": spline inference
+                            "meanPrevious": get the average of previous state to fill
+                            "remove": remove the data, 
+                            "symetricPadding": using the data of before and later the event to pad
+                            "orginal": do nothing
+        padAtEdge: handling the nan value at edge while the normal one can't handle
+        saveToFile: if want to save the handled data
+        '''
+        alwaysWorkVariable = []
+        aiLogger.info("Handing the redundant Mode of failure")
+        dfFiltered  = orginalData
+        # for idxFeature in self.notModeOfFailure:
+        maskNonCritial      = dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"]) 
+        validColumn         = dfFiltered.columns.difference(['tiempo',          'Descripción Equipo',   'Modo de Falla', 
+                                                            'Comentario',       'Especialidad',          'Motivo',
+                                                            'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
+                                                            + alwaysWorkVariable)
+        
+        dfFiltered[validColumn] = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan                                
+        dfFiltered.loc[maskNonCritial, validColumn]    = np.nan                                         # Assign the nonCritical to Nan
+        
+        # ---------------------------------
+        # Interpolate
+        # ---------------------------------
+        if typeOfPadding == "linear":
+            dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
+        
+        elif typeOfPadding == "spline":
+            dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='spline', order=2)
+        
+        elif typeOfPadding == "meanPrevious":
+            for col in validColumn:
+                # print(dfFiltered[col])
+                rolling_mean    = dfFiltered[col].rolling(window=180, min_periods=1, closed='left').mean() 
+                dfFiltered[col] = dfFiltered[col].fillna(rolling_mean)
+            dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
+
+        elif typeOfPadding == "remove":
+            dfFiltered = dfFiltered[pd.notna(dfFiltered[validColumn])]
+            dfFiltered.reset_index(drop=True)
+        else:
+            dfFiltered = dfFiltered
+        # -----------------------------------------
+        # Fill any remaining NaNs with forward-fill 
+        # or backward-fill as needed (at edge)
+        # -----------------------------------------
+        if typeOfPadding != "remove" and padAtEdge == True:
+            dfFiltered[validColumn] = dfFiltered[validColumn].fillna(method='ffill')
+            dfFiltered[validColumn] = dfFiltered[validColumn].fillna(method='bfill')
+
+        if replaceMOFWithNan:
+            dfFiltered.loc[maskNonCritial, 'Modo de Falla'] = np.nan
+    
+        if saveToFile:
+            aiLogger.info("Saving the cleaned data")
+            output_path = 'data/' + nameOfSaving + '.' + typeToSave # Specify your output file path        
+            dfFiltered.to_hdf(output_path, mode='w') if  typeToSave=="h5" else dfFiltered.to_excel(output_path, index=False)
 
 
-        output_path = 'data/criticalMOFCrusher11.xlsx'  # Specify your output file path
-        df_filtered.to_excel(output_path, index=False)
-        aiLogger.info("Finish to remove redundant data and save to a file xlsx ...")
-        return df_filtered.reset_index()
+        aiLogger.info("Finish to remove redundant data")
+        return dfFiltered
 
 
     # ===================================
@@ -536,7 +677,7 @@ class PreProcessData(object):
                 endingRow       = preIdx
                 
                 if not pd.isna(preMOF):                                     # If previous one is not nan value, to ensure that we are at the last point of a MOF (MOF to Nah), not the trasition from Nah to MOF                   
-                    mofTable.add_row([no,preMOF, beginingTime,endingTime,beginingRow+2,endingRow+2])
+                    mofTable.add_row([no,preMOF, beginingTime,endingTime,beginingRow,endingRow])
                     no +=1
                     
                     if preMOF not in usefulMOF:                             # If we haven't recored the MOF in a "set - python type" of MOF, write it
@@ -566,16 +707,18 @@ class PreProcessData(object):
     # This function is used to sumarry all
     # the mode of failure inside the data
     # -----------------------------------
-    def sumarryMOF(self,):
+    def sumarryMOF(self, data):
+
         allMofTable                 = PrettyTable()
-        allMofTable.field_names     = ["Elimination", "Critical MOF", "Used MOF"]
+        allMofTable.field_names     = ["Elimination", "Critical MOF"]
 
-        elimination     = self.notModeOfFailure.copy()
-        criticalMOF     = self.criticalMOF.copy()
-        usedMOF         = self.usedCriticalMOF.copy()
+        machineMOF      = data['Modo de Falla'].unique()
+        elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()]
 
+        # elimination     = self.notModeOfFailure.copy()
+        criticalMOF     = [x for x in machineMOF if x not in elimination]
 
-        max_length        = max(len(elimination), len(criticalMOF), len(usedMOF))
+        max_length        = max(len(elimination), len(criticalMOF))
 
         # -------------------------------
         # Fill the empty ones
@@ -586,14 +729,11 @@ class PreProcessData(object):
         while len(criticalMOF) < max_length:
             criticalMOF.append("")
 
-        while len(usedMOF) < max_length:
-            usedMOF.append("")
-
         # -------------------------------
         # Add row and print
         # -------------------------------
         for idx in range(max_length):
-            allMofTable.add_row([elimination[idx], criticalMOF[idx], usedMOF[idx]])
+            allMofTable.add_row([elimination[idx], criticalMOF[idx]])
 
         print(allMofTable)
         for idx in self.criticalMOF:
@@ -811,35 +951,7 @@ class PreProcessData(object):
             except Exception as e:
                 print(f"Error filling NaN values: {e}")
         return df
-    # ===================================
-    # This function is used to print the 
-    # manipulated and efficiency variable
-    # -----------------------------------
-    def splitInputandEfficiencyVar(self,):
-        table     = PrettyTable()
-        table.field_names = ["ManupulatedVar", "EfficiencyVar"]
 
-        manipulatedCr1    = self.manipulatedCr1.copy()
-        efficiencyCr1     = self.efficiencyCr1.copy()
-
-        max_length        = max(len(self.manipulatedCr1), len(self.efficiencyCr1))
-
-        # -------------------------------
-        # Fill the empty ones
-        # -------------------------------
-        while len(manipulatedCr1) < max_length:
-            manipulatedCr1.append("")
-
-        while len(efficiencyCr1) < max_length:
-            efficiencyCr1.append("")
-
-        # -------------------------------
-        # Add row and print
-        # -------------------------------
-        for idx in range(max_length):
-            table.add_row([manipulatedCr1[idx], efficiencyCr1[idx]])
-
-        print(table)
 
     # ===================================
     # This function is used to 
@@ -1064,6 +1176,7 @@ class PreProcessData(object):
 
     # -------------------------------------
     # This is the sub function of the getTensor()
+    # which is used to generate ID for each list elements
     # -------------------------------------
     def generateTrajectoryId(self,listOfData):
         withIdList          = []
@@ -1316,8 +1429,8 @@ if __name__ == '__main__':
 
     plot                = MatPlot()
     preData             = PreProcessData(config=myConfig)
-    train,test          = preData.getTrainData()
-    print(train[0].shape, train[1].shape,train[2].shape)
+    data                = preData.getTrainDataTest()
+    # print(train[0].shape, train[1].shape,train[2].shape)
 
 
 
