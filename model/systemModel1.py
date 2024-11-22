@@ -203,6 +203,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         self.encoder_output     = encoder_output
         
         encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
+        print(encoder.summary())
         return encoder
 
     # =================================
@@ -228,7 +229,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
        
 
         # last de-convolution
-        x = Conv1DTranspose(        filters     = self.feat_dim,
+        self.decoder_outputs = Conv1DTranspose(        filters     = self.feat_dim,
                                     kernel_size = kernelSize,
                                     strides     = stride,
                                     padding     = "same",
@@ -236,10 +237,12 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
                                     name        = f"dec_deconv__{i+1}",
                                 )(x)
 
-        x                       = Flatten(name="dec_flatten")(x)
-        x                       = Dense(self.seq_len * self.feat_dim, name="decoder_dense_final")(x)
-        self.decoder_outputs    = Reshape(target_shape=(self.seq_len, self.feat_dim))(x)
+
+        # x                       = Flatten(name="dec_flatten")(x)
+        # x                       = Dense(self.seq_len * self.feat_dim, name="decoder_dense_final")(x)
+        # self.decoder_outputs    = Reshape(target_shape=(self.seq_len, self.feat_dim))(x)
         decoder                 = Model(decoder_inputs, self.decoder_outputs, name="decoder")
+        print(decoder.summary())
         return decoder
     
     
