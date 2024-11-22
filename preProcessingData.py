@@ -258,7 +258,7 @@ class PreProcessData(object):
         withTimeDataCr1         = self.addCycleAndRul(normalizedCr1)                        # Add the time to the data
         withTimeDataCr2         = self.addCycleAndRul(normalizedCr2)                        # Add the time to the data
         withTimeDataCv2         = self.addCycleAndRul(normalizedCv2)                        # Add the time to the data
-
+        
         # -----------------------------
         # Add the cycle and RUL of system
         systemData                  = pd.DataFrame()
