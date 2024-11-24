@@ -3,8 +3,8 @@
 # =============================================
 from utility.logger         import aiLogger
 from keras.callbacks        import EarlyStopping, ReduceLROnPlateau,ModelCheckpoint
-from model.systemModel      import SystemModel
-from model.systemModel      import SubclassModelCheckpoint
+from model.singleComponentModel      import SystemModel
+from model.singleComponentModel      import SubclassModelCheckpoint
 from preProcessingData      import PreProcessData
 from   keras.optimizers     import Adam
 from datetime               import datetime

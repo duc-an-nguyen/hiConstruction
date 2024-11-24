@@ -258,7 +258,7 @@ class PreProcessData(object):
         withTimeDataCr1         = self.addCycleAndRul(normalizedCr1)                        # Add the time to the data
         withTimeDataCr2         = self.addCycleAndRul(normalizedCr2)                        # Add the time to the data
         withTimeDataCv2         = self.addCycleAndRul(normalizedCv2)                        # Add the time to the data
-
+        
         # -----------------------------
         # Add the cycle and RUL of system
         systemData                  = pd.DataFrame()
@@ -568,7 +568,7 @@ class PreProcessData(object):
     # This function is used to clean the 
     # redundant MOF.
     # -----------------------------------
-    def handlingRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = True, typeToSave = 'h5', nameOfSaving = "default"):
+    def handlingRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = True, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
@@ -585,7 +585,8 @@ class PreProcessData(object):
         aiLogger.info("Handing the redundant Mode of failure")
         dfFiltered  = orginalData
         # for idxFeature in self.notModeOfFailure:
-        maskNonCritial      = dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"]) 
+        
+        maskNonCritial      =  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
         validColumn         = dfFiltered.columns.difference(['tiempo',          'Descripción Equipo',   'Modo de Falla', 
                                                             'Comentario',       'Especialidad',          'Motivo',
                                                             'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
