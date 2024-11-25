@@ -267,7 +267,7 @@ class PreProcessData(object):
         withTimeDataSys             = self.addCycleAndRul(systemData)
 
         # -----------------------------
-        # Extract before split
+        # Extract before splitting
         dataCr1                 = withTimeDataCr1[self.crusher1Value]
         cycleCr1                = withTimeDataCr1["cycle"]
         dataCr2                 = withTimeDataCr2[self.crusher2Value]
@@ -528,10 +528,14 @@ class PreProcessData(object):
 
         return data
     
-
-    def removeJointNonCriticalMOF(self,df = [], removeAllNoneCritical = True, mainternanceAsCriticalFailure = True):
+    # =====================================
+    # This function is used to remove non
+    # critical MOF
+    # -------------------------------------
+    def removeNonCriticalMOF(self,df = [], mainternanceAsCriticalFailure = True, printRemovedCol = False):
         '''
-        df                              : it should be a list of component input
+        df                              : it should be a list of component input, if input is multiple components, this function will remove joint non critical MOF only.
+                                          If the input is only the 1 element input, it will remove all non criticall component
         removeAllNoneCritical           : true if wantting to remove all the non critical component (both joint and non joint), false if wantting to remove only joint ones
         mainternanceAsCriticalFailure   : remove mainternace or not. 
         '''
@@ -554,39 +558,29 @@ class PreProcessData(object):
             if idx == 0:    # Initialize the system-wide shutdown event DataFrame
                 removedColumn['isElimined'] = eliminatedRow
             else:
-                removedColumn['isElimined'] = removedColumn['isElimined'] | eliminatedRow if removeAllNoneCritical else removedColumn['isElimined'] & eliminatedRow
+                removedColumn['isElimined'] &= removedColumn['isElimined']
 
-            
-        for df_idx, curDf in enumerate(df):
-            removedRows = curDf[removedColumn['isElimined'].values]
-            if not removedRows.empty:
-                print(f"DataFrame {df_idx}: Rows to be removed:\n{removedRows[['Modo de Falla']].reset_index()}")
-            # for row_idx, row in removedRows.iterrows():
-            #     removedLog = pd.concat(
-            #         [removedLog, pd.DataFrame({
-            #             'DataFrame_Index': [df_idx],
-            #             'Row_Index': [row_idx],
-            #             'Modo de Falla': [row['Modo de Falla']]
-            #         })],
-            #         ignore_index=True
-            #     )
+        if printRemovedCol:    
+            for df_idx, curDf in enumerate(df):
+                removedRows = curDf[removedColumn['isElimined'].values]
+                if not removedRows.empty:
+                    print(f"DataFrame {df_idx}: Rows to be removed:\n{removedRows[['Modo de Falla']].reset_index()}")
         
-        result = [curDf[~removedColumn['isElimined'].values].reset_index(drop=True) for curDf in df]
-
-        return result
+        result          = [curDf[~removedColumn['isElimined'].values].reset_index(drop=True) for curDf in df]
+        returnedResult  = result if len(result)>1 else result[0]
+        return returnedResult
 
     # ===================================
-    # This function is used to clean the 
-    # redundant MOF.
+    # This function is used to interpolate
+    # the redundant MOF
     # -----------------------------------
-    def handlingRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = True, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
+    def interpolateRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = True, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
                             "linear":  linear inference, 
                             "spline": spline inference
                             "meanPrevious": get the average of previous state to fill
-                            "remove": remove the data, 
                             "symetricPadding": using the data of before and later the event to pad
                             "orginal": do nothing
         padAtEdge       : handling the nan value at edge while the normal one can't handle
@@ -621,10 +615,6 @@ class PreProcessData(object):
                 rolling_mean    = dfFiltered[col].rolling(window=180, min_periods=1, closed='left').mean() 
                 dfFiltered[col] = dfFiltered[col].fillna(rolling_mean)
             dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
-
-        elif typeOfPadding == "remove":
-            dfFiltered = dfFiltered[pd.notna(dfFiltered[validColumn])]
-            dfFiltered.reset_index(drop=True)
         else:
             dfFiltered = dfFiltered
         # -----------------------------------------
@@ -638,7 +628,7 @@ class PreProcessData(object):
         if replaceMOFWithNan:
             dfFiltered.loc[maskNonCritial, 'Modo de Falla'] = np.nan
     
-        if saveToFile:
+        if saveToFile:      # Use for debugging
             aiLogger.info("Saving the cleaned data")
             output_path = 'data/' + nameOfSaving + '.' + typeToSave # Specify your output file path        
             dfFiltered.to_hdf(output_path, mode='w') if  typeToSave=="h5" else dfFiltered.to_excel(output_path, index=False)
