@@ -529,21 +529,32 @@ class PreProcessData(object):
         return data
     
 
-    def removeJointNonCriticalMOF(self,df = []):
-        removedColumn = pd.DataFrame()
-        removedLog = pd.DataFrame(columns=['DataFrame_Index', 'Row_Index', 'Modo de Falla'])
+    def removeJointNonCriticalMOF(self,df = [], removeAllNoneCritical = True, mainternanceAsCriticalFailure = True):
+        '''
+        df                              : it should be a list of component input
+        removeAllNoneCritical           : true if wantting to remove all the non critical component (both joint and non joint), false if wantting to remove only joint ones
+        mainternanceAsCriticalFailure   : remove mainternace or not. 
+        '''
+        removedColumn   = pd.DataFrame()
+        removedLog      = pd.DataFrame(columns=['DataFrame_Index', 'Row_Index', 'Modo de Falla'])
         for idx,curDf in enumerate(df):
             machineMOF      = curDf['Modo de Falla'].dropna().unique()
-            elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
+            # --------------------------
+            # Find the eliminated MOF:
+            # --------------------------
+            if mainternanceAsCriticalFailure:
+                elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()]
+            else:
+                elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"] 
             # print(machineMOF, elimination,criticalMOF)
             # --------------------------
-            # Assign the ID over event
+            # Assign the ID over events
             # --------------------------
             eliminatedRow    = curDf['Modo de Falla'].isin(elimination)  
             if idx == 0:    # Initialize the system-wide shutdown event DataFrame
                 removedColumn['isElimined'] = eliminatedRow
             else:
-                removedColumn['isElimined'] &= eliminatedRow
+                removedColumn['isElimined'] = removedColumn['isElimined'] | eliminatedRow if removeAllNoneCritical else removedColumn['isElimined'] & eliminatedRow
 
             
         for df_idx, curDf in enumerate(df):
@@ -578,8 +589,8 @@ class PreProcessData(object):
                             "remove": remove the data, 
                             "symetricPadding": using the data of before and later the event to pad
                             "orginal": do nothing
-        padAtEdge: handling the nan value at edge while the normal one can't handle
-        saveToFile: if want to save the handled data
+        padAtEdge       : handling the nan value at edge while the normal one can't handle
+        saveToFile      : if want to save the handled data
         '''
         alwaysWorkVariable = []
         aiLogger.info("Handing the redundant Mode of failure")
