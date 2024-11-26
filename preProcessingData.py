@@ -244,6 +244,12 @@ class PreProcessData(object):
     def getTrainDataTest(self,):
         cr1, cr2, cv2           = self.loadH5File(name = "criticalAllData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
+
+        _                       = preData.sumarryDataFromFile(cr1, printUsefulMOF = True)
+        _                       = preData.sumarryDataFromFile(cr2, printUsefulMOF = True)
+        _                       = preData.sumarryDataFromFile(cv2, printUsefulMOF = True)
+
+
         withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2])
 
         # -----------------------------
@@ -270,17 +276,27 @@ class PreProcessData(object):
         # Extract before splitting
         dataCr1                 = withTimeDataCr1[self.crusher1Value]
         cycleCr1                = withTimeDataCr1["cycle"]
+        rulCr1                  = withTimeDataCr1["rul"]
+
         dataCr2                 = withTimeDataCr2[self.crusher2Value]
         cycleCr2                = withTimeDataCr2["cycle"]
+        rulCr2                  = withTimeDataCr2["rul"]
+
         dataCv2                 = withTimeDataCv2[self.conveyorValue]
         cycleCv2                = withTimeDataCv2["cycle"]
+        rulCv2                  = withTimeDataCv2["rul"]
+
         systemRUL               = withTimeDataSys["rul"]
 
         # -----------------------------
         # Split with the system ID
-        seqDataCr1,seqCycleCr1,     \
-        seqDataCr2,seqCycleCr2 ,    \
-        seqDataCv2,seqCycleCv2, seqRulTraj         = self.getTensorData(    dataList   = [dataCr1, cycleCr1, dataCr2, cycleCr2, dataCv2, cycleCv2, systemRUL], 
+        seqDataCr1,seqCycleCr1, seqRulCr1,    \
+        seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
+        seqDataCv2,seqCycleCv2, seqRulCv2,    \
+                                seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
+                                                                                          dataCr2, cycleCr2, rulCr2,
+                                                                                          dataCv2, cycleCv2, rulCv2,
+                                                                                          systemRUL], 
                                                                             trajectId  = IdSys,
                                                                             seqLength  = self.config['seqLength'], 
                                                                             overlap    = self.config['seqLength']-1,
@@ -289,9 +305,10 @@ class PreProcessData(object):
         print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulTraj[:,-1,:].shape}")
         # seqCycle    = seqCycle[:,-1,:]
         # rul         = rulTraj[:,-1,:]
-        xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
-        yTrain      = seqRulTraj[:,-1,:]
-     
+        # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
+        # yTrain      = seqRulTraj[:,-1,:]
+        xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:]]
+        yTrain      = seqRulCr1[:,-1,:]
         return xTrain, yTrain
     
     # ===================================
@@ -299,9 +316,10 @@ class PreProcessData(object):
     # for each trajectory between period 
     # of 2 shutdown time , or a period between
     # mainternance and shutdown. 
-    def attachIDPerEvent(self, df = [None], throughEvent = "2Shutdown"):
+    def attachIDPerEvent(self, df = [None], mainternanceAsCriticalSd = False):
         '''
         df: A list of of MOF column
+        mainternanceAsCriticalSd: True if considering mainternance as shutdown, each traject will include mainterance
         results: return the same order of pandas df with an addition of trajectoryID, and return with the system ID
         '''
         # --------------------------
@@ -312,7 +330,7 @@ class PreProcessData(object):
 
         for idx,curDf in enumerate(df):
             machineMOF      = curDf['Modo de Falla'].dropna().unique()
-            elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
+            elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] if mainternanceAsCriticalSd else  [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
             criticalMOF     = [x for x in machineMOF if x not in elimination]
             # print(machineMOF, elimination,criticalMOF)
             # --------------------------

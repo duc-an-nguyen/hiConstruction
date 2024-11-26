@@ -298,7 +298,7 @@ class SystemModel(tf.keras.Model):
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
-        # self.hiSystemAndRul  = HiSystemAndRul()
+        self.hiSystemAndRul  = HiSystemAndRul()
 
         # ----------------------------
         # For loss tracker
@@ -307,7 +307,7 @@ class SystemModel(tf.keras.Model):
         self.cr1ConstructionTracker         = Mean( name="cstrReLoss" )
         self.cr1ZLossTracker                = Mean(name = "zReLoss")
         self.maskLossTracker                = Mean(name= "maskLoss")
-        # self.rulLossTracker                 = Mean(name= "rulLoss")
+        self.rulLossTracker                 = Mean(name= "rulLoss")
 
 
         self.bestLoss                      = tf.Variable(float('inf'), trainable=False)
@@ -378,17 +378,15 @@ class SystemModel(tf.keras.Model):
             # tf.print("Sum of binary mask:", tf.reduce_sum(binaryMask))
             # tf.print("Mask values:", binaryMask)
             # print("HI and system rul")
-            # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1,zCr1])
+            hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1,zCr1])
 
             # print("Loss funcion")
             # ====================================
             #               LOSS
             # ------------------------------------
-            # L1 regularization to promote sparsity
-            # l1_reg = tf.reduce_sum(probs)
             # # Binarization regularization
-            # binary_reg = tf.reduce_sum(probs * (1 - probs))
-            # maskLoss = l1_reg + binary_reg
+            maskLoss = tf.reduce_sum(probs * (1 - probs))
+           
 
 
 
