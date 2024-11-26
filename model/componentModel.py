@@ -63,6 +63,21 @@ class SubclassModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
             
 
 # ====================================
+# Attention convolution
+# ====================================
+class AttentionMaskedConv1D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size, strides=2,  activation='relu', padding = 'same', **kwargs):
+        super(AttentionMaskedConv1D, self).__init__(**kwargs)
+        self.conv = Conv1D(filters, kernel_size, strides=strides, padding=padding, activation=activation)
+        self.attention_weights = Dense(filters, activation='sigmoid')
+        
+    def call(self, inputs):
+        conv_output = self.conv(inputs)
+        attn_weights = self.attention_weights(conv_output)
+        attended_output = conv_output * attn_weights
+        return attended_output
+    
+# ====================================
 # VAE Time (VariationalAutoencoderConv)
 # ====================================
 class VAEConvInterpretable(BaseVariationalAutoencoder):    
@@ -85,7 +100,6 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         self.hidden_layer_sizes = hidden_layer_sizes
         self.encoder            = self.get_encoder()
         self.decoder            = self.get_decoder() 
-
         self.config             = config
 
     # ================================
@@ -101,7 +115,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         for numFilters in reversed(self.hidden_layer_sizes):
             x = tf.keras.layers.Conv1D(filters      =   numFilters,
                                        kernel_size  =   kernelSize,
-                                       strides      =   stride,
+                                       stride      =   stride,
                                        activation   =   'relu',
                                        padding = 'same')(x)
         
@@ -109,7 +123,46 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
     
         decoder     = tf.keras.models.Model([z, wIn],reconsData)
         return decoder
-
+    
+    # ================================
+    # Attention encoder
+    # --------------------------------
+    def getAttentionEncoder(self, kernelSize = 3, stride = 2):
+        encoder_inputs  = Input(shape   = (self.seq_len, self.feat_dim), 
+                                name    = 'encoder_input')
+        x               = encoder_inputs
+        # --------------------
+        # Repeat to create Conv1D
+        # --------------------
+        for i, num_filters in enumerate(self.hidden_layer_sizes):
+            x = AttentionMaskedConv1D(  filters     = num_filters, 
+                                        kernel_size = kernelSize, 
+                                        strides     = stride, 
+                                        activation  = 'relu', 
+                                        padding     = 'same',
+                                        name        = f'enc_conv_{i}')(x)
+        sysHILayer = AttentionMaskedConv1D(     filters     = 5, 
+                                                kernel_size = kernelSize, 
+                                                strides     = stride, 
+                                                activation  = 'relu', 
+                                                padding     = 'same',
+                                                name        = 'extractedSysHiLayer')(x)
+        
+        print("The shape of sysHILayer",sysHILayer.shape)
+        # --------------------
+        # Flat and create latent
+        # --------------------
+        x                       = Flatten(name='enc_flatten')(x)
+        self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
+        
+        # ----------------------
+        # For VAE
+        # ----------------------
+        encoder_output          = Dense(self.latent_dim, name="encoder_output")(x)
+        self.encoder_output     = encoder_output
+        
+        encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
+        return encoder
     # ================================
     # Create module Encoder separately
     # --------------------------------
@@ -136,6 +189,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
                                 activation  = 'relu', 
                                 padding     = 'same',
                                 name        = 'extractedSysHiLayer')(x)
+        print("The shape of sysHILayer",sysHILayer.shape)
         # --------------------
         # Flat and create latent
         # --------------------
@@ -152,7 +206,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         return encoder
 
     # =================================
-    # --------------------------------
+    # ---------------------------------
     def get_decoder(self, kernelSize = 3, stride = 2):
         decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
 
@@ -188,6 +242,45 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         decoder                 = Model(decoder_inputs, self.decoder_outputs, name="decoder")
         return decoder
     
+    # =================================
+    # This one is decoder model. Using it
+    # when the input is the power of 2
+    # ---------------------------------
+    def decoderNoDense(self, kernelSize = 3, stride = 2):
+        decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
+
+        x = decoder_inputs
+        x = Dense(self.encLastDenseDim, name="dec_dense", activation="relu")(x)
+
+
+        x = Reshape(target_shape=(-1, self.hidden_layer_sizes[-1]), name="dec_reshape")(x)
+     
+
+        for i, num_filters in enumerate(reversed(self.hidden_layer_sizes[:-1])):
+            x = Conv1DTranspose(    filters     = num_filters,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
+                                    padding     = "same",
+                                    activation  = "relu",
+                                    name        = f"dec_deconv_{i}",
+                                )(x)
+       
+
+        # last de-convolution
+        self.decoder_outputs = Conv1DTranspose(        filters     = self.feat_dim,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
+                                    padding     = "same",
+                                    activation  = "relu",
+                                    name        = f"dec_deconv__{i+1}",
+                                )(x)
+
+        # x                       = Flatten(name="dec_flatten")(x)
+        # x                       = Dense(self.seq_len * self.feat_dim, name="decoder_dense_final")(x)
+        # self.decoder_outputs    = Reshape(target_shape=(self.seq_len, self.feat_dim))(x)
+        decoder                 = Model(decoder_inputs, self.decoder_outputs, name="decoder")
+        return decoder
+    
     
 # ====================================
 #  Hi system block and RUL
@@ -195,38 +288,32 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
 class HiSystemAndRul(tf.keras.Model):
     def __init__(self):
         super(HiSystemAndRul, self).__init__()
-
-        # ------------------------------
-        # Define variables
-        # ------------------------------
-        self.lastLoss = self.add_weight(name='last_loss', shape=(), initializer='zeros', trainable=False)  # Define lastLoss as a trainable weight
-
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputRUL1 = Input(shape=(8, 5))
-        inputRUL2 = Input(shape=(8, 5))
-        inputRUL3 = Input(shape=(8, 5))
+        inputRUL1 = Input(shape=(4, 5))
+        # inputRUL2 = Input(shape=(8, 5))
+        # inputRUL3 = Input(shape=(8, 5))
 
-        inputHISys1 = Input(shape=(1,))
-        inputHISys2 = Input(shape=(1,))
-        inputHISys3 = Input(shape=(1,))
+        # inputHISys1 = Input(shape=(1,))
+        # inputHISys2 = Input(shape=(1,))
+        # inputHISys3 = Input(shape=(1,))
 
 
-        concatenatedHiInput = Concatenate(axis=-1)([inputHISys1, inputHISys2, inputHISys3])
-        hiSystem            = tf.keras.layers.Dense(1)(concatenatedHiInput)
+        # concatenatedHiInput = Concatenate(axis=-1)([inputHISys1, inputHISys2, inputHISys3])
+        # hiSystem            = tf.keras.layers.Dense(1)(concatenatedHiInput)
         
         # print(hiSystem.shape)
         
         # ------------------------------
         # RUL
         # ------------------------------
-        concatenatedRULInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
-        rulLayer1   = GRU(32, return_sequences=True)(concatenatedRULInput)
+        # concatenatedRULInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
+        rulLayer1   = GRU(32, return_sequences=True)(inputRUL1)
         rulLayer2   = GRU(16, return_sequences=True)(rulLayer1)
-        rulLayer3   = GRU(3, return_sequences=False)(rulLayer2)
-        rulLayer4   = Concatenate(axis=-1)([rulLayer3, hiSystem])
-        rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
+        rulLayer3   = GRU(4, return_sequences=False)(rulLayer2)
+        # rulLayer4   = Concatenate(axis=-1)(rulLayer3)
+        rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer3)
 
         # print(rulLayer4.shape)
         # print(rulLayer3.shape)
@@ -235,7 +322,7 @@ class HiSystemAndRul(tf.keras.Model):
         # # # rul
         
         # Create the model
-        self.model = Model(inputs=[inputRUL1, inputRUL2, inputRUL3,inputHISys1,inputHISys2,inputHISys3], outputs=[hiSystem,rul])
+        self.model = Model(inputs=inputRUL1, outputs=rul)
         
 
 
@@ -248,12 +335,12 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, hiddenSize=64, seqLength = 128, outputSize=45*3):
+    def __init__(self, inFeature = 45, hiddenSize=64, seqLength = 128, outputSize=45*3, baseline=0.01):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
-      
+        self.baseline    = baseline
         self.mask_logits = self.add_weight(shape        = (inFeature,),
                                            initializer  = 'zeros',
                                            trainable    = True,
@@ -268,9 +355,13 @@ class SensorSelection(tf.keras.Model):
         mask            = binary_mask + probs - tf.stop_gradient(probs)
         mask            = tf.expand_dims(mask, axis=0)
 
-        return rawData * mask, probs, binary_mask
-
         
+        # maskedData      = rawData * mask
+        maskedData      = rawData * probs
+
+        return maskedData, probs, binary_mask
+
+
 
 # ==================================================
 #                   SYSTEM MODEL
@@ -292,9 +383,9 @@ class SystemModel(tf.keras.Model):
         
         self.mask           = SensorSelection(inFeature= config["inFeatureDim"])
 
+        # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoder        = vae.get_encoder(kernelSize = 3, stride = 2)
-        
-        self.decoder        = vae.get_decoder(kernelSize = 3, stride = 2)
+        self.decoder        = vae.decoderNoDense(kernelSize = 3, stride = 2)
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
@@ -304,11 +395,10 @@ class SystemModel(tf.keras.Model):
         # For loss tracker
         # ----------------------------
         self.totalLossTracker               = Mean(name="totalLoss")
-        self.cr1ConstructionTracker         = Mean( name="cstrReLoss" )
-        self.cr1ZLossTracker                = Mean(name = "zReLoss")
+        self.cr1ConstructionTracker         = Mean(name="cstrLoss" )
+        self.cr1ZLossTracker                = Mean(name = "zLoss")
         self.maskLossTracker                = Mean(name= "maskLoss")
         self.rulLossTracker                 = Mean(name= "rulLoss")
-
 
         self.bestLoss                      = tf.Variable(float('inf'), trainable=False)
 
@@ -318,15 +408,22 @@ class SystemModel(tf.keras.Model):
     # ------------------------------------------
     def call(self,input):
 
-        seqEff,seqMani     = input
-        
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
         # print("Encoder ")
-        zCr1,  sysHILayerCr1        = self.encoder(seqEff)
-        # reconsCr1                   = self.decoder(zCr1)
-        return zCr1
+        # print(input.shape)
+        binaryMask = None
+        if self.config["useMask"]:
+            encIn, probs, binaryMask    = self.mask(input)
+            zCr1,  sysHILayerCr1        = self.encoder(encIn)
+            rul                         = self.hiSystemAndRul(sysHILayerCr1)
+        else:
+            encIn                       = input
+            zCr1,  sysHILayerCr1        = self.encoder(input)
+            rul                         = self.hiSystemAndRul(sysHILayerCr1)
+    
+        return zCr1, binaryMask,probs, rul
 
     # ==========================================
     # Get custom layer
@@ -338,12 +435,17 @@ class SystemModel(tf.keras.Model):
         # ------------------------------------
         # print("Encoder ")
         # print(input.shape)
-        encIn, probs, binaryMask    = self.mask(input)
-        # print(encIn.shape)
-            # print("Encoder ")
-        zCr1,  sysHILayerCr1        = self.encoder(encIn)
-        # reconsCr1                   = self.decoder(zCr1)
-        return zCr1, binaryMask
+        binaryMask = None
+        if self.config["useMask"]:
+            encIn, probs, binaryMask    = self.mask(input)
+            zCr1,  sysHILayerCr1        = self.encoder(encIn)
+            rul                         = self.hiSystemAndRul(sysHILayerCr1)
+        else:
+            encIn                       = input
+            zCr1,  sysHILayerCr1        = self.encoder(input)
+            rul                         = self.hiSystemAndRul(sysHILayerCr1)
+    
+        return zCr1, binaryMask,probs, rul
 
     # ==========================================
     # Training (replace the default)
@@ -360,7 +462,7 @@ class SystemModel(tf.keras.Model):
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encIn, probs, binaryMask    = self.mask(seqEff)
+                encIn, probsMask, binaryMask= self.mask(seqEff)
 
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
@@ -378,18 +480,17 @@ class SystemModel(tf.keras.Model):
             # tf.print("Sum of binary mask:", tf.reduce_sum(binaryMask))
             # tf.print("Mask values:", binaryMask)
             # print("HI and system rul")
-            hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1,zCr1])
+            predictedRul = self.hiSystemAndRul(sysHILayerCr1)
 
             # print("Loss funcion")
             # ====================================
             #               LOSS
             # ------------------------------------
-            # # Binarization regularization
-            maskLoss = tf.reduce_sum(probs * (1 - probs))
-           
-
-
-
+            # L1 regularization to promote sparsity
+            # l1_reg = tf.reduce_sum(probs)
+            # Binarization regularization
+            maskLoss = 10* tf.reduce_sum(probsMask * (1 - probsMask))
+            # maskLoss = l1_reg + binary_reg
             # ------------------------------------
             # Loss for reconstruction
             # ------------------------------------
@@ -400,10 +501,10 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             # Loss for RUL
             # ------------------------------------
-            # rulLoss = tf.keras.losses.mse(predictedRul,rulY)
-            # rulLoss = tf.reduce_mean(rulLoss)
+            rulLoss = tf.keras.losses.mae(predictedRul,rulY)
+            rulLoss = tf.reduce_mean(rulLoss)
 
-            totalLoss = reconLossCr1    
+            totalLoss = reconLossCr1   +  rulLoss + maskLoss
                         
             # ------------------------------------
             # Add the constrain to the latent space
@@ -425,22 +526,23 @@ class SystemModel(tf.keras.Model):
         # Update losses
         # --------------------------------
         self.totalLossTracker.update_state(totalLoss)
-        # self.rulLossTracker.update_state(rulLoss)
+        self.rulLossTracker.update_state(rulLoss)
 
         # Construction loss 
         self.cr1ConstructionTracker.update_state(reconLossCr1)
         
         # Latent loss
-        self.cr1ZLossTracker.update_state(zReacLoss)
-        # self.maskLossTracker.update_state(maskLoss)
+        if self.config["latentConstrains"] :
+            self.cr1ZLossTracker.update_state(zReacLoss)
+        self.maskLossTracker.update_state(maskLoss)
        
 
         return {
             "totalLoss"             : self.totalLossTracker.result(),
-            # "rulLoss"               : self.rulLossTracker.result(),        
-            "cstrReLoss"            : self.cr1ConstructionTracker.result(),
-            "zReLoss"               : self.cr1ZLossTracker.result(),
-            # "maskLoss"              : self.maskLossTracker.result()
+            "rulLoss"               : self.rulLossTracker.result(),        
+            "cstrLoss"            : self.cr1ConstructionTracker.result(),
+            "zLoss"               : self.cr1ZLossTracker.result(),
+            "maskLoss"              : self.maskLossTracker.result()
         }
 
     # -----------------------------
@@ -596,31 +698,26 @@ class SystemModel(tf.keras.Model):
             # standard deviation
             # -------------------------
             cov = tf.reduce_sum((x - x_mu) * (t - t_mu))
-            std = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu))) * tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
+            
 
+            # Calculate standard deviations
+            std = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu))) * tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
             # -------------------------
             # Check if std is finite and 
             # greater than zero
             # -------------------------
             loss = tf.cond(tf.math.is_finite(std) & (std > 0), lambda: cov / (std), lambda: self.bestLoss)  # Use last loss if std is not finite
             self.add_update(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
-            loss = tf.abs(1/loss)                               # Making positive values and increase
+            # loss = tf.abs(1/loss)                               # Making positive values and increase
 
 
-            # class C_Constraint(nn.Module):
-            #     def __init__(self, alpha):
-            #         super(C_Constraint, self).__init__()
-            #         self.alpha = alpha
 
-            #     def forward(self, x, t):
-            #         x_mu = torch.mean(x)
-            #         t_mu = torch.mean(t)
-            #         cov = torch.sum((x - x_mu) * (t - t_mu))
-            #         std = torch.sqrt(torch.sum((x - x_mu)**2)) * torch.sqrt(torch.sum((t - t_mu)**2))
-            #         loss = cov / std
-            #         loss = torch.mean(loss)
+            # std_x = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu)))
+            # std_t = tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
+            # loss    = cov / (std_x * std_t)
+            # Loss: 1 - abs(correlation) to ensure the loss is bounded between 0 and 1
+            # loss = 1 - tf.abs(correlation)
 
-            #         return x, self.alpha*loss
 
         elif type == "reliability":
             # A       = 0.012
@@ -671,12 +768,12 @@ class SystemModel(tf.keras.Model):
         encoderReacWts      = self.encoder.get_weights()
         decoderReacWts      = self.decoder.get_weights()
         maskWts             = self.mask.get_weights()
-        # hiAndRulWts         = self.hiSystemAndRul.get_weights()
+        hiAndRulWts         = self.hiSystemAndRul.get_weights()
         
-        joblib.dump(encoderReacWts, os.path.join(modelDir, "encoderReacWts.h5"))
-        joblib.dump(decoderReacWts, os.path.join(modelDir, "decoderReacWts.h5"))
+        joblib.dump(encoderReacWts, os.path.join(modelDir, "encoderWts.h5"))
+        joblib.dump(decoderReacWts, os.path.join(modelDir, "decoderWts.h5"))
         joblib.dump(maskWts, os.path.join(modelDir, "maskWts.h5"))
-        # joblib.dump(hiAndRulWts, os.path.join(modelDir, "hiAndRulWts.h5"))
+        joblib.dump(hiAndRulWts, os.path.join(modelDir, "hiAndRulWts.h5"))
 
 
 
@@ -686,15 +783,15 @@ class SystemModel(tf.keras.Model):
     # --------------------------------
     def load_weights(self, model_dir, type = "subclass"):
         aiLogger.info(f"Loading the model at the direction: {model_dir}")
-        encoderReacWts      = joblib.load(os.path.join(model_dir, "encoderReacWts.h5"))
-        decoderReacWts      = joblib.load(os.path.join(model_dir, "decoderReacWts.h5"))
+        encoderReacWts      = joblib.load(os.path.join(model_dir, "encoderWts.h5"))
+        decoderReacWts      = joblib.load(os.path.join(model_dir, "decoderWts.h5"))
         maskWts             = joblib.load(os.path.join(model_dir, "maskWts.h5"))
-        # hiAndRulWts         = joblib.load(os.path.join(model_dir, "hiAndRulWts.h5"))
+        hiAndRulWts         = joblib.load(os.path.join(model_dir, "hiAndRulWts.h5"))
       
         self.encoder.set_weights(encoderReacWts)
         self.decoder.set_weights(decoderReacWts)
         self.mask.set_weights(maskWts)
-        # self.hiSystemAndRul.set_weights(hiAndRulWts)
+        self.hiSystemAndRul.set_weights(hiAndRulWts)
         aiLogger.info(f"Loaded the model at the direction:{model_dir} successfully!!!")
 
     # --------------------------------

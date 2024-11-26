@@ -242,19 +242,22 @@ class PreProcessData(object):
     # input of AI
     # ------------------------------------
     def getTrainDataTest(self,):
-        cr1, cr2, cv2           = self.loadH5File(name = "criticalAllData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2           = self.loadH5File(name = "withoutNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+
+        # _                       = self.sumarryDataFromFile(cr1, printUsefulMOF = True)
+        _                       = self.sumarryDataFromFile(cr2, printUsefulMOF = True)
+        # _                       = self.sumarryDataFromFile(cv2, printUsefulMOF = True)
 
 
-        _                       = preData.sumarryDataFromFile(cr1, printUsefulMOF = True)
-        _                       = preData.sumarryDataFromFile(cr2, printUsefulMOF = True)
-        _                       = preData.sumarryDataFromFile(cv2, printUsefulMOF = True)
+        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2], mainternanceAsCriticalSd = True)
+        
+        print(withIDCr2)
+        addedData               = self.addition_var(withIDCr1) 
 
-
-        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2])
-
+        handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
         # -----------------------------
         # Normalize
-        normalizedCr1           = self.normalizeBuilinFunction(withIDCr1, headline = self.crusher1Value)  
+        normalizedCr1           = self.normalizeBuilinFunction(addedData, headline = handledValues)  
         normalizedCr2           = self.normalizeBuilinFunction(withIDCr2, headline = self.crusher2Value)  
         normalizedCv2           = self.normalizeBuilinFunction(withIDCv2, headline = self.conveyorValue)  
 
@@ -271,16 +274,18 @@ class PreProcessData(object):
         systemData['tiempo']        = withTimeDataCr1["tiempo"]
         systemData['trajectoryID']  = IdSys
         withTimeDataSys             = self.addCycleAndRul(systemData)
-
+        
         # -----------------------------
         # Extract before splitting
-        dataCr1                 = withTimeDataCr1[self.crusher1Value]
+        dataCr1                 = withTimeDataCr1[handledValues]
         cycleCr1                = withTimeDataCr1["cycle"]
         rulCr1                  = withTimeDataCr1["rul"]
+        trajectIDCr1            = withTimeDataCr1["trajectoryID"]
 
         dataCr2                 = withTimeDataCr2[self.crusher2Value]
         cycleCr2                = withTimeDataCr2["cycle"]
         rulCr2                  = withTimeDataCr2["rul"]
+        trajectIDCr2            = withTimeDataCr2["trajectoryID"]
 
         dataCv2                 = withTimeDataCv2[self.conveyorValue]
         cycleCv2                = withTimeDataCv2["cycle"]
@@ -290,25 +295,38 @@ class PreProcessData(object):
 
         # -----------------------------
         # Split with the system ID
-        seqDataCr1,seqCycleCr1, seqRulCr1,    \
-        seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
-        seqDataCv2,seqCycleCv2, seqRulCv2,    \
-                                seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
-                                                                                          dataCr2, cycleCr2, rulCr2,
-                                                                                          dataCv2, cycleCv2, rulCv2,
-                                                                                          systemRUL], 
-                                                                            trajectId  = IdSys,
+        # seqDataCr1,seqCycleCr1, seqRulCr1,    \
+        # seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
+        # seqDataCv2,seqCycleCv2, seqRulCv2,    \
+        #                         seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
+        #                                                                                   dataCr2, cycleCr2, rulCr2,
+        #                                                                                   dataCv2, cycleCv2, rulCv2,
+        #                                                                                   systemRUL], 
+        #                                                                     trajectId  = IdSys,
+        #                                                                     seqLength  = self.config['seqLength'], 
+        #                                                                     overlap    = self.config['seqLength']-1,
+        #                                                                     typeInput  = "listOfPandas")
+        # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr1, cycleCr1, rulCr1 ],                                                                                          
+        #                                                                     trajectId  = trajectIDCr1,
+        #                                                                     seqLength  = self.config['seqLength'], 
+        #                                                                     overlap    = self.config['seqLength']-1,
+        #                                                                     typeInput  = "listOfPandas")
+        
+        seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
+                                                                            trajectId  = trajectIDCr2,
                                                                             seqLength  = self.config['seqLength'], 
                                                                             overlap    = self.config['seqLength']-1,
                                                                             typeInput  = "listOfPandas")
         
-        print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulTraj[:,-1,:].shape}")
+        print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqRulCr1[:,-1,:].shape}")
+        # print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulTraj[:,-1,:].shape}")
         # seqCycle    = seqCycle[:,-1,:]
         # rul         = rulTraj[:,-1,:]
         # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
         # yTrain      = seqRulTraj[:,-1,:]
         xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:]]
         yTrain      = seqRulCr1[:,-1,:]
+        # print(yTrain)
         return xTrain, yTrain
     
     # ===================================
@@ -911,7 +929,7 @@ class PreProcessData(object):
         """
 
         epsilon = 1e-10  # A small number to prevent division by zero
-        df = self.crusher1
+        # df = self.crusher1
 
         # The current variables of the lubrication system are unified
         df['Sistema Lubricación(A)'] = df['Lubricación_respaldo(A)']

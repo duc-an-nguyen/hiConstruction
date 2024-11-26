@@ -5,8 +5,8 @@ from keras.optimizers                   import Adam
 from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
 from preProcessingData                  import PreProcessData
 # from preprocessingData2                 import PreProcessData
-from model.singleComponentModel         import SystemModel
-from model.singleComponentModel         import SubclassModelCheckpoint
+from model.componentModel               import SystemModel
+from model.componentModel               import SubclassModelCheckpoint
 
 from tqdm                               import tqdm
 from datetime                           import datetime
@@ -53,7 +53,7 @@ class CrusherTrainerTester():
     # Train function
     # ------------------------------
     def compileModel(self,):
-        model.compile( optimizer   =   Adam(learning_rate= 0.01))
+        model.compile( optimizer   =   Adam(learning_rate= self.config["learningRate"]))
     # ==============================
     # Train function
     # ------------------------------
@@ -105,9 +105,11 @@ if __name__ == '__main__':
     # Preprocessing, Model, Trainer
     # ------------------------------------
     # preData     = PreProcessData()
-    preData     = PreProcessData(config = myConfig)                    # Preprocessing data
-    model       = SystemModel(myConfig)                                # Model
-    trainer     = CrusherTrainerTester(model = model, config = myConfig)                  # Trainer
+    preData     = PreProcessData(config = myConfig)                                         # Preprocessing data
+    model       = SystemModel(myConfig)                                                     # Model
+    model.build(input_shape=(None, myConfig["seqLength"], myConfig["inFeatureDim"]))
+    model.summary()
+    trainer     = CrusherTrainerTester(model = model, config = myConfig)                    # Trainer
     trainer.compileModel()
 
     seqXTrain,seqYTrain         = preData.getTrainDataTest()
@@ -116,8 +118,7 @@ if __name__ == '__main__':
                                     seqYTrain   = seqYTrain,                                 
                                 )
     
-
-
+# 41,30,2
 
 
 
