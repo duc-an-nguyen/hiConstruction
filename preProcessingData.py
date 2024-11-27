@@ -244,17 +244,36 @@ class PreProcessData(object):
     # input of AI
     # ------------------------------------
     def getTrainDataTest(self,):
-        cr1, cr2, cv2           = self.loadH5File(name = "withoutNonCriticalData1", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
-
-        _                       = self.sumarryDataFromFile(cr1, printUsefulMOF = True)
-        _                       = self.sumarryDataFromFile(cr2, printUsefulMOF = True)
-        _                       = self.sumarryDataFromFile(cv2, printUsefulMOF = True)
+        cr1, cr2, cv2           = self.loadH5File(name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
 
-        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2], mainternanceAsCriticalSd = True)
-        
-        print(withIDCv2)
+
+        # --------------------------------
+        # Add hour column into the file
+        # print(cv2.columns)
+        withHourCr1             = self.addHours(cr1)
+        withHourCr2             = self.addHours(cr2)
+        withHourCv2             = self.addHours(cv2)
+
+        if self.config["component"]  == "system":
+            insertedCr1, insertedCr2,  insertedCv2   = self.insertForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
+                                                                                   validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
+        else:
+            insertedCr1 = withHourCr1
+            insertedCr2 = withHourCr2
+            insertedCv2 = withHourCv2
+
+        # --------------------------------
+        # Sumarry data (option)
+        _                       = self.sumarryDataFromFile(insertedCr1, printUsefulMOF = True, typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(insertedCr2, printUsefulMOF = True, typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(insertedCv2, printUsefulMOF = True, typeOfTime= "hours")
+
+        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [insertedCr1,insertedCr2,insertedCv2], mainternanceAsCriticalSd = True)
+
+
         addedData               = self.addition_var(withIDCr1) 
+
 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
         # -----------------------------
@@ -273,7 +292,7 @@ class PreProcessData(object):
         # -----------------------------
         # Add the cycle and RUL of system
         systemData                  = pd.DataFrame()
-        systemData['tiempo']        = withTimeDataCr1["tiempo"]
+        systemData['hours']         = withTimeDataCr1["hours"]
         systemData['trajectoryID']  = IdSys
         withTimeDataSys             = self.addCycleAndRul(systemData)
         
@@ -296,19 +315,20 @@ class PreProcessData(object):
 
         systemRUL               = withTimeDataSys["rul"]
 
+        print(IdSys)
         # -----------------------------
         # Split with the system ID
-        # seqDataCr1,seqCycleCr1, seqRulCr1,    \
-        # seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
-        # seqDataCv2,seqCycleCv2, seqRulCv2,    \
-        #                         seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
-        #                                                                                   dataCr2, cycleCr2, rulCr2,
-        #                                                                                   dataCv2, cycleCv2, rulCv2,
-        #                                                                                   systemRUL], 
-        #                                                                     trajectId  = IdSys,
-        #                                                                     seqLength  = self.config['seqLength'], 
-        #                                                                     overlap    = self.config['seqLength']-1,
-        #                                                                     typeInput  = "listOfPandas")
+        seqDataCr1,seqCycleCr1, seqRulCr1,    \
+        seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
+        seqDataCv2,seqCycleCv2, seqRulCv2,    \
+                                seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
+                                                                                          dataCr2, cycleCr2, rulCr2,
+                                                                                          dataCv2, cycleCv2, rulCv2,
+                                                                                          systemRUL], 
+                                                                            trajectId  = IdSys,
+                                                                            seqLength  = self.config['seqLength'], 
+                                                                            overlap    = self.config['seqLength']-1,
+                                                                            typeInput  = "listOfPandas")
         # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr1, cycleCr1, rulCr1 ],                                                                                          
         #                                                                     trajectId  = trajectIDCr1,
         #                                                                     seqLength  = self.config['seqLength'], 
@@ -321,22 +341,59 @@ class PreProcessData(object):
         #                                                                     overlap    = self.config['seqLength']-1,
         #                                                                     typeInput  = "listOfPandas")
 
-        seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
-                                                                            trajectId  = trajectIDCv2,
-                                                                            seqLength  = self.config['seqLength'], 
-                                                                            overlap    = self.config['seqLength']-1,
-                                                                            typeInput  = "listOfPandas")
+        # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
+        #                                                                     trajectId  = trajectIDCv2,
+        #                                                                     seqLength  = self.config['seqLength'], 
+        #                                                                     overlap    = self.config['seqLength']-1,
+        #                                                                     typeInput  = "listOfPandas")
         
-        print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqRulCr1[:,-1,:].shape}")
-        # print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulTraj[:,-1,:].shape}")
-        # seqCycle    = seqCycle[:,-1,:]
-        # rul         = rulTraj[:,-1,:]
-        # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
-        # yTrain      = seqRulTraj[:,-1,:]
-        xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:]]
-        yTrain      = seqRulCr1[:,-1,:]
+        # print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqRulCr1[:,-1,:].shape}")
+        print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulSys[:,-1,:].shape}")
+
+        # xTrain      = [seqDataCr1[:10000,:,:],seqCycleCr1[:10000,-1,], seqDataCr2[:10000,:,:],seqCycleCr2[:10000,-1,:], seqDataCv2[:10000,:,:], seqCycleCv2[:10000,-1,:]]
+        # yTrain      = seqRulSys[:10000,-1,:]
+        xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
+        yTrain      = seqRulSys[:,-1,:]
+        # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:]]
+        # yTrain      = seqRulCr1[:,-1,:]
         # print(yTrain)
         return xTrain, yTrain
+    
+    # ==================================
+    # This function is used to make the
+    # values in a list having the same length
+    # per time
+    def insertForTheSameLength(self, data=[],validColumn = [], option = "zero"):
+        """
+        Ensures all DataFrames in the input list have the same length by:
+        1. Aligning all DataFrames to the union of their time values.
+        2. Filling missing 'MOF' values with the right previous value (forward fill).
+        3. Filling other missing values with zeros.
+
+        Args:
+            data (list): A list of pandas DataFrames. Each must have a 'time', 'MOF', and other columns.
+
+        Returns:
+            list: A list of DataFrames with the same length and aligned time values.
+        """
+
+        # ---------------------------
+        # Add the MOF for the data
+        # ---------------------------
+
+        all_times = sorted(set().union(*[df['hours'] for df in data]))          # Step 1: Get the union of all unique time values across all DataFrames
+        
+        def reindex_and_fill(df, all_times, validColumn):                       # Step 2: Reindex each DataFrame and fill missing values
+            df["Modo de Falla"] = df["Modo de Falla"].fillna("good")
+            df                  = df.set_index('hours')                         # Set 'time' as the index
+            df                  = df.reindex(all_times)                         # Reindex to include all time values
+            df['Modo de Falla'] = df['Modo de Falla'].fillna(method='ffill')    # Forward fill 'MOF' column
+            df[validColumn]     = df[validColumn].fillna(0)
+            df["Modo de Falla"] = df["Modo de Falla"].replace("good", float("nan"))
+            return df.reset_index()                                             # Reset index to restore 'time'
+
+        # Apply the processing to each DataFrame in the list
+        return [reindex_and_fill(df, all_times, validColumn[idx]) for idx,df in enumerate(data)]
     
     # ===================================
     # This function is used to attach the ID
@@ -349,6 +406,7 @@ class PreProcessData(object):
         mainternanceAsCriticalSd: True if considering mainternance as shutdown, each traject will include mainterance
         results: return the same order of pandas df with an addition of trajectoryID, and return with the system ID
         '''
+        aiLogger.info("Attaching ID into trajectories")
         # --------------------------
         # Assign the critical MOF
         # --------------------------
@@ -478,7 +536,8 @@ class PreProcessData(object):
 
         for idx, data in enumerate(rawData):
             aiLogger.info("Saving data to h5 file ...")
-            data.to_hdf(dir + name + ".h5", key=keys[idx], mode='a')
+            writingMode = 'w' if idx==0 else 'a'
+            data.to_hdf(dir + name + ".h5", key=keys[idx], mode= writingMode)
             
             aiLogger.info(f"Finish saving data {keys[idx]} to h5 file ...")
     
@@ -532,12 +591,14 @@ class PreProcessData(object):
     # This function is used to convert
     # time from ns to hours for caculation
     # -----------------------------------
-    def addCycleAndRul(self,data):
+    def addHours(self,data):
         df              = pd.DataFrame(data)
         reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
-   
+        return df
+        
+    def addCycleAndRul(self,df):
         df["cycle"]     = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x      - x.min())
         df["rul"]       = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
@@ -619,11 +680,12 @@ class PreProcessData(object):
     # This function is used to interpolate
     # the redundant MOF
     # -----------------------------------
-    def interpolateRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = True, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
+    def interpolateRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
                             "linear":  linear inference, 
+                            "zero"  : replace all the sensor with the zeros values
                             "spline": spline inference
                             "meanPrevious": get the average of previous state to fill
                             "symetricPadding": using the data of before and later the event to pad
@@ -652,6 +714,9 @@ class PreProcessData(object):
         # ---------------------------------
         if typeOfPadding == "linear":
             dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
+
+        elif typeOfPadding == "zero":
+            dfFiltered[validColumn] = dfFiltered[validColumn].fillna(0)
         
         elif typeOfPadding == "spline":
             dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='spline', order=2)
@@ -690,13 +755,16 @@ class PreProcessData(object):
     # according to time which is inside 
     # the excell file into a concise way
     # -----------------------------------
-    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False):
+    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, typeOfTime = "timestep"):
         '''
         inData: the time series data overtime with the MOF column
 
         markedPoint:
         mofTable: Content the concise content of the data to print
         '''
+        
+        timeCol = "tiempo" if typeOfTime == "timestep" else "hours"
+        
         mofTable                = PrettyTable()
         mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
 
@@ -722,7 +790,7 @@ class PreProcessData(object):
                 # --------------------------
                 # Collect the last state
                 # --------------------------
-                endingTime      = inData['tiempo'][preIdx] 
+                endingTime      = inData[timeCol][preIdx] 
                 endingRow       = preIdx
                 
                 if not pd.isna(preMOF):                                     # If previous one is not nan value, to ensure that we are at the last point of a MOF (MOF to Nah), not the trasition from Nah to MOF                   
@@ -739,7 +807,7 @@ class PreProcessData(object):
                 # Assign new state
                 # --------------------------
                 preMOF          = mofCol[curIdx]
-                beginingTime    = inData['tiempo'][curIdx]
+                beginingTime    = inData[timeCol][curIdx]
                 beginingRow     = curIdx
         
         print(mofTable)

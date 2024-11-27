@@ -5,8 +5,8 @@ from keras.optimizers                   import Adam
 from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
 from preProcessingData                  import PreProcessData
 # from preprocessingData2                 import PreProcessData
-from model.componentModel               import SystemModel
-from model.componentModel               import SubclassModelCheckpoint
+from model.systemModel                  import SystemModel
+from model.systemModel               import SubclassModelCheckpoint
 
 from tqdm                               import tqdm
 from datetime                           import datetime
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # preData     = PreProcessData()
     preData     = PreProcessData(config = myConfig)                                         # Preprocessing data
     model       = SystemModel(myConfig)                                                     # Model
-    model.build(input_shape=(None, myConfig["seqLength"], myConfig["inFeatureDim"]))
+    model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inCr1"]),(None, myConfig["seqLength"], myConfig["inCr2"]), (None, myConfig["seqLength"], myConfig["inCv2"])])
     model.summary()
 
     trainer     = CrusherTrainerTester(model = model, config = myConfig)                    # Trainer
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     history                 = trainer.train(seqXTrain   = seqXTrain, seqYTrain = seqYTrain)
                                                                    
     
-# 41,30,2
+# 41,30,31
 
 
 

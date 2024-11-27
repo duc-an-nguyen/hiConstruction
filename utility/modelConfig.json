@@ -6,14 +6,16 @@
     "latentDim":        1,
     "seqLength":        64,
     "overlap":          63,
-    "efficiencyDim":    31, 
-    "manipulationDim":  12,
-    "inFeatureDim":     31,
+    "inCr1":            41,
+    "inCr2":            30,
+    "inCv2":            31,
+
     "batchSize":        256,
     "nEpoch":           200,
     "useMask":          true,
     "latentConstrains": true,
-    "unchangeFeatures": 2
+    "unchangeFeatures": 2,
+    "component"        : "system"
 },
 
 
