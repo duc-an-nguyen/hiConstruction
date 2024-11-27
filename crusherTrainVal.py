@@ -109,14 +109,13 @@ if __name__ == '__main__':
     model       = SystemModel(myConfig)                                                     # Model
     model.build(input_shape=(None, myConfig["seqLength"], myConfig["inFeatureDim"]))
     model.summary()
+
     trainer     = CrusherTrainerTester(model = model, config = myConfig)                    # Trainer
     trainer.compileModel()
 
-    seqXTrain,seqYTrain         = preData.getTrainDataTest()
-    # print(seqXTrain.shape)
-    history     = trainer.train(    seqXTrain   = seqXTrain,
-                                    seqYTrain   = seqYTrain,                                 
-                                )
+    seqXTrain,seqYTrain     = preData.getTrainDataTest()
+    history                 = trainer.train(seqXTrain   = seqXTrain, seqYTrain = seqYTrain)
+                                                                   
     
 # 41,30,2
 

@@ -111,8 +111,10 @@ class PreProcessData(object):
                                         'Inicio Reportado',                 'Fin Reportado',                'Corriente(A)', 
                                         'Pesómetro(ton/h)',                 'Equipo']        
 
-        self.conveyorValue      = [     'Corriente(A)', 'Pesómetro(ton/h)',]
-                                        
+        self.crusher2ConveyorValue  = [value for value in self.crusher2Value if value != 'Corriente(A)']
+        self.conveyorValue          = ['Corriente(A)', 'Pesómetro(ton/h)']
+        
+
 
         # --------------------------
         # MODES OF FAILURE
@@ -242,16 +244,16 @@ class PreProcessData(object):
     # input of AI
     # ------------------------------------
     def getTrainDataTest(self,):
-        cr1, cr2, cv2           = self.loadH5File(name = "withoutNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2           = self.loadH5File(name = "withoutNonCriticalData1", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
-        # _                       = self.sumarryDataFromFile(cr1, printUsefulMOF = True)
+        _                       = self.sumarryDataFromFile(cr1, printUsefulMOF = True)
         _                       = self.sumarryDataFromFile(cr2, printUsefulMOF = True)
-        # _                       = self.sumarryDataFromFile(cv2, printUsefulMOF = True)
+        _                       = self.sumarryDataFromFile(cv2, printUsefulMOF = True)
 
 
         withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2], mainternanceAsCriticalSd = True)
         
-        print(withIDCr2)
+        print(withIDCv2)
         addedData               = self.addition_var(withIDCr1) 
 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
@@ -259,7 +261,7 @@ class PreProcessData(object):
         # Normalize
         normalizedCr1           = self.normalizeBuilinFunction(addedData, headline = handledValues)  
         normalizedCr2           = self.normalizeBuilinFunction(withIDCr2, headline = self.crusher2Value)  
-        normalizedCv2           = self.normalizeBuilinFunction(withIDCv2, headline = self.conveyorValue)  
+        normalizedCv2           = self.normalizeBuilinFunction(withIDCv2, headline = self.conveyorValue + self.crusher2Value)  
 
         # -----------------------------
         # Add the Cycle and RUL to 
@@ -287,9 +289,10 @@ class PreProcessData(object):
         rulCr2                  = withTimeDataCr2["rul"]
         trajectIDCr2            = withTimeDataCr2["trajectoryID"]
 
-        dataCv2                 = withTimeDataCv2[self.conveyorValue]
+        dataCv2                 = withTimeDataCv2[self.conveyorValue + self.crusher2ConveyorValue]
         cycleCv2                = withTimeDataCv2["cycle"]
         rulCv2                  = withTimeDataCv2["rul"]
+        trajectIDCv2            = withTimeDataCv2["trajectoryID"]
 
         systemRUL               = withTimeDataSys["rul"]
 
@@ -312,8 +315,14 @@ class PreProcessData(object):
         #                                                                     overlap    = self.config['seqLength']-1,
         #                                                                     typeInput  = "listOfPandas")
         
-        seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
-                                                                            trajectId  = trajectIDCr2,
+        # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
+        #                                                                     trajectId  = trajectIDCr2,
+        #                                                                     seqLength  = self.config['seqLength'], 
+        #                                                                     overlap    = self.config['seqLength']-1,
+        #                                                                     typeInput  = "listOfPandas")
+
+        seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
+                                                                            trajectId  = trajectIDCv2,
                                                                             seqLength  = self.config['seqLength'], 
                                                                             overlap    = self.config['seqLength']-1,
                                                                             typeInput  = "listOfPandas")
@@ -632,8 +641,10 @@ class PreProcessData(object):
                                                             'Comentario',       'Especialidad',          'Motivo',
                                                             'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
                                                             + alwaysWorkVariable)
-        
+        # print(dfFiltered.columns)
         dfFiltered[validColumn] = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan                                
+        
+        
         dfFiltered.loc[maskNonCritial, validColumn]    = np.nan                                         # Assign the nonCritical to Nan
         
         # ---------------------------------

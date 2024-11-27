@@ -6,13 +6,14 @@
     "latentDim":        1,
     "seqLength":        64,
     "overlap":          63,
-    "efficiencyDim":    30, 
+    "efficiencyDim":    31, 
     "manipulationDim":  12,
-    "inFeatureDim":     30,
+    "inFeatureDim":     31,
     "batchSize":        256,
     "nEpoch":           200,
     "useMask":          true,
-    "latentConstrains": true
+    "latentConstrains": true,
+    "unchangeFeatures": 2
 },
 
 

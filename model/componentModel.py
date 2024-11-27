@@ -335,7 +335,7 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, hiddenSize=64, seqLength = 128, outputSize=45*3, baseline=0.01):
+    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
@@ -362,7 +362,30 @@ class SensorSelection(tf.keras.Model):
         return maskedData, probs, binary_mask
 
 
-
+    # def call(self, rawData):
+    #     # Calculate probabilities
+    #     probs = tf.sigmoid(self.mask_logits)
+    #     random_uniform = tf.random.uniform(tf.shape(probs))
+    #     binary_mask = tf.cast(tf.less(random_uniform, probs), tf.float32)
+        
+    #     # Force first `unchangeFeatures` to be selected
+    #     fixed_mask = tf.concat([
+    #         tf.ones(self.unchangeFeatures),  # Force these features to be selected
+    #         tf.zeros(tf.shape(probs)[0] - self.unchangeFeatures)  # Others are trainable
+    #     ], axis=0)
+    #     fixed_mask = tf.cast(fixed_mask, tf.float32)
+        
+    #     # Combine fixed mask with trainable mask
+    #     binary_mask = tf.maximum(binary_mask, fixed_mask)  # Ensure fixed features are always selected
+        
+    #     # Straight-through estimator
+    #     mask = binary_mask + probs - tf.stop_gradient(probs)
+    #     mask = tf.expand_dims(mask, axis=0)
+        
+    #     # Apply mask
+    #     maskedData = rawData * mask
+        
+    #     return maskedData, probs, binary_mask
 # ==================================================
 #                   SYSTEM MODEL
 # ==================================================
@@ -419,6 +442,7 @@ class SystemModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
         else:
+            probs                       = 1
             encIn                       = input
             zCr1,  sysHILayerCr1        = self.encoder(input)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
@@ -436,6 +460,7 @@ class SystemModel(tf.keras.Model):
         # print("Encoder ")
         # print(input.shape)
         binaryMask = None
+        probs = None
         if self.config["useMask"]:
             encIn, probs, binaryMask    = self.mask(input)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
@@ -477,25 +502,15 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             # Create RUL and HI System
             # ------------------------------------
-            # tf.print("Sum of binary mask:", tf.reduce_sum(binaryMask))
-            # tf.print("Mask values:", binaryMask)
-            # print("HI and system rul")
             predictedRul = self.hiSystemAndRul(sysHILayerCr1)
 
-            # print("Loss funcion")
+         
             # ====================================
             #               LOSS
             # ------------------------------------
-            # L1 regularization to promote sparsity
-            # l1_reg = tf.reduce_sum(probs)
-            # Binarization regularization
-            maskLoss = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-            # maskLoss = l1_reg + binary_reg
             # ------------------------------------
             # Loss for reconstruction
             # ------------------------------------
-            # reconLossCr1   = self._get_reconstruction_loss(seqEff, reconsCr1)
-            # print(encIn.shape, decOut.shape)
             reconLossCr1    = tf.keras.losses.mae(encIn,decOut)
             reconLossCr1    = tf.reduce_mean(reconLossCr1)
             # ------------------------------------
@@ -504,8 +519,16 @@ class SystemModel(tf.keras.Model):
             rulLoss = tf.keras.losses.mae(predictedRul,rulY)
             rulLoss = tf.reduce_mean(rulLoss)
 
-            totalLoss = reconLossCr1   +  rulLoss + maskLoss
-                        
+            totalLoss = reconLossCr1   +  rulLoss
+            
+            if self.config["useMask"] :
+                maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
+                enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2)
+
+                totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
+            else:
+                maskLoss = 0
+
             # ------------------------------------
             # Add the constrain to the latent space
             # ------------------------------------
