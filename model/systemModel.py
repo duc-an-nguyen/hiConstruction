@@ -203,7 +203,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         self.encoder_output     = encoder_output
         
         encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
-        print(encoder.summary())
+        # print(encoder.summary())
         return encoder
 
     # =================================
@@ -242,7 +242,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         # x                       = Dense(self.seq_len * self.feat_dim, name="decoder_dense_final")(x)
         # self.decoder_outputs    = Reshape(target_shape=(self.seq_len, self.feat_dim))(x)
         decoder                 = Model(decoder_inputs, self.decoder_outputs, name="decoder")
-        print(decoder.summary())
+        # print(decoder.summary())
         return decoder
     # =================================
     # This one is decoder model. Using it
@@ -405,7 +405,7 @@ class SystemModel(tf.keras.Model):
         self.encoderCv2        = vaeCv2.get_encoder(kernelSize = 3, stride = 2)
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
-        self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/bestModel42/")
+        # self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/bestModel42/")
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
@@ -505,6 +505,38 @@ class SystemModel(tf.keras.Model):
 
      
         return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, hiSystem, predictedRul
+    
+    def getRUL(self,input):
+        seqDataCr1, seqDataCr2, seqDataCv2 = input
+        # ------------------------------------
+        # Encoder and Decoder for 3 components
+        # ------------------------------------
+        # print("Encoder ")
+        # print(input.shape)
+        binaryMaskCr1 = None
+        binaryMaskCr2 = None
+        binaryMaskCv2 = None
+        probsMaskCr1 = None
+        probsMaskCr2 = None
+        probsMaskCv2 = None
+        if self.config["useMask"]:
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+        else:
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqDataCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqDataCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqDataCv2)
+        
+        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
+
+     
+        return predictedRul
 
     # ==========================================
     # Training (replace the default)
@@ -927,7 +959,7 @@ class SystemModel(tf.keras.Model):
 
 
         hiAndRulWts         = joblib.load(os.path.join(model_dir, "hiAndRulWts.h5"))
-      
+
         self.encoderCr1.set_weights(encoderCr1Wts)
         self.decoderCr1.set_weights(decoderCr1Wts)
         self.maskCr1.set_weights(maskCr1Wts)
@@ -941,6 +973,9 @@ class SystemModel(tf.keras.Model):
         self.maskCv2.set_weights(maskCv2Wts)
 
 
+        # print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        # for layer in hiAndRulWts:
+        #     print(layer)
         self.hiSystemAndRul.set_weights(hiAndRulWts)
         aiLogger.info(f"Loaded the model at the direction:{model_dir} successfully!!!")
     

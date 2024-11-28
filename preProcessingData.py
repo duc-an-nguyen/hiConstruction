@@ -595,7 +595,7 @@ class PreProcessData(object):
         df              = pd.DataFrame(data)
         reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
         data['tiempo']  = pd.to_datetime(df['tiempo'])
-        df['hours']     = (data['tiempo'] - reference_time) / pd.Timedelta(hours=1)
+        df['hours']     = ((data['tiempo'] - reference_time) / pd.Timedelta(hours=1)).round(3)
         return df
         
     def addCycleAndRul(self,df):
