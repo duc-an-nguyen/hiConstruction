@@ -414,6 +414,7 @@ class SystemModel(tf.keras.Model):
         # print("Encoder ")
         # print(input.shape)
         binaryMask = None
+        probs      = None
         if self.config["useMask"]:
             encIn, probs, binaryMask    = self.mask(input)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
@@ -436,6 +437,7 @@ class SystemModel(tf.keras.Model):
         # print("Encoder ")
         # print(input.shape)
         binaryMask = None
+        probs      = None
         if self.config["useMask"]:
             encIn, probs, binaryMask    = self.mask(input)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
@@ -446,7 +448,6 @@ class SystemModel(tf.keras.Model):
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
         return zCr1, binaryMask,probs, rul
-
     # ==========================================
     # Training (replace the default)
     # ------------------------------------------
@@ -489,7 +490,7 @@ class SystemModel(tf.keras.Model):
             # L1 regularization to promote sparsity
             # l1_reg = tf.reduce_sum(probs)
             # Binarization regularization
-            maskLoss = 10* tf.reduce_sum(probsMask * (1 - probsMask))
+            
             # maskLoss = l1_reg + binary_reg
             # ------------------------------------
             # Loss for reconstruction
@@ -504,8 +505,13 @@ class SystemModel(tf.keras.Model):
             rulLoss = tf.keras.losses.mae(predictedRul,rulY)
             rulLoss = tf.reduce_mean(rulLoss)
 
-            totalLoss = reconLossCr1   +  rulLoss + maskLoss
-                        
+            totalLoss = reconLossCr1   +  rulLoss 
+            
+            if self.config["useMask"]:
+                maskLoss    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
+                totalLoss   += maskLoss
+            else:
+                maskLoss = 0
             # ------------------------------------
             # Add the constrain to the latent space
             # ------------------------------------
@@ -550,119 +556,91 @@ class SystemModel(tf.keras.Model):
     # -----------------------------
     def test_step(self, input): 
 
-        # with tf.GradientTape() as tape:
-
         # ====================================
         #           MODEL FLOW
         # ------------------------------------
-        seqXTrainEnv,seqXAllSensorTrain             = input[0]
-        reacSensorY,sepSensorY,stripSensorY,rulY    = input[1]
-
-        # ------------------------------------
-        # Sensor selection
-        # ------------------------------------
-        # allSensor   = Input(shape=(128,47))(seqXAllSensorTrain)
-        compIn          = self.sensorSelection(seqXAllSensorTrain)
-        
-        selectedReac    = compIn[:,:,:self.config["featureDim"]]
-        selectedSep     = compIn[:,:,self.config["featureDim"]:self.config["featureDim"]*2]
-        selectedStrip   = compIn[:,:,self.config["featureDim"]*2:self.config["featureDim"]*3]
-
-
-        # print(selectedReac.shape, selectedSep.shape, selectedStrip.shape)
-        
+        seqEff,seqCycle             = input[0]
+        rulY                        = input[1]
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
-        # print("Encoder ")
-        zMeanReac,  zLogReac,   zReac    = self.encoderReac(selectedReac)
-        zMeanSep,   zLogSep,    zSep     = self.encoderSep(selectedSep)
-        zMeanStrip, zLogStrip,  zStrip   = self.encoderStrip(selectedStrip)
+        if self.config["useMask"]:
+            encIn, probsMask, binaryMask= self.mask(seqEff)
 
-        # print("Latent size",z_mean.shape)
+            zCr1,  sysHILayerCr1        = self.encoder(encIn)
+            reconsCr1                   = self.decoder(zCr1)
 
-        # print("decoder")
-        reconsReac  = self.decoderReac(zReac)
-        reconsSep   = self.decoderSep(zSep)
-        reconsStrip = self.decoderStrip(zStrip)
+            decOut,_,_                  = self.mask(reconsCr1)
+        else:
+            encIn                       = seqEff
+            zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+            decOut                      = self.decoder(zCr1)
 
+        # reconsCr1                   = self.decoder([zCr1,seqMani])
         # ------------------------------------
         # Create RUL and HI System
         # ------------------------------------
-
+        # tf.print("Sum of binary mask:", tf.reduce_sum(binaryMask))
+        # tf.print("Mask values:", binaryMask)
         # print("HI and system rul")
-        hiSystem, predictedRul = self.hiSystemAndRul([zReac,zSep,zStrip])
+        predictedRul = self.hiSystemAndRul(sysHILayerCr1)
 
         # print("Loss funcion")
         # ====================================
         #               LOSS
         # ------------------------------------
-        # Loss function for sensor selection
-        # ------------------------------------
-        sensorReacLoss  = tf.keras.losses.mse(selectedReac, reacSensorY)
-        # sensorReacLoss *= self.config["latentDim"]
-        sensorReacLoss   = tf.reduce_mean(sensorReacLoss)
-
-        sensorSepLoss   = tf.keras.losses.mse(selectedSep,sepSensorY)
-        # sensorSepLoss *= self.config["latentDim"]
-        sensorSepLoss   = tf.reduce_mean(sensorSepLoss)
-
-        sensorStripLoss  = tf.keras.losses.mse(selectedStrip,stripSensorY)
-        # sensorStripLoss *= self.config["latentDim"]
-        sensorStripLoss  = tf.reduce_mean(sensorStripLoss)
-
-
+        # L1 regularization to promote sparsity
+        # l1_reg = tf.reduce_sum(probs)
+        # Binarization regularization
+        maskLoss = 10* tf.reduce_sum(probsMask * (1 - probsMask))
+        # maskLoss = l1_reg + binary_reg
         # ------------------------------------
         # Loss for reconstruction
         # ------------------------------------
-
-        reconLossCr1   = tf.keras.losses.mse(reconsReac,   reacSensorY)
-        reconLossCr1   = tf.reduce_mean(reconLossCr1)
-        reconLossSep    = tf.keras.losses.mse(reconsSep,    sepSensorY)
-        reconLossSep    = tf.reduce_mean(reconLossSep)
-        reconLossStrip  = tf.keras.losses.mse(reconsStrip,  stripSensorY)
-        reconLossStrip  = tf.reduce_mean(reconLossStrip)
+        # reconLossCr1   = self._get_reconstruction_loss(seqEff, reconsCr1)
+        # print(encIn.shape, decOut.shape)
+        reconLossCr1    = tf.keras.losses.mae(encIn,decOut)
+        reconLossCr1    = tf.reduce_mean(reconLossCr1)
         # ------------------------------------
         # Loss for RUL
         # ------------------------------------
-        rulLoss = tf.keras.losses.mse(predictedRul,rulY)
+        rulLoss = tf.keras.losses.mae(predictedRul,rulY)
         rulLoss = tf.reduce_mean(rulLoss)
 
-        totalLoss = (sensorReacLoss + sensorSepLoss + sensorStripLoss) +            \
-                    (reconLossCr1 + reconLossSep + reconLossStrip) +               \
-                    2*rulLoss 
+        totalLoss = reconLossCr1   +  rulLoss + maskLoss
+                    
+        # ------------------------------------
+        # Add the constrain to the latent space
+        # ------------------------------------
+        if self.config["latentConstrains"] :
+            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+            # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
+            totalLoss    += zReacLoss
+        else:
+            zReacLoss = 0
             
+    
         # --------------------------------
         # Update losses
         # --------------------------------
         self.totalLossTracker.update_state(totalLoss)
         self.rulLossTracker.update_state(rulLoss)
 
-        # Sensor loss
-        self.reacSensorTracker.update_state(sensorReacLoss)
-        self.sepSensorTracker.update_state(sensorSepLoss)
-        self.stripSensorTracker.update_state(sensorStripLoss)
-
         # Construction loss 
-        self.reacConstructionTracker.update_state(reconLossCr1)
-        self.sepConstructionTracker.update_state(reconLossSep)
-        self.stripConstructionTracker.update_state(reconLossStrip)
-
-        # KL Loss
-        # self.reacKlLossTracker.update_state(klLossReac)
-        # self.sepKlLossTracker.update_state(klLossSep)
-        # self.stripKlLossTracker.update_state(klLossStrip)
-      
+        self.cr1ConstructionTracker.update_state(reconLossCr1)
+        
+        # Latent loss
+        if self.config["latentConstrains"] :
+            self.cr1ZLossTracker.update_state(zReacLoss)
+        self.maskLossTracker.update_state(maskLoss)
+       
 
         return {
             "totalLoss"             : self.totalLossTracker.result(),
-            "rulLoss"               : self.rulLossTracker.result(),
-            "ssReLoss"              : self.reacSensorTracker.result(),
-            "ssSeLoss"              : self.sepSensorTracker.result(),
-            "ssStLoss"              : self.stripSensorTracker.result(),
-            "cstrReLoss"            : self.reacConstructionTracker.result(),
-            "cstrSeLoss"            : self.sepConstructionTracker.result(),
-            "cstrStLoss"            : self.stripConstructionTracker.result(),
+            "rulLoss"               : self.rulLossTracker.result(),        
+            "cstrLoss"            : self.cr1ConstructionTracker.result(),
+            "zLoss"               : self.cr1ZLossTracker.result(),
+            "maskLoss"              : self.maskLossTracker.result()
         }
     
     # --------------------------------

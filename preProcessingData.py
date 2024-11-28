@@ -243,13 +243,30 @@ class PreProcessData(object):
     # ------------------------------------
     def getTrainDataTest(self,):
         cr1, cr2, cv2           = self.loadH5File(name = "withoutNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        
+        target_time = pd.Timestamp('2023-10-01 00:00:00')
+
+        rowCr1 = cr1.index[pd.to_datetime(cr1['tiempo']) == target_time][0]
+
+        rowCr2 = cr2.index[pd.to_datetime(cr2['tiempo']) == target_time][0]
+
+        rowCv2 = cv2.index[pd.to_datetime(cv2['tiempo']) == target_time][0]
+
+        # Display the row
+        print(rowCr1, rowCr2, rowCv2)
+
+        trainCr1 = cr1.iloc[:rowCr1]
+        trainCr2 = cr2.iloc[:rowCr2]
+        trainCv2 = cv2.iloc[:rowCv2]
+        
+
 
         # _                       = self.sumarryDataFromFile(cr1, printUsefulMOF = True)
-        _                       = self.sumarryDataFromFile(cr2, printUsefulMOF = True)
+        # _                       = self.sumarryDataFromFile(cr2, printUsefulMOF = True)
         # _                       = self.sumarryDataFromFile(cv2, printUsefulMOF = True)
 
 
-        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [cr1,cr2,cv2], mainternanceAsCriticalSd = True)
+        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [trainCr1.copy(),trainCr2.copy(),trainCv2.copy()], mainternanceAsCriticalSd = True)
         
         print(withIDCr2)
         addedData               = self.addition_var(withIDCr1) 
