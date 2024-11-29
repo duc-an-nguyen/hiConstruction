@@ -405,7 +405,8 @@ class SystemModel(tf.keras.Model):
         self.encoderCv2        = vaeCv2.get_encoder(kernelSize = 3, stride = 2)
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
-        # self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/bestModel42/")
+        if config["frezeComponents"]:
+            self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/bestModel44/")
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
@@ -576,18 +577,18 @@ class SystemModel(tf.keras.Model):
             # encInCv2                    = seqDataCv2
             # zCv2,  sysHILayerCv2        = self.encoderCv2(encInCv2)
             # decOutCv2                   = self.decoderCv2(zCv2)
-            # else:
-            #     encInCr1                                = seqDataCr1
-            #     encInCr2                                = seqDataCr2
-            #     encInCv2                                = seqDataCv2
+            else:
+                encInCr1                                = seqDataCr1
+                encInCr2                                = seqDataCr2
+                encInCv2                                = seqDataCv2
 
-            #     zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
-            #     zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
-            #     zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+                zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+                zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+                zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
 
-            #     decOutCr1                               = self.decoderCr1(zCr1)
-            #     decOutCr2                               = self.decoderCr2(zCr2)
-            #     decOutCv2                               = self.decoderCv2(zCv2)
+                # decOutCr1                               = self.decoderCr1(zCr1)
+                # decOutCr2                               = self.decoderCr2(zCr2)
+                # decOutCv2                               = self.decoderCv2(zCv2)
             
             # ------------------------------------
             # Create RUL and HI System

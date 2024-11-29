@@ -9,13 +9,14 @@
     "inCr1":            41,
     "inCr2":            30,
     "inCv2":            31,
-    "inFeatureDim":     41,
+    "inFeatureDim":     31,
     "batchSize":        256,
     "nEpoch":           200,
-    "useMask":          true,
+    "useMask":          false,
     "latentConstrains": true,
     "unchangeFeatures": 2,
-    "component"        : "system"
+    "component"        : "system",
+    "frezeComponents"   : false
 },
 
 

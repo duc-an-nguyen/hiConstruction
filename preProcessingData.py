@@ -246,14 +246,27 @@ class PreProcessData(object):
     def getTrainDataTest(self,):
         cr1, cr2, cv2           = self.loadH5File(name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
+        target_time = pd.Timestamp('2023-10-01 00:00:00')
 
+        rowCr1 = cr1.index[pd.to_datetime(cr1['tiempo']) == target_time][0]
+
+        rowCr2 = cr2.index[pd.to_datetime(cr2['tiempo']) == target_time][0]
+
+        rowCv2 = cv2.index[pd.to_datetime(cv2['tiempo']) == target_time][0]
+
+        # Display the row
+        print(rowCr1, rowCr2, rowCv2)
+
+        trainCr1 = cr1.iloc[:rowCr1]
+        trainCr2 = cr2.iloc[:rowCr2]
+        trainCv2 = cv2.iloc[:rowCv2]
 
         # --------------------------------
         # Add hour column into the file
         # print(cv2.columns)
-        withHourCr1             = self.addHours(cr1)
-        withHourCr2             = self.addHours(cr2)
-        withHourCv2             = self.addHours(cv2)
+        withHourCr1             = self.addHours(trainCr1.copy())
+        withHourCr2             = self.addHours(trainCr2.copy())
+        withHourCv2             = self.addHours(trainCv2.copy())
 
         if self.config["component"]  == "system":
             insertedCr1, insertedCr2,  insertedCv2   = self.insertForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
@@ -350,10 +363,10 @@ class PreProcessData(object):
         # print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqRulCr1[:,-1,:].shape}")
         print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulSys[:,-1,:].shape}")
 
-        # xTrain      = [seqDataCr1[:10000,:,:],seqCycleCr1[:10000,-1,], seqDataCr2[:10000,:,:],seqCycleCr2[:10000,-1,:], seqDataCv2[:10000,:,:], seqCycleCv2[:10000,-1,:]]
-        # yTrain      = seqRulSys[:10000,-1,:]
         xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
         yTrain      = seqRulSys[:,-1,:]
+        # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
+        # yTrain      = seqRulSys[:,-1,:]
         # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:]]
         # yTrain      = seqRulCr1[:,-1,:]
         # print(yTrain)
