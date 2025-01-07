@@ -21,7 +21,9 @@ import matplotlib.pyplot                as plt
 import os, warnings
 import random
 import json
+import package
 
+package.include()
 
 # ===========================
 # MODEL WITH CRUSHER
@@ -29,7 +31,6 @@ import json
 class CrusherTrainerTester():
     def __init__(self,model = None, config = None):
         self.config                 = config
-
         self.model                  = model
 
         # --------------------------
@@ -38,8 +39,8 @@ class CrusherTrainerTester():
         self.saveCheckpoint  =   SubclassModelCheckpoint(   customSaveFunction      = self.model.save,  # Your custom save function
                                                             filepath                = './checkpoint/bestModel/',     # Where the model should be saved
                                                             config                  = config,
-                                                            # monitor                 = "totalLoss",                         # Monitoring validation loss
-                                                            monitor                 = "rulLoss",
+                                                            monitor                 = "totalLoss",                         # Monitoring validation loss
+                                                            # monitor                 = "rulLoss",
                                                             mode                    = 'min',                                 # 'min' because we want to minimize loss
                                                             save_best_only          = True,                        # Only save the best version
                                                             verbose                 = 1                                   # Show a message when saving
@@ -51,9 +52,9 @@ class CrusherTrainerTester():
         # 
         self.tensorboardCallback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-        earlyStopLoss       = 'rulLoss'
+        earlyStopLoss       = 'totalLoss'
         self.earlyStop_Callback = EarlyStopping(monitor=earlyStopLoss, min_delta = 0.01, patience=10) # change to 5
-        self.reduceLR            = ReduceLROnPlateau(monitor='rulLoss', factor=0.1, patience=3)
+        self.reduceLR            = ReduceLROnPlateau(monitor='totalLoss', factor=0.1, patience=3)
 
     # ==============================
     # Train function
