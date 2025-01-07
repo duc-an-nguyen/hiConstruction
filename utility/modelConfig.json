@@ -2,21 +2,23 @@
 "system": {
     "_name":            "SystemHI",
     "hiddenVAESize":    [250,100,50],
-    "learningRate":     0.001,
+    "learningRate":     0.01,
     "latentDim":        1,
     "seqLength":        64,
     "overlap":          63,
     "inCr1":            41,
     "inCr2":            30,
     "inCv2":            31,
-    "inFeatureDim":     31,
     "batchSize":        256,
     "nEpoch":           200,
-    "useMask":          false,
-    "latentConstrains": true,
-    "unchangeFeatures": 2,
-    "component"        : "system",
-    "frezeComponents"   : false
+    "splitTrainTest"    : true,
+    "useMask"           : true,
+    "useRUL"            : true,
+    "latentConstrains"  : true,
+    "unchangeFeatures"  : 2,
+    "component"         : "system",
+    "frezeComponents"   : true,
+    "_component"        : "Cr1,Cr2,Cv2"
 },
 
 
@@ -37,5 +39,4 @@
     "component":        "reactor",
     "case":             2
 }
-
 }

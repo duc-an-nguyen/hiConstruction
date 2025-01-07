@@ -406,7 +406,7 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
         if config["frezeComponents"]:
-            self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/bestModel44/")
+            self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/sysBest_Trendability_SensorSelection/")
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)

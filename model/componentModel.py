@@ -398,13 +398,13 @@ class SystemModel(tf.keras.Model):
         self.config             = config
         
         vae                     = VAEConvInterpretable( seq_len             = config["seqLength"],  
-                                                        feat_dim            = config["inFeatureDim"], 
+                                                        feat_dim            = config["in" + config["component"]], 
                                                         latent_dim          = config["latentDim"], 
                                                         hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                         config              = config
                                                         )
         
-        self.mask           = SensorSelection(inFeature= config["inFeatureDim"])
+        self.mask           = SensorSelection(inFeature= config["in" + config["component"]])
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoder        = vae.get_encoder(kernelSize = 3, stride = 2)
@@ -502,9 +502,7 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             # Create RUL and HI System
             # ------------------------------------
-            predictedRul = self.hiSystemAndRul(sysHILayerCr1)
-
-         
+            
             # ====================================
             #               LOSS
             # ------------------------------------
@@ -513,17 +511,22 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             reconLossCr1    = tf.keras.losses.mae(encIn,decOut)
             reconLossCr1    = tf.reduce_mean(reconLossCr1)
+
+            totalLoss       = reconLossCr1
             # ------------------------------------
             # Loss for RUL
             # ------------------------------------
-            rulLoss = tf.keras.losses.mae(predictedRul,rulY)
-            rulLoss = tf.reduce_mean(rulLoss)
-
-            totalLoss = reconLossCr1   +  rulLoss
+            if self.config["useRUL"]:
+                predictedRul    = self.hiSystemAndRul(sysHILayerCr1)
+                rulLoss         = tf.keras.losses.mae(predictedRul,rulY)
+                rulLoss         = tf.reduce_mean(rulLoss)
+                totalLoss       += rulLoss
+            else:
+                rulLoss = 0
             
             if self.config["useMask"] :
                 maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-                enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2)
+                enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if (self.config["component"] == "Cv2") else 0
 
                 totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
             else:
@@ -549,15 +552,21 @@ class SystemModel(tf.keras.Model):
         # Update losses
         # --------------------------------
         self.totalLossTracker.update_state(totalLoss)
-        self.rulLossTracker.update_state(rulLoss)
 
         # Construction loss 
         self.cr1ConstructionTracker.update_state(reconLossCr1)
-        
+
+        # RUL loss
+        if self.config["useRUL"]:
+            self.rulLossTracker.update_state(rulLoss)
+
         # Latent loss
         if self.config["latentConstrains"] :
             self.cr1ZLossTracker.update_state(zReacLoss)
-        self.maskLossTracker.update_state(maskLoss)
+
+        # Mask loss
+        if self.config["useMask"] :
+            self.maskLossTracker.update_state(maskLoss)
        
 
         return {

@@ -10,6 +10,9 @@ from model.systemModel               import SubclassModelCheckpoint
 # from model.componentModel                  import SystemModel
 # from model.componentModel               import SubclassModelCheckpoint
 
+# from model.componentModel_RULonly       import SystemModel
+# from model.componentModel_RULonly       import SubclassModelCheckpoint
+
 from tqdm                               import tqdm
 from datetime                           import datetime
 import tensorflow                       as tf
@@ -35,7 +38,8 @@ class CrusherTrainerTester():
         self.saveCheckpoint  =   SubclassModelCheckpoint(   customSaveFunction      = self.model.save,  # Your custom save function
                                                             filepath                = './checkpoint/bestModel/',     # Where the model should be saved
                                                             config                  = config,
-                                                            monitor                 = "totalLoss",                         # Monitoring validation loss
+                                                            # monitor                 = "totalLoss",                         # Monitoring validation loss
+                                                            monitor                 = "rulLoss",
                                                             mode                    = 'min',                                 # 'min' because we want to minimize loss
                                                             save_best_only          = True,                        # Only save the best version
                                                             verbose                 = 1                                   # Show a message when saving
@@ -47,9 +51,9 @@ class CrusherTrainerTester():
         # 
         self.tensorboardCallback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-        earlyStopLoss       = 'totalLoss'
+        earlyStopLoss       = 'rulLoss'
         self.earlyStop_Callback = EarlyStopping(monitor=earlyStopLoss, min_delta = 0.01, patience=10) # change to 5
-        self.reduceLR            = ReduceLROnPlateau(monitor='totalLoss', factor=0.1, patience=3)
+        self.reduceLR            = ReduceLROnPlateau(monitor='rulLoss', factor=0.1, patience=3)
 
     # ==============================
     # Train function
@@ -109,8 +113,10 @@ if __name__ == '__main__':
     # preData     = PreProcessData()
     preData     = PreProcessData(config = myConfig)                                         # Preprocessing data
     model       = SystemModel(myConfig)                                                     # Model
-    model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inCr1"]),(None, myConfig["seqLength"], myConfig["inCr2"]), (None, myConfig["seqLength"], myConfig["inCv2"])])
-    # model.build(input_shape=(None, myConfig["seqLength"], myConfig["inCv2"]))
+    if myConfig["component"] == "system":
+        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inCr1"]),(None, myConfig["seqLength"], myConfig["inCr2"]), (None, myConfig["seqLength"], myConfig["inCv2"])])
+    else:
+        model.build(input_shape=(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]))
     model.summary()
 
     trainer     = CrusherTrainerTester(model = model, config = myConfig)                    # Trainer

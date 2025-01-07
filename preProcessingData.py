@@ -246,20 +246,25 @@ class PreProcessData(object):
     def getTrainDataTest(self,):
         cr1, cr2, cv2           = self.loadH5File(name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
-        target_time = pd.Timestamp('2023-10-01 00:00:00')
+        if self.config["splitTrainTest"]:
+            target_time = pd.Timestamp('2023-10-01 00:00:00')
 
-        rowCr1 = cr1.index[pd.to_datetime(cr1['tiempo']) == target_time][0]
+            rowCr1 = cr1.index[pd.to_datetime(cr1['tiempo']) == target_time][0]
 
-        rowCr2 = cr2.index[pd.to_datetime(cr2['tiempo']) == target_time][0]
+            rowCr2 = cr2.index[pd.to_datetime(cr2['tiempo']) == target_time][0]
 
-        rowCv2 = cv2.index[pd.to_datetime(cv2['tiempo']) == target_time][0]
+            rowCv2 = cv2.index[pd.to_datetime(cv2['tiempo']) == target_time][0]
 
-        # Display the row
-        print(rowCr1, rowCr2, rowCv2)
+            # Display the row
+            print(rowCr1, rowCr2, rowCv2)
 
-        trainCr1 = cr1.iloc[:rowCr1]
-        trainCr2 = cr2.iloc[:rowCr2]
-        trainCv2 = cv2.iloc[:rowCv2]
+            trainCr1 = cr1.iloc[:rowCr1]
+            trainCr2 = cr2.iloc[:rowCr2]
+            trainCv2 = cv2.iloc[:rowCv2]
+        else:
+            trainCr1 = cr1
+            trainCr2 = cr2
+            trainCv2 = cv2
 
         # --------------------------------
         # Add hour column into the file
@@ -331,45 +336,55 @@ class PreProcessData(object):
         print(IdSys)
         # -----------------------------
         # Split with the system ID
-        seqDataCr1,seqCycleCr1, seqRulCr1,    \
-        seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
-        seqDataCv2,seqCycleCv2, seqRulCv2,    \
-                                seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
-                                                                                          dataCr2, cycleCr2, rulCr2,
-                                                                                          dataCv2, cycleCv2, rulCv2,
-                                                                                          systemRUL], 
-                                                                            trajectId  = IdSys,
-                                                                            seqLength  = self.config['seqLength'], 
-                                                                            overlap    = self.config['seqLength']-1,
-                                                                            typeInput  = "listOfPandas")
-        # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr1, cycleCr1, rulCr1 ],                                                                                          
-        #                                                                     trajectId  = trajectIDCr1,
-        #                                                                     seqLength  = self.config['seqLength'], 
-        #                                                                     overlap    = self.config['seqLength']-1,
-        #                                                                     typeInput  = "listOfPandas")
+        if self.config["component"] == "system":
+            seqDataCr1,seqCycleCr1, seqRulCr1,    \
+            seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
+            seqDataCv2,seqCycleCv2, seqRulCv2,    \
+                                    seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
+                                                                                            dataCr2, cycleCr2, rulCr2,
+                                                                                            dataCv2, cycleCv2, rulCv2,
+                                                                                            systemRUL], 
+                                                                                trajectId  = IdSys,
+                                                                                seqLength  = self.config['seqLength'], 
+                                                                                overlap    = self.config['seqLength']-1,
+                                                                                typeInput  = "listOfPandas")
+            
+        elif self.config["component"] == "Cr1":
+            seqData,seqCycle, seqRul           = self.getTensorData(   dataList   = [dataCr1, cycleCr1, rulCr1 ],                                                                                          
+                                                                                trajectId  = trajectIDCr1,
+                                                                                seqLength  = self.config['seqLength'], 
+                                                                                overlap    = self.config['seqLength']-1,
+                                                                                typeInput  = "listOfPandas")
+       
         
-        # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
-        #                                                                     trajectId  = trajectIDCr2,
-        #                                                                     seqLength  = self.config['seqLength'], 
-        #                                                                     overlap    = self.config['seqLength']-1,
-        #                                                                     typeInput  = "listOfPandas")
-
-        # seqDataCr1,seqCycleCr1, seqRulCr1           = self.getTensorData(   dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
-        #                                                                     trajectId  = trajectIDCv2,
-        #                                                                     seqLength  = self.config['seqLength'], 
-        #                                                                     overlap    = self.config['seqLength']-1,
-        #                                                                     typeInput  = "listOfPandas")
+        elif self.config["component"] == "Cr2":
+            seqData,seqCycle, seqRul           = self.getTensorData(   dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
+                                                                                trajectId  = trajectIDCr2,
+                                                                                seqLength  = self.config['seqLength'], 
+                                                                                overlap    = self.config['seqLength']-1,
+                                                                                typeInput  = "listOfPandas")
+           
+        elif self.config["component"] == "Cv2":
+            seqData,seqCycle, seqRul           = self.getTensorData(   dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
+                                                                                trajectId  = trajectIDCv2,
+                                                                                seqLength  = self.config['seqLength'], 
+                                                                                overlap    = self.config['seqLength']-1,
+                                                                                typeInput  = "listOfPandas")
+            
         
         # print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqRulCr1[:,-1,:].shape}")
-        print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulSys[:,-1,:].shape}")
+        
 
-        xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
-        yTrain      = seqRulSys[:,-1,:]
-        # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
-        # yTrain      = seqRulSys[:,-1,:]
-        # xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:]]
-        # yTrain      = seqRulCr1[:,-1,:]
-        # print(yTrain)
+        if self.config["component"] == "system":
+            xTrain      = [seqDataCr1,seqCycleCr1[:,-1,:], seqDataCr2,seqCycleCr2[:,-1,:], seqDataCv2, seqCycleCv2[:,-1,:]]
+            yTrain      = seqRulSys[:,-1,:]
+            print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqDataCr2.shape} {seqCycleCr2[:,-1,:].shape} {seqDataCv2.shape} {seqCycleCv2[:,-1,:].shape} {seqRulSys[:,-1,:].shape}")
+        else:
+            xTrain      = [seqData,seqCycle[:,-1,:]]
+            yTrain      = seqRul[:,-1,:]
+            print(f"The size of the train data: {seqData.shape} {seqCycle[:,-1,:].shape} {seqRul[:,-1,:].shape}")
+
+
         return xTrain, yTrain
     
     # ==================================
