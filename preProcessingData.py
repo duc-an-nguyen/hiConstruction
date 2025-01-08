@@ -430,9 +430,9 @@ class PreProcessData(object):
     # mainternance and shutdown. 
     def attachIDPerEvent(self, df = [None], mainternanceAsCriticalSd = False):
         '''
-        df: A list of of MOF column
+        df                      : A list of of MOF column
         mainternanceAsCriticalSd: True if considering mainternance as shutdown, each traject will include mainterance
-        results: return the same order of pandas df with an addition of trajectoryID, and return with the system ID
+        results                 : return the same order of pandas df with an addition of trajectoryID, and return with the system ID
         '''
         aiLogger.info("Attaching ID into trajectories")
         # --------------------------
