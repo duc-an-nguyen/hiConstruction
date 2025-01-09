@@ -391,7 +391,7 @@ class PreProcessData(object):
     # This function is used to make the
     # values in a list having the same length
     # per time
-    def insertForTheSameLength(self, data=[],validColumn = [], option = "zero"):
+    def fillForTheSameLength(self, data=[],validColumn = [], option = "zero"):
         """
         Ensures all DataFrames in the input list have the same length by:
         1. Aligning all DataFrames to the union of their time values.
