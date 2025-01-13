@@ -18,6 +18,7 @@
     "unchangeFeatures"  : 2,
     "component"         : "system",
     "frezeComponents"   : true,
+    "saveHIResultsToXlsx": false,
     "_component"        : "Cr1,Cr2,Cv2"
 },
 
