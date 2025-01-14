@@ -274,7 +274,7 @@ class PreProcessData(object):
         withHourCv2             = self.addHours(trainCv2.copy())
 
         if self.config["component"]  == "system":
-            insertedCr1, insertedCr2,  insertedCv2   = self.insertForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
+            insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
                                                                                    validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
         else:
             insertedCr1 = withHourCr1
