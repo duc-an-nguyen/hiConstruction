@@ -204,46 +204,14 @@ class PreProcessData(object):
                                     'Detención por Enclavamiento',                  'Falla o problemas aguas arriba',   'Ajuste de Setting (Asociado al Plan)',         'Otra falla mecánica', 
                                     'Temperatura fuera de rango',                   'Mantención programada']
                                                                          
- 
-    # ====================================
-    # The whole process
-    # ------------------------------------
-    def getTrainData(self,):
-        curHeadline                     = self.beauEfficiencyCr1  + self.beauManipulatedCr1
-        rawData                         = self.loadCriticalData()                           # Load the data from critical file
-        addedTimeData                   = self.addFloatTimeOld(rawData)                        # Add the time to the data
-        cleanedData                     = self.cleanData(addedTimeData, headline = self.crusher1Value)
-        addedData                       = self.addition_var(cleanedData) 
-        normalizedAllData               = self.normalizeBuilinFunction(addedData, headline = curHeadline)  
-        
-        effTraj, cycleTraj    = self.extractTrajectory(          data           = normalizedAllData, 
-                                                                 headline       = [curHeadline,'hours'],
-                                                                 mergeInAList   = True)
-        rul_trajectories = [(traj - traj.min()) for traj in cycleTraj]
-        # rul_trajectories = [(traj.max() - traj) for traj in cycleTraj]
-        # df["rul"]       = df.groupby('trajectory',sort=False)['hours'].transform(lambda x: x - x.min())
-        seqEff,seqCycle         = self.getTensorData(dataList   = [effTraj, rul_trajectories], 
-                                                             seqLength  = self.config['seqLength'], 
-                                                             overlap    = self.config['seqLength']-1,
-                                                             typeInput  = "listOfList")
 
-        # print(len(trainEff), len(trainMani), len(trainCycle), len(valEffData), len(valManiData), len(valCycleData))
-
-        print(f"The size of the train data: {seqEff.shape} {seqCycle.shape}")
-
-        # print(seqCycle.shape)
-        seqCycle    = seqCycle[:,-1,:]
-        xTrain      = [seqEff,seqCycle]
-        # print(seqCycle.shape)
-        yTrain      = rul = [np.array(777)]
-        return xTrain, yTrain
     
     # ====================================
     # This function is used to generate 
     # the data which are alight with the
     # input of AI
     # ------------------------------------
-    def getTrainDataTest(self,):
+    def getTrainData(self,):
         cr1, cr2, cv2           = self.loadH5File(name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         if self.config["splitTrainTest"]:
@@ -273,14 +241,13 @@ class PreProcessData(object):
         withHourCr2             = self.addHours(trainCr2.copy())
         withHourCv2             = self.addHours(trainCv2.copy())
 
-        if self.config["component"]  == "system":
-            insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
-                                                                                   validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
-        else:
-            insertedCr1 = withHourCr1
-            insertedCr2 = withHourCr2
-            insertedCv2 = withHourCv2
-
+        # if self.config["component"]  == "system":
+        insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
+                                                                                validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
+        # else:
+        #     insertedCr1 = withHourCr1
+        #     insertedCr2 = withHourCr2
+        #     insertedCv2 = withHourCv2
         # --------------------------------
         # Sumarry data (option)
         _                       = self.sumarryDataFromFile(insertedCr1, printUsefulMOF = True, typeOfTime= "hours")
