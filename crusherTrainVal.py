@@ -65,8 +65,6 @@ class CrusherTrainerTester():
     # Train function
     # ------------------------------
     def train(self,seqXTrain, seqYTrain, seqXVal =None , seqYVal =None,):
-        
-        
         history = self.model.fit(   x           = seqXTrain, 
                                     y           = seqYTrain,
                                     batch_size  = self.config["batchSize"],

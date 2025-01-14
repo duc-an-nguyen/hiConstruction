@@ -11,6 +11,8 @@ from utility.matpilotDraw       import MatPlot
 import matplotlib.pyplot        as plt
 import json
 import os
+import package
+
 
 
 class PreProcessData(object):
@@ -212,7 +214,9 @@ class PreProcessData(object):
     # input of AI
     # ------------------------------------
     def getTrainData(self,):
-        cr1, cr2, cv2           = self.loadH5File(name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        package.include()
+        outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
+        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/",name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         if self.config["splitTrainTest"]:
             target_time = pd.Timestamp('2023-10-01 00:00:00')
@@ -250,16 +254,13 @@ class PreProcessData(object):
         #     insertedCv2 = withHourCv2
         # --------------------------------
         # Sumarry data (option)
-        _                       = self.sumarryDataFromFile(insertedCr1, printUsefulMOF = True, typeOfTime= "hours")
-        _                       = self.sumarryDataFromFile(insertedCr2, printUsefulMOF = True, typeOfTime= "hours")
-        _                       = self.sumarryDataFromFile(insertedCv2, printUsefulMOF = True, typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(insertedCr1, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(insertedCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(insertedCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
 
         withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [insertedCr1,insertedCr2,insertedCv2], mainternanceAsCriticalSd = True)
 
-
         addedData               = self.addition_var(withIDCr1) 
-
-
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
         # -----------------------------
         # Normalize
@@ -307,36 +308,36 @@ class PreProcessData(object):
             seqDataCr1,seqCycleCr1, seqRulCr1,    \
             seqDataCr2,seqCycleCr2 ,seqRulCr2,    \
             seqDataCv2,seqCycleCv2, seqRulCv2,    \
-                                    seqRulSys          = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1, 
-                                                                                            dataCr2, cycleCr2, rulCr2,
-                                                                                            dataCv2, cycleCv2, rulCv2,
-                                                                                            systemRUL], 
+                                    seqRulSys          = self.getTensorData(    dataList   = [  dataCr1, cycleCr1, rulCr1, 
+                                                                                                dataCr2, cycleCr2, rulCr2,
+                                                                                                dataCv2, cycleCv2, rulCv2,
+                                                                                                systemRUL], 
                                                                                 trajectId  = IdSys,
                                                                                 seqLength  = self.config['seqLength'], 
                                                                                 overlap    = self.config['seqLength']-1,
                                                                                 typeInput  = "listOfPandas")
             
         elif self.config["component"] == "Cr1":
-            seqData,seqCycle, seqRul           = self.getTensorData(   dataList   = [dataCr1, cycleCr1, rulCr1 ],                                                                                          
-                                                                                trajectId  = trajectIDCr1,
-                                                                                seqLength  = self.config['seqLength'], 
-                                                                                overlap    = self.config['seqLength']-1,
-                                                                                typeInput  = "listOfPandas")
+            seqData,seqCycle, seqRul           = self.getTensorData(    dataList   = [dataCr1, cycleCr1, rulCr1 ],                                                                                          
+                                                                        trajectId  = trajectIDCr1,
+                                                                        seqLength  = self.config['seqLength'], 
+                                                                        overlap    = self.config['seqLength']-1,
+                                                                        typeInput  = "listOfPandas")
        
         
         elif self.config["component"] == "Cr2":
-            seqData,seqCycle, seqRul           = self.getTensorData(   dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
-                                                                                trajectId  = trajectIDCr2,
-                                                                                seqLength  = self.config['seqLength'], 
-                                                                                overlap    = self.config['seqLength']-1,
-                                                                                typeInput  = "listOfPandas")
-           
+            seqData,seqCycle, seqRul           = self.getTensorData(    dataList   = [dataCr2, cycleCr2, rulCr2 ],                                                                                          
+                                                                        trajectId  = trajectIDCr2,
+                                                                        seqLength  = self.config['seqLength'], 
+                                                                        overlap    = self.config['seqLength']-1,
+                                                                        typeInput  = "listOfPandas")
+    
         elif self.config["component"] == "Cv2":
-            seqData,seqCycle, seqRul           = self.getTensorData(   dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
-                                                                                trajectId  = trajectIDCv2,
-                                                                                seqLength  = self.config['seqLength'], 
-                                                                                overlap    = self.config['seqLength']-1,
-                                                                                typeInput  = "listOfPandas")
+            seqData,seqCycle, seqRul           = self.getTensorData(    dataList   = [dataCv2, cycleCv2, rulCv2],                                                                                          
+                                                                        trajectId  = trajectIDCv2,
+                                                                        seqLength  = self.config['seqLength'], 
+                                                                        overlap    = self.config['seqLength']-1,
+                                                                        typeInput  = "listOfPandas")
             
         
         # print(f"The size of the train data: {seqDataCr1.shape} {seqCycleCr1[:,-1,:].shape} {seqRulCr1[:,-1,:].shape}")
@@ -350,7 +351,6 @@ class PreProcessData(object):
             xTrain      = [seqData,seqCycle[:,-1,:]]
             yTrain      = seqRul[:,-1,:]
             print(f"The size of the train data: {seqData.shape} {seqCycle[:,-1,:].shape} {seqRul[:,-1,:].shape}")
-
 
         return xTrain, yTrain
     
@@ -375,7 +375,6 @@ class PreProcessData(object):
         # ---------------------------
         # Add the MOF for the data
         # ---------------------------
-
         all_times = sorted(set().union(*[df['hours'] for df in data]))          # Step 1: Get the union of all unique time values across all DataFrames
         
         def reindex_and_fill(df, all_times, validColumn):                       # Step 2: Reindex each DataFrame and fill missing values
@@ -393,7 +392,7 @@ class PreProcessData(object):
     # ===================================
     # This function is used to attach the ID
     # for each trajectory between period 
-    # of 2 shutdown time , or a period between
+    # of 2 shutdown time, or a period between
     # mainternance and shutdown. 
     def attachIDPerEvent(self, df = [None], mainternanceAsCriticalSd = False):
         '''
@@ -675,7 +674,7 @@ class PreProcessData(object):
     # This function is used to interpolate
     # the redundant MOF
     # -----------------------------------
-    def interpolateRedundantMOF(self, orginalData, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
+    def interpolateRedundantMOF(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
@@ -693,15 +692,15 @@ class PreProcessData(object):
         dfFiltered  = orginalData
         # for idxFeature in self.notModeOfFailure:
         
-        maskNonCritial      =  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
-        validColumn         = dfFiltered.columns.difference(['tiempo',          'Descripción Equipo',   'Modo de Falla', 
-                                                            'Comentario',       'Especialidad',          'Motivo',
-                                                            'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
-                                                            + alwaysWorkVariable)
-        # print(dfFiltered.columns)
+        
+        if validColumn is None:
+            validColumn         = dfFiltered.columns.difference(['tiempo',          'Descripción Equipo',   'Modo de Falla', 
+                                                                'Comentario',       'Especialidad',          'Motivo',
+                                                                'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
+                                                                + alwaysWorkVariable)
         dfFiltered[validColumn] = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan                                
         
-        
+        maskNonCritial      =  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
         dfFiltered.loc[maskNonCritial, validColumn]    = np.nan                                         # Assign the nonCritical to Nan
         
         # ---------------------------------
@@ -1543,7 +1542,7 @@ if __name__ == '__main__':
 
     plot                = MatPlot()
     preData             = PreProcessData(config=myConfig)
-    data                = preData.getTrainDataTest()
+    data                = preData.getTrainData()
     # print(train[0].shape, train[1].shape,train[2].shape)
 
 
