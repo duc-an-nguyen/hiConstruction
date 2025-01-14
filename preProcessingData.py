@@ -783,14 +783,14 @@ class PreProcessData(object):
     # according to time which is inside 
     # the excell file into a concise way
     # -----------------------------------
-    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, typeOfTime = "timestep"):
+    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep"):
         '''
         inData: the time series data overtime with the MOF column
 
         markedPoint:
         mofTable: Content the concise content of the data to print
         '''
-        
+        aiLogger.info("Sumarry the data")
         timeCol = "tiempo" if typeOfTime == "timestep" else "hours"
         
         mofTable                = PrettyTable()
@@ -798,6 +798,7 @@ class PreProcessData(object):
 
         no                      = 1
         usefulMOF               = []
+        mofOrder                = []
         mofCol                  = inData['Modo de Falla']
         preMOF                  = None
         beginingRow             = 0
@@ -823,6 +824,7 @@ class PreProcessData(object):
                 
                 if not pd.isna(preMOF):                                     # If previous one is not nan value, to ensure that we are at the last point of a MOF (MOF to Nah), not the trasition from Nah to MOF                   
                     mofTable.add_row([no,preMOF, beginingTime,endingTime,beginingRow,endingRow])
+                    mofOrder.append(preMOF)
                     no +=1
                     
                     if preMOF not in usefulMOF:                             # If we haven't recored the MOF in a "set - python type" of MOF, write it
@@ -837,15 +839,15 @@ class PreProcessData(object):
                 preMOF          = mofCol[curIdx]
                 beginingTime    = inData[timeCol][curIdx]
                 beginingRow     = curIdx
-        
-        print(mofTable)
+        if printMOFTable:
+            print(mofTable) 
         if printUsefulMOF:
             print("All the mode of failure:",usefulMOF)
         
         if printMarkedPoint:
             print(markedPoint)
         
-        return markedPoint
+        return markedPoint, mofOrder
 
 
     # ===================================
