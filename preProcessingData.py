@@ -371,7 +371,6 @@ class PreProcessData(object):
         Returns:
             list: A list of DataFrames with the same length and aligned time values.
         """
-
         # ---------------------------
         # Add the MOF for the data
         # ---------------------------
@@ -382,8 +381,10 @@ class PreProcessData(object):
             df                  = df.set_index('hours')                         # Set 'time' as the index
             df                  = df.reindex(all_times)                         # Reindex to include all time values
             df['Modo de Falla'] = df['Modo de Falla'].fillna(method='ffill')    # Forward fill 'MOF' column
-            df[validColumn]     = df[validColumn].fillna(0)
             df["Modo de Falla"] = df["Modo de Falla"].replace("good", float("nan"))
+            # df[validColumn]     = df[validColumn].fillna(0)
+            df                  = self.redundantMOFInterpolationAndNanFilling(orginalData=df, validColumn=validColumn, mainternanceAsMOF=True)
+            
             return df.reset_index()                                             # Reset index to restore 'time'
 
         # Apply the processing to each DataFrame in the list
@@ -674,7 +675,7 @@ class PreProcessData(object):
     # This function is used to interpolate
     # the redundant MOF
     # -----------------------------------
-    def interpolateRedundantMOF(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
+    def redundantMOFInterpolationAndNanFilling(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
@@ -702,7 +703,10 @@ class PreProcessData(object):
         
         maskNonCritial      =  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
         dfFiltered.loc[maskNonCritial, validColumn]    = np.nan                                         # Assign the nonCritical to Nan
-        
+
+        nan_rows_count = dfFiltered[validColumn].isnull().any(axis=1).sum()
+        print("Number of rows with at least one NaN value:", nan_rows_count)
+
         # ---------------------------------
         # Interpolate
         # ---------------------------------
@@ -740,7 +744,7 @@ class PreProcessData(object):
             dfFiltered.to_hdf(output_path, mode='w') if  typeToSave=="h5" else dfFiltered.to_excel(output_path, index=False)
 
 
-        aiLogger.info("Finish to remove redundant data")
+        aiLogger.info("Finish to remove redundant data and fill nan values")
         return dfFiltered
 
 
