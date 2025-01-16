@@ -216,7 +216,17 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
-        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/",name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "AdequateConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+
+        # -------------------------------
+        # Handle to make the length of 
+        # each component consistently
+        cr1 = self.nanFilling(dfFiltered=cr1, validColumn=self.crusher1Value)
+        cr2 = self.nanFilling(dfFiltered=cr2, validColumn=self.crusher2Value)
+        cv2 = self.nanFilling(dfFiltered=cv2, validColumn=self.conveyorValue + self.crusher2ConveyorValue)
+        # insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
+        #                                                                      validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
+
 
         if self.config["splitTrainTest"]:
             target_time = pd.Timestamp('2023-10-01 00:00:00')
@@ -246,19 +256,18 @@ class PreProcessData(object):
         withHourCv2             = self.addHours(trainCv2.copy())
 
         # if self.config["component"]  == "system":
-        insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
-                                                                                validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
+        
         # else:
         #     insertedCr1 = withHourCr1
         #     insertedCr2 = withHourCr2
         #     insertedCv2 = withHourCv2
         # --------------------------------
         # Sumarry data (option)
-        _                       = self.sumarryDataFromFile(insertedCr1, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
-        _                       = self.sumarryDataFromFile(insertedCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
-        _                       = self.sumarryDataFromFile(insertedCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(withHourCr1, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(withHourCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        _                       = self.sumarryDataFromFile(withHourCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
 
-        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [insertedCr1,insertedCr2,insertedCv2], mainternanceAsCriticalSd = True)
+        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2], mainternanceAsCriticalSd = True)
 
         addedData               = self.addition_var(withIDCr1) 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
@@ -371,7 +380,6 @@ class PreProcessData(object):
         Returns:
             list: A list of DataFrames with the same length and aligned time values.
         """
-
         # ---------------------------
         # Add the MOF for the data
         # ---------------------------
@@ -382,9 +390,10 @@ class PreProcessData(object):
             df                  = df.set_index('hours')                         # Set 'time' as the index
             df                  = df.reindex(all_times)                         # Reindex to include all time values
             df['Modo de Falla'] = df['Modo de Falla'].fillna(method='ffill')    # Forward fill 'MOF' column
-            # df[validColumn]     = df[validColumn].fillna(0)
-            df                  = self.interpolateRedundantMOF(orginalData=df, validColumn=validColumn, mainternanceAsMOF = True)
             df["Modo de Falla"] = df["Modo de Falla"].replace("good", float("nan"))
+            # df[validColumn]     = df[validColumn].fillna(0)
+            df                  = self.redundantMOFInterpolation(orginalData=df, validColumn=validColumn, mainternanceAsMOF=True)
+            
             return df.reset_index()                                             # Reset index to restore 'time'
 
         # Apply the processing to each DataFrame in the list
@@ -675,7 +684,7 @@ class PreProcessData(object):
     # This function is used to interpolate
     # the redundant MOF
     # -----------------------------------
-    def interpolateRedundantMOF(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
+    def redundantMOFInterpolation(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
@@ -699,11 +708,35 @@ class PreProcessData(object):
                                                                 'Comentario',       'Especialidad',          'Motivo',
                                                                 'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
                                                                 + alwaysWorkVariable)
-        dfFiltered[validColumn] = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan                                
+        dfFiltered[validColumn]                         = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan                                
+        maskNonCritial                                  = dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
+        dfFiltered.loc[maskNonCritial, validColumn]     = np.nan                                         # Assign the nonCritical to Nan
+        # nan_rows_count                                  = dfFiltered[validColumn].isnull().any(axis=1).sum()
+        # print("Number of rows with at least one NaN value:", nan_rows_count)
+
+        dfFiltered                                      = self.nanFilling(dfFiltered, validColumn= validColumn)
+
+        if replaceMOFWithNan:
+            dfFiltered.loc[maskNonCritial, 'Modo de Falla'] = np.nan
+    
+        if saveToFile:      # Use for debugging
+            aiLogger.info("Saving the cleaned data")
+            output_path = 'data/' + nameOfSaving + '.' + typeToSave # Specify your output file path        
+            dfFiltered.to_hdf(output_path, mode='w') if  typeToSave=="h5" else dfFiltered.to_excel(output_path, index=False)
+
+
+        aiLogger.info("Finish to remove redundant data and fill nan values")
+        return dfFiltered
+
+
+    # ===================================
+    # This func is used to fill the nan values
+    # with options
+    # -----------------------------------
+    def nanFilling(self,dfFiltered, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True):
         
-        maskNonCritial      =  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
-        dfFiltered.loc[maskNonCritial, validColumn]    = np.nan                                         # Assign the nonCritical to Nan
-        
+        if validColumn is None:
+            validColumn = dfFiltered.columns()
         # ---------------------------------
         # Interpolate
         # ---------------------------------
@@ -718,7 +751,6 @@ class PreProcessData(object):
         
         elif typeOfPadding == "meanPrevious":
             for col in validColumn:
-                # print(dfFiltered[col])
                 rolling_mean    = dfFiltered[col].rolling(window=180, min_periods=1, closed='left').mean() 
                 dfFiltered[col] = dfFiltered[col].fillna(rolling_mean)
             dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
@@ -731,19 +763,8 @@ class PreProcessData(object):
         if typeOfPadding != "remove" and padAtEdge == True:
             dfFiltered[validColumn] = dfFiltered[validColumn].fillna(method='ffill')
             dfFiltered[validColumn] = dfFiltered[validColumn].fillna(method='bfill')
-
-        if replaceMOFWithNan:
-            dfFiltered.loc[maskNonCritial, 'Modo de Falla'] = np.nan
-    
-        if saveToFile:      # Use for debugging
-            aiLogger.info("Saving the cleaned data")
-            output_path = 'data/' + nameOfSaving + '.' + typeToSave # Specify your output file path        
-            dfFiltered.to_hdf(output_path, mode='w') if  typeToSave=="h5" else dfFiltered.to_excel(output_path, index=False)
-
-
-        aiLogger.info("Finish to remove redundant data")
+        
         return dfFiltered
-
 
     # ===================================
     # This func is used to sumarry the data
