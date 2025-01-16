@@ -382,7 +382,8 @@ class PreProcessData(object):
             df                  = df.set_index('hours')                         # Set 'time' as the index
             df                  = df.reindex(all_times)                         # Reindex to include all time values
             df['Modo de Falla'] = df['Modo de Falla'].fillna(method='ffill')    # Forward fill 'MOF' column
-            df[validColumn]     = df[validColumn].fillna(0)
+            # df[validColumn]     = df[validColumn].fillna(0)
+            df                  = self.interpolateRedundantMOF(orginalData=df, validColumn=validColumn, mainternanceAsMOF = True)
             df["Modo de Falla"] = df["Modo de Falla"].replace("good", float("nan"))
             return df.reset_index()                                             # Reset index to restore 'time'
 
