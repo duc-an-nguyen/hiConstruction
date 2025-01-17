@@ -267,8 +267,21 @@ class PreProcessData(object):
         # _                       = self.sumarryDataFromFile(withHourCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
         # _                       = self.sumarryDataFromFile(withHourCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
 
-        withIDResults, mofOrder = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2], mainternanceAsCriticalSd = True)
+        withIDResults, mofOrder = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2])
         # withIDCr1, withIDCr2, withIDCv2, IdSys
+
+        print("--------------------WITHOUT MAINTENANCE--------------------------")
+        print(withIDResults["cr1"]['trajIDWithoutM'])
+        print(withIDResults["cr2"]['trajIDWithoutM'])
+        print(withIDResults["cv2"]['trajIDWithoutM'])
+
+        print("------------------WITH MAINTENANCE----------------------------")
+        print(withIDResults["cr1"]['trajIDWithM'])
+        print(withIDResults["cr2"]['trajIDWithM'])
+        print(withIDResults["cv2"]['trajIDWithM'])
+        print(withIDResults["sys"])
+
+
 
         addedData               = self.addition_var(withIDResults["cr1"]) 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
@@ -311,10 +324,6 @@ class PreProcessData(object):
 
         systemRUL               = withTimeDataSys["rul"]
 
-        print(withIDResults["cr1"]['trajectoryID'])
-        print(withIDResults["cr2"]['trajectoryID'])
-        print(withIDResults["cv2"]['trajectoryID'])
-        print(withIDResults["sys"])
 
 
         # for idx in range(39):
@@ -329,7 +338,7 @@ class PreProcessData(object):
                                                                                                 dataCr2, cycleCr2, rulCr2,
                                                                                                 dataCv2, cycleCv2, rulCv2,
                                                                                                 systemRUL], 
-                                                                                trajectId  = IdSys,
+                                                                                trajectId  = withIDResults["sys"],
                                                                                 seqLength  = self.config['seqLength'], 
                                                                                 overlap    = self.config['seqLength']-1,
                                                                                 typeInput  = "listOfPandas")
@@ -412,46 +421,67 @@ class PreProcessData(object):
     # for each trajectory between period 
     # of 2 shutdown time, or a period between
     # mainternance and shutdown. 
-    def attachIDPerEvent(self, df = [None], mainternanceAsCriticalSd = False, summaryData = False):
+    def attachIDPerEvent(self, df = [None], summaryData = False):
         '''
         df                      : A list of of MOF column
-        mainternanceAsCriticalSd: True if considering mainternance as shutdown, each traject will include mainterance
         results                 : return the same order of pandas df with an addition of trajectoryID, and return with the system ID
+        trajIDWithoutM          : consider Maintenance as not critical shutdown
+        trajIDWithM             : consider Maintenance as critical shutdown
         '''
         aiLogger.info("Attaching ID into trajectories")
         # --------------------------
         # Assign the critical MOF
         # --------------------------
         compKeys      = ["cr1", "cr2", "cv2", "sys"]
-        results       = {}
+        withIDDf       = {}
         mofOrder      = {}
         sdSystemEvent   = pd.DataFrame()
 
         for compKey,curDf in zip(compKeys[:3], df):
-            machineMOF      = curDf['Modo de Falla'].dropna().unique()
-            elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] if mainternanceAsCriticalSd else  [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
-            criticalMOF     = [x for x in machineMOF if x not in elimination]
-            # print(machineMOF, elimination,criticalMOF)
+            machineMOF                      = curDf['Modo de Falla'].dropna().unique()
+            elimination                     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] 
+            criticalMOFWithMaintenance      = [x for x in machineMOF if x not in elimination]
+            criticalMOFWithoutMaintenance   = [x for x in machineMOF if x not in (elimination + ["Mantención programada"])]
+            
             # --------------------------
-            # Assign the ID over event
+            # Assign the trajectory ID 
+            # per event WITHOUT MAINTENANCE
             # --------------------------
-            curDf["isShutdown"]    = curDf['Modo de Falla'].isin(criticalMOF)                                                               # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
-            curDf['tempId']        = [1 if idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True else 0    # Seach the end of the shutdown event
+            curDf["isShutdownNM"]    = curDf['Modo de Falla'].isin(criticalMOFWithoutMaintenance)                                                               # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
+            curDf['tempIdNM']        = [1 if    (idx > 0 and curDf["isShutdownNM"][idx] == False and curDf["isShutdownNM"][idx - 1] == True) or 
+                                                (idx > 0 and curDf["isShutdownNM"][idx] == True and curDf["isShutdownNM"][idx - 1] == True and curDf['Modo de Falla'][idx] != curDf['Modo de Falla'][idx-1])
+                                        else 0    # Seach the end of the shutdown event
                                         for idx in range(len(curDf))]                                                                     
-            curDf['trajectoryID']  = curDf['tempId'].cumsum()                                                                               # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
-            curDf['trajectoryID']  += 1
-            # compMOF                 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempId'] == 1]
-            posCompMof             = curDf.loc[df['tempId'] == 1].index[0]
-            compMOF                = curDf.iloc[posCompMof -1 ]['Modo de Falla']
+            curDf['trajIDWithoutM']  = curDf['tempIdNM'].cumsum()                                                                               # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+            curDf['trajIDWithoutM']  += 1
 
+            compMOF1                 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempIdNM'] == 1]
+            print(len(compMOF1), compMOF1)
+            print("======================")
+            # --------------------------
+            # Assign the trajectory ID 
+            # per event INCLUDING MAINTENANCE
+            # --------------------------
+            curDf["isShutdown"]     = curDf['Modo de Falla'].isin(criticalMOFWithMaintenance)                                                            # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
+            # curDf['tempId']         = [1 if idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True else 0                # Seach the end of the shutdown event
+            #                                     for idx in range(len(curDf))]        
+            curDf['tempId']        = [1 if  (idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True) or 
+                                            (idx > 0 and curDf["isShutdown"][idx] == True and curDf["isShutdown"][idx - 1] == True and curDf['Modo de Falla'][idx] != curDf['Modo de Falla'][idx-1])
+                                        else 0    # Seach the end of the shutdown event
+                                        for idx in range(len(curDf))]                                                                
+            curDf['trajIDWithM']    = curDf['tempId'].cumsum()                                                                                  # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+            curDf['trajIDWithM']    += 1
+            compMOF                 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempId'] == 1]
             # curDf.to_excel("IDCrusher1.xlsx", index=False)
             # break
             print(len(compMOF), compMOF)
-            results[compKey]    = curDf
+            withIDDf[compKey]    = curDf
             mofOrder[compKey]   = compMOF
 
-            
-
+            # --------------------------
+            # use OR operator to get the event
+            # from each component for system
+            # --------------------------
             if compKey == "cr1":    # Initialize the system-wide shutdown event DataFrame
                 sdSystemEvent['isShutdown'] = curDf["isShutdown"]
             else:
@@ -461,14 +491,14 @@ class PreProcessData(object):
         # -----------------------------
         sdSystemEvent['tempId']             = [1 if idx > 0 and sdSystemEvent["isShutdown"][idx] == False and sdSystemEvent["isShutdown"][idx - 1] == True else 0
                                                                                                                 for idx in range(len(sdSystemEvent))]                                                                     
-        sdSystemEvent['trajectoryID']       = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
-        sdSystemEvent['trajectoryID']       += 1
-        results["sys"] = sdSystemEvent['trajectoryID']
+        sdSystemEvent['trajIDWithM']       = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+        sdSystemEvent['trajIDWithM']       += 1
+        withIDDf["sys"] = sdSystemEvent['trajIDWithM']
 
         if summaryData: 
-            self.sumarryDataFromFile(results)
+            self.sumarryDataFromFile(withIDDf)
 
-        return results, mofOrder
+        return withIDDf, mofOrder
     
     def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep", usefulMOFOnly = True):
         '''
@@ -640,10 +670,14 @@ class PreProcessData(object):
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = ((data['tiempo'] - reference_time) / pd.Timedelta(hours=1)).round(3)
         return df
-        
-    def addCycleAndRul(self,df):
-        df["cycle"]     = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x      - x.min())
-        df["rul"]       = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x.max() - x)
+    # ===================================
+    # This function is used to add RUL, failure
+    # time and others
+    # -----------------------------------
+    def addCycleAndRul(self,df, maskShutdownTimeWithEndingPoint = True):
+        df["tFailureWithMaintenance"]       = df.groupby('trajIDWithM',sort=False)['hours'].transform(lambda x: x           - x.min())
+        df["tFailureWithoutMaintenance"]    = df.groupby('trajIDWithoutM',sort=False)['hours'].transform(lambda x: x        - x.min())
+        df["rul"]                           = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x.max()    - x)
         return df
     
     def addFloatTimeOld(self,data):
