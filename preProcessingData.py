@@ -139,7 +139,7 @@ class PreProcessData(object):
                                     "Tronadura",
                                     "Falla o problemas aguas arriba",
                                     "Falta de equipo carguío mina",
-                                    "Otra falla mecánica",
+                                    # "Otra falla mecánica",
                                     "Limpieza equipo",
                                     "Detención por Enclavamiento",
                                     "Colación",
@@ -263,19 +263,20 @@ class PreProcessData(object):
         #     insertedCv2 = withHourCv2
         # --------------------------------
         # Sumarry data (option)
-        _                       = self.sumarryDataFromFile(withHourCr1, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
-        _                       = self.sumarryDataFromFile(withHourCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
-        _                       = self.sumarryDataFromFile(withHourCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        # _,mofCr1                = self.sumarryDataFromFile(withHourCr1, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        # _                       = self.sumarryDataFromFile(withHourCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
+        # _                       = self.sumarryDataFromFile(withHourCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
 
-        withIDCr1, withIDCr2, withIDCv2, IdSys = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2], mainternanceAsCriticalSd = True)
+        withIDResults, mofOrder = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2], mainternanceAsCriticalSd = True)
+        # withIDCr1, withIDCr2, withIDCv2, IdSys
 
-        addedData               = self.addition_var(withIDCr1) 
+        addedData               = self.addition_var(withIDResults["cr1"]) 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
         # -----------------------------
         # Normalize
         normalizedCr1           = self.normalizeBuilinFunction(addedData, headline = handledValues)  
-        normalizedCr2           = self.normalizeBuilinFunction(withIDCr2, headline = self.crusher2Value)  
-        normalizedCv2           = self.normalizeBuilinFunction(withIDCv2, headline = self.conveyorValue + self.crusher2Value)  
+        normalizedCr2           = self.normalizeBuilinFunction(withIDResults["cr2"], headline = self.crusher2Value)  
+        normalizedCv2           = self.normalizeBuilinFunction(withIDResults["cv2"], headline = self.conveyorValue + self.crusher2Value)  
 
         # -----------------------------
         # Add the Cycle and RUL to 
@@ -288,7 +289,7 @@ class PreProcessData(object):
         # Add the cycle and RUL of system
         systemData                  = pd.DataFrame()
         systemData['hours']         = withTimeDataCr1["hours"]
-        systemData['trajectoryID']  = IdSys
+        systemData['trajectoryID']  = withIDResults["sys"]
         withTimeDataSys             = self.addCycleAndRul(systemData)
         
         # -----------------------------
@@ -310,7 +311,14 @@ class PreProcessData(object):
 
         systemRUL               = withTimeDataSys["rul"]
 
-        print(IdSys)
+        print(withIDResults["cr1"]['trajectoryID'])
+        print(withIDResults["cr2"]['trajectoryID'])
+        print(withIDResults["cv2"]['trajectoryID'])
+        print(withIDResults["sys"])
+
+
+        # for idx in range(39):
+        #     print(f"The ID {idx+1}: {(systemData['trajectoryID'] == (idx+1)).sum()}, MOF: {mofCr1[idx]}")
         # -----------------------------
         # Split with the system ID
         if self.config["component"] == "system":
@@ -404,7 +412,7 @@ class PreProcessData(object):
     # for each trajectory between period 
     # of 2 shutdown time, or a period between
     # mainternance and shutdown. 
-    def attachIDPerEvent(self, df = [None], mainternanceAsCriticalSd = False):
+    def attachIDPerEvent(self, df = [None], mainternanceAsCriticalSd = False, summaryData = False):
         '''
         df                      : A list of of MOF column
         mainternanceAsCriticalSd: True if considering mainternance as shutdown, each traject will include mainterance
@@ -414,10 +422,12 @@ class PreProcessData(object):
         # --------------------------
         # Assign the critical MOF
         # --------------------------
-        results       = []
+        compKeys      = ["cr1", "cr2", "cv2", "sys"]
+        results       = {}
+        mofOrder      = {}
         sdSystemEvent   = pd.DataFrame()
 
-        for idx,curDf in enumerate(df):
+        for compKey,curDf in zip(compKeys[:3], df):
             machineMOF      = curDf['Modo de Falla'].dropna().unique()
             elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] if mainternanceAsCriticalSd else  [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"]
             criticalMOF     = [x for x in machineMOF if x not in elimination]
@@ -428,12 +438,21 @@ class PreProcessData(object):
             curDf["isShutdown"]    = curDf['Modo de Falla'].isin(criticalMOF)                                                               # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
             curDf['tempId']        = [1 if idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True else 0    # Seach the end of the shutdown event
                                         for idx in range(len(curDf))]                                                                     
-            curDf['trajectoryID']  = curDf['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+            curDf['trajectoryID']  = curDf['tempId'].cumsum()                                                                               # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
             curDf['trajectoryID']  += 1
-            
-            results.append(curDf)
+            # compMOF                 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempId'] == 1]
+            posCompMof             = curDf.loc[df['tempId'] == 1].index[0]
+            compMOF                = curDf.iloc[posCompMof -1 ]['Modo de Falla']
 
-            if idx == 0:    # Initialize the system-wide shutdown event DataFrame
+            # curDf.to_excel("IDCrusher1.xlsx", index=False)
+            # break
+            print(len(compMOF), compMOF)
+            results[compKey]    = curDf
+            mofOrder[compKey]   = compMOF
+
+            
+
+            if compKey == "cr1":    # Initialize the system-wide shutdown event DataFrame
                 sdSystemEvent['isShutdown'] = curDf["isShutdown"]
             else:
                 sdSystemEvent['isShutdown'] |= curDf["isShutdown"]
@@ -444,8 +463,28 @@ class PreProcessData(object):
                                                                                                                 for idx in range(len(sdSystemEvent))]                                                                     
         sdSystemEvent['trajectoryID']       = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
         sdSystemEvent['trajectoryID']       += 1
-        results.append(sdSystemEvent['trajectoryID'])
-        return results
+        results["sys"] = sdSystemEvent['trajectoryID']
+
+        if summaryData: 
+            self.sumarryDataFromFile(results)
+
+        return results, mofOrder
+    
+    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep", usefulMOFOnly = True):
+        '''
+        inData: the time series data overtime with the MOF column
+
+        markedPoint:
+        mofTable: Content the concise content of the data to print
+        '''
+        aiLogger.info("Sumarry the data")
+        timeCol = "tiempo" if typeOfTime == "timestep" else "hours"
+        
+        mofTable                = PrettyTable()
+        mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
+
+
+
 
     # ===================================
     # This func divides the time series into 
@@ -642,7 +681,7 @@ class PreProcessData(object):
     # This function is used to remove non
     # critical MOF
     # -------------------------------------
-    def removeNonCriticalMOF(self,df = [], mainternanceAsCriticalFailure = True, printRemovedCol = False):
+    def removeNonCriticalMOF(self,df = [], mainternanceAsCriticalFailure = True, printRemovedCol = False, removeAllNoneCritical = False):
         '''
         df                              : it should be a list of component input, if input is multiple components, this function will remove joint non critical MOF only.
                                           If the input is only the 1 element input, it will remove all non criticall component
@@ -660,7 +699,7 @@ class PreProcessData(object):
                 elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()]
             else:
                 elimination     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] + ["Mantención programada"] 
-            # print(machineMOF, elimination,criticalMOF)
+            
             # --------------------------
             # Assign the ID over events
             # --------------------------
@@ -707,8 +746,7 @@ class PreProcessData(object):
             validColumn         = dfFiltered.columns.difference(['tiempo',          'Descripción Equipo',   'Modo de Falla', 
                                                                 'Comentario',       'Especialidad',          'Motivo',
                                                                 'Inicio Reportado',  'Fin Reportado',       'Equipo'] 
-                                                                + alwaysWorkVariable)
-        dfFiltered[validColumn]                         = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan                                
+                                                                + alwaysWorkVariable)                              
         maskNonCritial                                  = dfFiltered['Modo de Falla'].isin(self.notModeOfFailure) if mainternanceAsMOF else  dfFiltered['Modo de Falla'].isin(self.notModeOfFailure + ["Mantención programada"])
         dfFiltered.loc[maskNonCritial, validColumn]     = np.nan                                         # Assign the nonCritical to Nan
         # nan_rows_count                                  = dfFiltered[validColumn].isnull().any(axis=1).sum()
@@ -734,7 +772,8 @@ class PreProcessData(object):
     # with options
     # -----------------------------------
     def nanFilling(self,dfFiltered, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True):
-        
+
+        dfFiltered[validColumn]   = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan  
         if validColumn is None:
             validColumn = dfFiltered.columns()
         # ---------------------------------
@@ -771,7 +810,8 @@ class PreProcessData(object):
     # according to time which is inside 
     # the excell file into a concise way
     # -----------------------------------
-    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep"):
+    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep", usefulMOFOnly = True):
+
         '''
         inData: the time series data overtime with the MOF column
 
@@ -803,7 +843,11 @@ class PreProcessData(object):
             # If the current state differs the previous 
             # state, record the difference, otherwise,
             # Let it continue
-            if (mofCol[curIdx] != preMOF) and curIdx!=0:                   
+            
+            if (mofCol[curIdx] != preMOF) and curIdx!=0:  
+                # if usefulMOFOnly:
+                #     if mofCol[curIdx] in self.notModeOfFailure:
+                #         continue
                 # --------------------------
                 # Collect the last state
                 # --------------------------
