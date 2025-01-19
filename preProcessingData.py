@@ -300,10 +300,11 @@ class PreProcessData(object):
         
         # -----------------------------
         # Add the cycle and RUL of system
-        systemData                  = pd.DataFrame()
-        systemData['hours']         = withTimeDataCr1["hours"]
-        systemData['trajectoryID']  = withIDResults["sys"]
-        withTimeDataSys             = self.addCycleAndRul(systemData)
+        systemData                      = pd.DataFrame()
+        systemData['hours']             = withTimeDataCr1["hours"]
+        systemData['trajIDWithoutM']    = withIDResults["sysIDWithoutM"]
+        systemData['trajIDWithM']       = withIDResults["sysIDWithM"]
+        withTimeDataSys                 = self.addCycleAndRul(systemData)
         
         # -----------------------------
         # Extract before splitting
@@ -433,7 +434,7 @@ class PreProcessData(object):
         # Assign the critical MOF
         # --------------------------
         compKeys      = ["cr1", "cr2", "cv2", "sys"]
-        withIDDf       = {}
+        withIDDf      = {}
         mofOrder      = {}
         sdSystemEvent   = pd.DataFrame()
 
@@ -475,25 +476,39 @@ class PreProcessData(object):
             # curDf.to_excel("IDCrusher1.xlsx", index=False)
             # break
             print(len(compMOF), compMOF)
-            withIDDf[compKey]    = curDf
-            mofOrder[compKey]   = compMOF
+            withIDDf[compKey]       = curDf
+            mofOrder[compKey]       = compMOF
 
             # --------------------------
             # use OR operator to get the event
             # from each component for system
             # --------------------------
             if compKey == "cr1":    # Initialize the system-wide shutdown event DataFrame
-                sdSystemEvent['isShutdown'] = curDf["isShutdown"]
+                sdSystemEvent['isShutdownNM']   = curDf["isShutdownNM"]
+                sdSystemEvent['isShutdown']     = curDf["isShutdown"]
             else:
-                sdSystemEvent['isShutdown'] |= curDf["isShutdown"]
+                sdSystemEvent['isShutdownNM']   |= curDf["isShutdownNM"]
+                sdSystemEvent['isShutdown']     |= curDf["isShutdown"]
         # -----------------------------
         # Handling the trajectory of system
         # -----------------------------
-        sdSystemEvent['tempId']             = [1 if idx > 0 and sdSystemEvent["isShutdown"][idx] == False and sdSystemEvent["isShutdown"][idx - 1] == True else 0
-                                                                                                                for idx in range(len(sdSystemEvent))]                                                                     
-        sdSystemEvent['trajIDWithM']       = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+        sdSystemEvent['tempIdNM']           = [1 if (idx > 0 and sdSystemEvent["isShutdownNM"][idx] == False and sdSystemEvent["isShutdownNM"][idx - 1] == True)
+                                                    # (idx > 0 and sdSystemEvent["isShutdownNM"][idx] == True  and sdSystemEvent["isShutdownNM"][idx - 1] == True and sdSystemEvent['Modo de Falla'][idx] != sdSystemEvent['Modo de Falla'][idx-1])
+                                                else 0
+                                                for idx in range(len(sdSystemEvent))]                                                                     
+
+        sdSystemEvent['trajIDWithoutM']     = sdSystemEvent['tempIdNM'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+        sdSystemEvent['trajIDWithoutM']     += 1
+        withIDDf["sysIDWithoutM"]           = sdSystemEvent['trajIDWithoutM']
+
+
+        sdSystemEvent['tempId']             = [1 if idx > 0 and sdSystemEvent["isShutdown"][idx] == False and sdSystemEvent["isShutdown"][idx - 1] == True 
+                                                else 0
+                                                for idx in range(len(sdSystemEvent))]
+
+        sdSystemEvent['trajIDWithM']        = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
         sdSystemEvent['trajIDWithM']       += 1
-        withIDDf["sys"] = sdSystemEvent['trajIDWithM']
+        withIDDf["sysIDWithM"]              = sdSystemEvent['trajIDWithM']
 
         if summaryData: 
             self.sumarryDataFromFile(withIDDf)
@@ -973,7 +988,6 @@ class PreProcessData(object):
         print(signal.std())
         # signal[outliers]    = np.nan  # Set outliers to NaN
         # signal              = signal.interpolate()  # Interpolate to fill NaNs
-
 
         return signal
 
