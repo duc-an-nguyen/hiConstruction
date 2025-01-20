@@ -267,7 +267,7 @@ class PreProcessData(object):
         # _                       = self.sumarryDataFromFile(withHourCr2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
         # _                       = self.sumarryDataFromFile(withHourCv2, printUsefulMOF = True, printMOFTable = True,typeOfTime= "hours")
 
-        withIDResults, mofOrder = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2])
+        withIDResults, mofOrder, shutdownMask = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2])
         # withIDCr1, withIDCr2, withIDCv2, IdSys
 
         print("--------------------WITHOUT MAINTENANCE--------------------------")
@@ -279,25 +279,27 @@ class PreProcessData(object):
         print(withIDResults["cr1"]['trajIDWithM'])
         print(withIDResults["cr2"]['trajIDWithM'])
         print(withIDResults["cv2"]['trajIDWithM'])
-        print(withIDResults["sys"])
-
-
+        # print(withIDResults["sys"])
 
         addedData               = self.addition_var(withIDResults["cr1"]) 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
+
         # -----------------------------
         # Normalize
-        normalizedCr1           = self.normalizeBuilinFunction(addedData, headline = handledValues)  
+        normalizedCr1           = self.normalizeBuilinFunction(addedData,            headline = handledValues)  
         normalizedCr2           = self.normalizeBuilinFunction(withIDResults["cr2"], headline = self.crusher2Value)  
         normalizedCv2           = self.normalizeBuilinFunction(withIDResults["cv2"], headline = self.conveyorValue + self.crusher2Value)  
 
         # -----------------------------
         # Add the Cycle and RUL to 
         # each component
-        withTimeDataCr1         = self.addCycleAndRul(normalizedCr1)                        # Add the time to the data
-        withTimeDataCr2         = self.addCycleAndRul(normalizedCr2)                        # Add the time to the data
-        withTimeDataCv2         = self.addCycleAndRul(normalizedCv2)                        # Add the time to the data
+        withTimeDataCr1         = self.addCycleAndRul(normalizedCr1, shutdownMask["cr1"])                        # Add the time to the data
+        withTimeDataCr2         = self.addCycleAndRul(normalizedCr2, shutdownMask["cr2"])                        # Add the time to the data
+        withTimeDataCv2         = self.addCycleAndRul(normalizedCv2, shutdownMask["cv2"])                        # Add the time to the data
         
+        aiLogger.info("Export the file to test!!!")
+        withTimeDataCr1.to_excel("IDCrusher1.xlsx", index=False)
+
         # -----------------------------
         # Add the cycle and RUL of system
         systemData                      = pd.DataFrame()
@@ -436,9 +438,11 @@ class PreProcessData(object):
         compKeys      = ["cr1", "cr2", "cv2", "sys"]
         withIDDf      = {}
         mofOrder      = {}
-        sdSystemEvent   = pd.DataFrame()
+        sdSystemEvent = pd.DataFrame()
+        shutdownMask  = {}
 
         for compKey,curDf in zip(compKeys[:3], df):
+            shutdownMask[compKey]           = {}   
             machineMOF                      = curDf['Modo de Falla'].dropna().unique()
             elimination                     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] 
             criticalMOFWithMaintenance      = [x for x in machineMOF if x not in elimination]
@@ -448,64 +452,66 @@ class PreProcessData(object):
             # Assign the trajectory ID 
             # per event WITHOUT MAINTENANCE
             # --------------------------
-            curDf["isShutdownNM"]    = curDf['Modo de Falla'].isin(criticalMOFWithoutMaintenance)                                                               # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
-            curDf['tempIdNM']        = [1 if    (idx > 0 and curDf["isShutdownNM"][idx] == False and curDf["isShutdownNM"][idx - 1] == True) or 
-                                                (idx > 0 and curDf["isShutdownNM"][idx] == True and curDf["isShutdownNM"][idx - 1] == True and curDf['Modo de Falla'][idx] != curDf['Modo de Falla'][idx-1])
-                                        else 0    # Seach the end of the shutdown event
-                                        for idx in range(len(curDf))]                                                                     
-            curDf['trajIDWithoutM']  = curDf['tempIdNM'].cumsum()                                                                               # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
-            curDf['trajIDWithoutM']  += 1
+            curDf["isShutdownNM"]   = curDf['Modo de Falla'].isin(criticalMOFWithoutMaintenance)                                                           # Create a mask, True if it's shutdown state, otherwise False         
+            curDf['tempIdNM']       = ( (curDf["isShutdownNM"] == False) & (curDf["isShutdownNM"].shift(1, fill_value=False)) |
+                                        (curDf["isShutdownNM"]) & (curDf["isShutdownNM"].shift(1, fill_value=False)) &
+                                        (curDf['Modo de Falla'] != curDf['Modo de Falla'].shift(1, fill_value=None))
+                                        ).astype(int)
+                                                                         
+            curDf['trajIDWithoutM'] = curDf['tempIdNM'].cumsum()                                                                                           # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+            curDf['trajIDWithoutM'] += 1
+            # compMOFWithoutM             = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempIdNM'] == 1] # Extract mode of failure column per trajectory for visualization
+            compMOFWithoutM         = curDf.loc[curDf['tempIdNM'] == 1, 'Modo de Falla'].shift(1).dropna().tolist()
 
-            compMOF1                 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempIdNM'] == 1]
-            print(len(compMOF1), compMOF1)
-            print("======================")
             # --------------------------
             # Assign the trajectory ID 
             # per event INCLUDING MAINTENANCE
             # --------------------------
-            curDf["isShutdown"]     = curDf['Modo de Falla'].isin(criticalMOFWithMaintenance)                                                            # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                
-            # curDf['tempId']         = [1 if idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True else 0                # Seach the end of the shutdown event
-            #                                     for idx in range(len(curDf))]        
-            curDf['tempId']        = [1 if  (idx > 0 and curDf["isShutdown"][idx] == False and curDf["isShutdown"][idx - 1] == True) or 
-                                            (idx > 0 and curDf["isShutdown"][idx] == True and curDf["isShutdown"][idx - 1] == True and curDf['Modo de Falla'][idx] != curDf['Modo de Falla'][idx-1])
-                                        else 0    # Seach the end of the shutdown event
-                                        for idx in range(len(curDf))]                                                                
+            curDf["isShutdownM"]    = curDf['Modo de Falla'].isin(criticalMOFWithMaintenance)                                                            # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                        
+            curDf['tempId']         = ((curDf["isShutdownM"] == False) & (curDf["isShutdownM"].shift(1, fill_value=False)) |
+                                        (curDf["isShutdownM"]) & (curDf["isShutdownM"].shift(1, fill_value=False)) &
+                                        (curDf['Modo de Falla'] != curDf['Modo de Falla'].shift(1, fill_value=None))
+                                        ).astype(int)
+
+
             curDf['trajIDWithM']    = curDf['tempId'].cumsum()                                                                                  # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
             curDf['trajIDWithM']    += 1
-            compMOF                 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempId'] == 1]
-            # curDf.to_excel("IDCrusher1.xlsx", index=False)
-            # break
-            print(len(compMOF), compMOF)
-            withIDDf[compKey]       = curDf
-            mofOrder[compKey]       = compMOF
-
+            # compMOFWithM            = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempId'] == 1]
+            compMOFWithM            = curDf.loc[curDf['tempId'] == 1, 'Modo de Falla'].shift(1).dropna().tolist()
+            
+            # --------------------------
+            # Extract to handle later
+            shutdownMask[compKey]["isShutdownNM"]   = curDf["isShutdownNM"]     # Extract the shutdown mask to cover the shutdown time
+            shutdownMask[compKey]["isShutdownM"]    = curDf["isShutdownM"]      # 
+            withIDDf[compKey]                       = curDf                     # Extract the dictionary of data for each component (curDf will change in for loop)
+            mofOrder[compKey]                       = compMOFWithM              # Extract the order of mode of failure which is used for visualization
             # --------------------------
             # use OR operator to get the event
             # from each component for system
             # --------------------------
             if compKey == "cr1":    # Initialize the system-wide shutdown event DataFrame
                 sdSystemEvent['isShutdownNM']   = curDf["isShutdownNM"]
-                sdSystemEvent['isShutdown']     = curDf["isShutdown"]
+                sdSystemEvent['isShutdownM']    = curDf["isShutdownM"]
             else:
                 sdSystemEvent['isShutdownNM']   |= curDf["isShutdownNM"]
-                sdSystemEvent['isShutdown']     |= curDf["isShutdown"]
+                sdSystemEvent['isShutdownM']    |= curDf["isShutdownM"]
         # -----------------------------
-        # Handling the trajectory of system
+        # Handling the trajectory of system, 
+        # ****Check later here about the criteria
+        # of maintenance
         # -----------------------------
         sdSystemEvent['tempIdNM']           = [1 if (idx > 0 and sdSystemEvent["isShutdownNM"][idx] == False and sdSystemEvent["isShutdownNM"][idx - 1] == True)
                                                     # (idx > 0 and sdSystemEvent["isShutdownNM"][idx] == True  and sdSystemEvent["isShutdownNM"][idx - 1] == True and sdSystemEvent['Modo de Falla'][idx] != sdSystemEvent['Modo de Falla'][idx-1])
                                                 else 0
                                                 for idx in range(len(sdSystemEvent))]                                                                     
-
         sdSystemEvent['trajIDWithoutM']     = sdSystemEvent['tempIdNM'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
         sdSystemEvent['trajIDWithoutM']     += 1
         withIDDf["sysIDWithoutM"]           = sdSystemEvent['trajIDWithoutM']
 
 
-        sdSystemEvent['tempId']             = [1 if idx > 0 and sdSystemEvent["isShutdown"][idx] == False and sdSystemEvent["isShutdown"][idx - 1] == True 
+        sdSystemEvent['tempId']             = [1 if idx > 0 and sdSystemEvent["isShutdownM"][idx] == False and sdSystemEvent["isShutdownM"][idx - 1] == True 
                                                 else 0
                                                 for idx in range(len(sdSystemEvent))]
-
         sdSystemEvent['trajIDWithM']        = sdSystemEvent['tempId'].cumsum()                                                        # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
         sdSystemEvent['trajIDWithM']       += 1
         withIDDf["sysIDWithM"]              = sdSystemEvent['trajIDWithM']
@@ -513,8 +519,11 @@ class PreProcessData(object):
         if summaryData: 
             self.sumarryDataFromFile(withIDDf)
 
-        return withIDDf, mofOrder
+        return withIDDf, mofOrder, shutdownMask
     
+    # ===================================
+    # Sumarry data from file
+    # -----------------------------------
     def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep", usefulMOFOnly = True):
         '''
         inData: the time series data overtime with the MOF column
@@ -680,19 +689,38 @@ class PreProcessData(object):
     # time from ns to hours for caculation
     # -----------------------------------
     def addHours(self,data):
+        aiLogger.info("Add hour to data")
         df              = pd.DataFrame(data)
         reference_time  = pd.to_datetime(data['tiempo'].iloc[0])
         data['tiempo']  = pd.to_datetime(df['tiempo'])
         df['hours']     = ((data['tiempo'] - reference_time) / pd.Timedelta(hours=1)).round(3)
         return df
     # ===================================
-    # This function is used to add RUL, failure
-    # time and others
+    # This function is used to add RUL, 
+    # failure time and others
     # -----------------------------------
-    def addCycleAndRul(self,df, maskShutdownTimeWithEndingPoint = True):
-        df["tFailureWithMaintenance"]       = df.groupby('trajIDWithM',sort=False)['hours'].transform(lambda x: x           - x.min())
-        df["tFailureWithoutMaintenance"]    = df.groupby('trajIDWithoutM',sort=False)['hours'].transform(lambda x: x        - x.min())
-        df["rul"]                           = df.groupby('trajectoryID',sort=False)['hours'].transform(lambda x: x.max()    - x)
+    def addCycleAndRul(self,df, shutdownMask = None):
+        df["tFailureWithMaintenance"]       = df.groupby('trajIDWithM',     sort=False)['hours'].transform(lambda x: x - x.min())
+        df["tFailureWithoutMaintenance"]    = df.groupby('trajIDWithoutM',  sort=False)['hours'].transform(lambda x: x - x.min())
+        print(df["tFailureWithMaintenance"])
+        if shutdownMask is not None:
+            shutdownMaskWithM                                       = shutdownMask["isShutdownM"].copy()
+            shutdownMaskWithM.loc[shutdownMaskWithM == True]        = np.nan
+
+            shutdownMaskWithoutM                                    = shutdownMask["isShutdownNM"].copy()
+            shutdownMaskWithoutM.loc[shutdownMaskWithoutM == True]  = np.nan
+
+
+            # shutdownMask["isShutdownM"].loc[shutdownMask["isShutdownM"]     == True]  = np.nan
+            # shutdownMask["isShutdownNM"].loc[shutdownMask["isShutdownNM"]   == True] = np.nan
+
+            df["tFailureWithMaintenance"]       = df["tFailureWithMaintenance"]     * shutdownMaskWithM
+            df["tFailureWithoutMaintenance"]    = df["tFailureWithoutMaintenance"]  * shutdownMaskWithoutM
+
+            df["tFailureWithMaintenance"]       = df["tFailureWithMaintenance"].fillna(method='ffill')
+            df["tFailureWithoutMaintenance"]    = df["tFailureWithoutMaintenance"].fillna(method='ffill')
+
+        df["rul"]                           = df.groupby('trajIDWithM',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     def addFloatTimeOld(self,data):
@@ -821,7 +849,7 @@ class PreProcessData(object):
     # with options
     # -----------------------------------
     def nanFilling(self,dfFiltered, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True):
-
+        aiLogger.info("Filtering the nan values")
         dfFiltered[validColumn]   = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan  
         if validColumn is None:
             validColumn = dfFiltered.columns()
