@@ -297,8 +297,8 @@ class PreProcessData(object):
         withTimeDataCr2         = self.addCycleAndRul(normalizedCr2, shutdownMask["cr2"])                        # Add the time to the data
         withTimeDataCv2         = self.addCycleAndRul(normalizedCv2, shutdownMask["cv2"])                        # Add the time to the data
         
-        aiLogger.info("Export the file to test!!!")
-        withTimeDataCr1.to_excel("IDCrusher1.xlsx", index=False)
+        # aiLogger.info("Export the file to test!!!")
+        # withTimeDataCr1.to_excel("IDCrusher1.xlsx", index=False)
 
         # -----------------------------
         # Add the cycle and RUL of system
@@ -310,20 +310,21 @@ class PreProcessData(object):
         
         # -----------------------------
         # Extract before splitting
-        dataCr1                 = withTimeDataCr1[handledValues]
-        cycleCr1                = withTimeDataCr1["cycle"]
+        timeLabel               = ["hours", "tFailureWithMaintenance", "tFailureWithoutMaintenance", "tBreak"]
+        dataCr1                 = withTimeDataCr1[timeLabel + handledValues]
+        cycleCr1                = withTimeDataCr1["tFailureWithoutMaintenance"]
         rulCr1                  = withTimeDataCr1["rul"]
-        trajectIDCr1            = withTimeDataCr1["trajectoryID"]
+        trajectIDCr1            = withTimeDataCr1["trajIDWithM"]
 
-        dataCr2                 = withTimeDataCr2[self.crusher2Value]
-        cycleCr2                = withTimeDataCr2["cycle"]
+        dataCr2                 = withTimeDataCr2[timeLabel + self.crusher2Value]
+        cycleCr2                = withTimeDataCr2["tFailureWithoutMaintenance"]
         rulCr2                  = withTimeDataCr2["rul"]
-        trajectIDCr2            = withTimeDataCr2["trajectoryID"]
+        trajectIDCr2            = withTimeDataCr2["trajIDWithM"]
 
-        dataCv2                 = withTimeDataCv2[self.conveyorValue + self.crusher2ConveyorValue]
-        cycleCv2                = withTimeDataCv2["cycle"]
+        dataCv2                 = withTimeDataCv2[timeLabel + self.conveyorValue + self.crusher2ConveyorValue]
+        cycleCv2                = withTimeDataCv2["tFailureWithoutMaintenance"]
         rulCv2                  = withTimeDataCv2["rul"]
-        trajectIDCv2            = withTimeDataCv2["trajectoryID"]
+        trajectIDCv2            = withTimeDataCv2["trajIDWithM"]
 
         systemRUL               = withTimeDataSys["rul"]
 
@@ -449,6 +450,11 @@ class PreProcessData(object):
             criticalMOFWithoutMaintenance   = [x for x in machineMOF if x not in (elimination + ["Mantención programada"])]
             
             # --------------------------
+            # Assign the tBreak
+            # --------------------------
+            
+
+            # --------------------------
             # Assign the trajectory ID 
             # per event WITHOUT MAINTENANCE
             # --------------------------
@@ -476,11 +482,12 @@ class PreProcessData(object):
 
             curDf['trajIDWithM']    = curDf['tempId'].cumsum()                                                                                  # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
             curDf['trajIDWithM']    += 1
-            # compMOFWithM            = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempId'] == 1]
             compMOFWithM            = curDf.loc[curDf['tempId'] == 1, 'Modo de Falla'].shift(1).dropna().tolist()
             
             # --------------------------
             # Extract to handle later
+            curDf["isBreak"]                        = curDf['Modo de Falla'].isin(elimination)        
+            shutdownMask[compKey]["isBreak"]        = curDf["isBreak"]    
             shutdownMask[compKey]["isShutdownNM"]   = curDf["isShutdownNM"]     # Extract the shutdown mask to cover the shutdown time
             shutdownMask[compKey]["isShutdownM"]    = curDf["isShutdownM"]      # 
             withIDDf[compKey]                       = curDf                     # Extract the dictionary of data for each component (curDf will change in for loop)
@@ -704,21 +711,33 @@ class PreProcessData(object):
         df["tFailureWithoutMaintenance"]    = df.groupby('trajIDWithoutM',  sort=False)['hours'].transform(lambda x: x - x.min())
         print(df["tFailureWithMaintenance"])
         if shutdownMask is not None:
+            # ---------------------------
+            # Shutdown mask with maintenance
             shutdownMaskWithM                                       = shutdownMask["isShutdownM"].copy()
             shutdownMaskWithM.loc[shutdownMaskWithM == True]        = np.nan
+            shutdownMaskWithM.loc[shutdownMaskWithM == False]       = True
 
+            # ---------------------------
+            # Shutdown mask without maintenance
             shutdownMaskWithoutM                                    = shutdownMask["isShutdownNM"].copy()
             shutdownMaskWithoutM.loc[shutdownMaskWithoutM == True]  = np.nan
+            shutdownMaskWithoutM.loc[shutdownMaskWithoutM == False] = True
+
+            # ---------------------------
+            # Break mask with maintenance
+            breakMask                                               = shutdownMask["isBreak"].copy()
+            breakMask.loc[breakMask == True]                        = np.nan
+            breakMask.loc[breakMask == False]                       = True
 
 
-            # shutdownMask["isShutdownM"].loc[shutdownMask["isShutdownM"]     == True]  = np.nan
-            # shutdownMask["isShutdownNM"].loc[shutdownMask["isShutdownNM"]   == True] = np.nan
 
             df["tFailureWithMaintenance"]       = df["tFailureWithMaintenance"]     * shutdownMaskWithM
             df["tFailureWithoutMaintenance"]    = df["tFailureWithoutMaintenance"]  * shutdownMaskWithoutM
+            df["tBreak"]                        = df["tFailureWithoutMaintenance"]  * breakMask
 
             df["tFailureWithMaintenance"]       = df["tFailureWithMaintenance"].fillna(method='ffill')
             df["tFailureWithoutMaintenance"]    = df["tFailureWithoutMaintenance"].fillna(method='ffill')
+            df["tBreak"]                        = df["tBreak"].fillna(method='ffill')
 
         df["rul"]                           = df.groupby('trajIDWithM',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df

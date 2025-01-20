@@ -32,12 +32,13 @@ class CrusherTrainerTester():
     def __init__(self,model = None, config = None):
         self.config                 = config
         self.model                  = model
-
+        package.include()
+        self.outputDir              = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
         # --------------------------
         # Add callback
         # --------------------------
         self.saveCheckpoint  =   SubclassModelCheckpoint(   customSaveFunction      = self.model.save,  # Your custom save function
-                                                            filepath                = './checkpoint/bestModel/',     # Where the model should be saved
+                                                            filepath                = self.outputDir + 'checkpoint/bestModel/',     # Where the model should be saved
                                                             config                  = config,
                                                             monitor                 = "totalLoss",                         # Monitoring validation loss
                                                             # monitor                 = "rulLoss",
@@ -46,7 +47,7 @@ class CrusherTrainerTester():
                                                             verbose                 = 1                                   # Show a message when saving
                                                             )
 
-        log_dir = "checkpoint/logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_dir = self.outputDir + "checkpoint/logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 
         # --------------------------
         # 

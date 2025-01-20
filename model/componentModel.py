@@ -483,6 +483,7 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             seqEff,seqCycle             = input[0]
             rulY                        = input[1]
+
             # ------------------------------------
             # Encoder and Decoder for 3 components
             # ------------------------------------
@@ -526,7 +527,7 @@ class SystemModel(tf.keras.Model):
             
             if self.config["useMask"] :
                 maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-                enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if (self.config["component"] == "Cv2") else 0
+                enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2)
 
                 totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
             else:
