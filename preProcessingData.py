@@ -139,7 +139,7 @@ class PreProcessData(object):
                                     "Tronadura",
                                     "Falla o problemas aguas arriba",
                                     "Falta de equipo carguío mina",
-                                    # "Otra falla mecánica",
+                                    "Otra falla mecánica",
                                     "Limpieza equipo",
                                     "Detención por Enclavamiento",
                                     "Colación",
@@ -216,7 +216,7 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
-        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "AdequateConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "InterpolatedWholeConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         # -------------------------------
         # Handle to make the length of 
@@ -226,7 +226,6 @@ class PreProcessData(object):
         cv2 = self.nanFilling(dfFiltered=cv2, validColumn=self.conveyorValue + self.crusher2ConveyorValue)
         # insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
         #                                                                      validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
-
 
         if self.config["splitTrainTest"]:
             target_time = pd.Timestamp('2023-10-01 00:00:00')
@@ -238,7 +237,7 @@ class PreProcessData(object):
             rowCv2 = cv2.index[pd.to_datetime(cv2['tiempo']) == target_time][0]
 
             # Display the row
-            print(rowCr1, rowCr2, rowCv2)
+            # print(rowCr1, rowCr2, rowCv2)
 
             trainCr1 = cr1.iloc[:rowCr1]
             trainCr2 = cr2.iloc[:rowCr2]
@@ -270,6 +269,9 @@ class PreProcessData(object):
         withIDResults, mofOrder, shutdownMask = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2])
         # withIDCr1, withIDCr2, withIDCv2, IdSys
 
+        print(mofOrder["cr1"])
+        print(withIDResults["cr1"])
+
         print("--------------------WITHOUT MAINTENANCE--------------------------")
         print(withIDResults["cr1"]['trajIDWithoutM'])
         print(withIDResults["cr2"]['trajIDWithoutM'])
@@ -281,9 +283,8 @@ class PreProcessData(object):
         print(withIDResults["cv2"]['trajIDWithM'])
         # print(withIDResults["sys"])
 
-        addedData               = self.addition_var(withIDResults["cr1"]) 
         handledValues           = self.crusher1Value + self.addEfficiencyCr1 + self.addedManipulatedCr1
-
+        addedData               = self.addition_var(withIDResults["cr1"]) 
         # -----------------------------
         # Normalize
         normalizedCr1           = self.normalizeBuilinFunction(addedData,            headline = handledValues)  
@@ -310,21 +311,21 @@ class PreProcessData(object):
         
         # -----------------------------
         # Extract before splitting
-        timeLabel               = ["hours", "tFailureWithMaintenance", "tFailureWithoutMaintenance", "tBreak"]
+        timeLabel               = ["tFailureWithMaintenance", "tFailureWithoutMaintenance", "tBreak"]
         dataCr1                 = withTimeDataCr1[timeLabel + handledValues]
         cycleCr1                = withTimeDataCr1["tFailureWithoutMaintenance"]
         rulCr1                  = withTimeDataCr1["rul"]
-        trajectIDCr1            = withTimeDataCr1["trajIDWithM"]
+        trajectIDCr1            = withTimeDataCr1["trajIDWithoutM"]
 
         dataCr2                 = withTimeDataCr2[timeLabel + self.crusher2Value]
         cycleCr2                = withTimeDataCr2["tFailureWithoutMaintenance"]
         rulCr2                  = withTimeDataCr2["rul"]
-        trajectIDCr2            = withTimeDataCr2["trajIDWithM"]
+        trajectIDCr2            = withTimeDataCr2["trajIDWithoutM"]
 
         dataCv2                 = withTimeDataCv2[timeLabel + self.conveyorValue + self.crusher2ConveyorValue]
         cycleCv2                = withTimeDataCv2["tFailureWithoutMaintenance"]
         rulCv2                  = withTimeDataCv2["rul"]
-        trajectIDCv2            = withTimeDataCv2["trajIDWithM"]
+        trajectIDCv2            = withTimeDataCv2["trajIDWithoutM"]
 
         systemRUL               = withTimeDataSys["rul"]
 
@@ -444,15 +445,11 @@ class PreProcessData(object):
 
         for compKey,curDf in zip(compKeys[:3], df):
             shutdownMask[compKey]           = {}   
+            mofOrder[compKey]               = {}
             machineMOF                      = curDf['Modo de Falla'].dropna().unique()
             elimination                     = [x for x in machineMOF if x in self.notModeOfFailure.copy()] 
             criticalMOFWithMaintenance      = [x for x in machineMOF if x not in elimination]
             criticalMOFWithoutMaintenance   = [x for x in machineMOF if x not in (elimination + ["Mantención programada"])]
-            
-            # --------------------------
-            # Assign the tBreak
-            # --------------------------
-            
 
             # --------------------------
             # Assign the trajectory ID 
@@ -466,24 +463,31 @@ class PreProcessData(object):
                                                                          
             curDf['trajIDWithoutM'] = curDf['tempIdNM'].cumsum()                                                                                           # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
             curDf['trajIDWithoutM'] += 1
-            # compMOFWithoutM             = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1,len(curDf)) if curDf.iloc[idxCompMOF]['tempIdNM'] == 1] # Extract mode of failure column per trajectory for visualization
-            compMOFWithoutM         = curDf.loc[curDf['tempIdNM'] == 1, 'Modo de Falla'].shift(1).dropna().tolist()
 
+            # compMOFWithoutM1 = [curDf.iloc[idxCompMOF-1]['Modo de Falla'] for idxCompMOF in range(1, len(curDf)) if curDf.iloc[idxCompMOF]['tempIdNM'] == 1]
+            
+            compMOFWithoutM  = curDf['Modo de Falla'].shift(1)[curDf['tempIdNM'] == 1].dropna().tolist()
+
+            # compMOFWithoutM         = curDf.loc[curDf['tempIdNM'] == 1, 'Modo de Falla'].shift(1).dropna().tolist()
+            # aiLogger.debug(compMOFWithoutM)
+            # aiLogger.debug(len(compMOFWithoutM))
+            
             # --------------------------
             # Assign the trajectory ID 
             # per event INCLUDING MAINTENANCE
             # --------------------------
             curDf["isShutdownM"]    = curDf['Modo de Falla'].isin(criticalMOFWithMaintenance)                                                            # Create a mask, True if it's shutdown state, otherwise False                                                 # Step 1: Detect shutdown events                        
-            curDf['tempId']         = ((curDf["isShutdownM"] == False) & (curDf["isShutdownM"].shift(1, fill_value=False)) |
+            curDf['tempIdM']         = ((curDf["isShutdownM"] == False) & (curDf["isShutdownM"].shift(1, fill_value=False)) |
                                         (curDf["isShutdownM"]) & (curDf["isShutdownM"].shift(1, fill_value=False)) &
                                         (curDf['Modo de Falla'] != curDf['Modo de Falla'].shift(1, fill_value=None))
                                         ).astype(int)
 
-
-            curDf['trajIDWithM']    = curDf['tempId'].cumsum()                                                                                  # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
+            curDf['trajIDWithM']    = curDf['tempIdM'].cumsum()                                                                                  # Using cumsum to accumulate the ID                                                                                   # Using bfill to fill entire ID
             curDf['trajIDWithM']    += 1
-            compMOFWithM            = curDf.loc[curDf['tempId'] == 1, 'Modo de Falla'].shift(1).dropna().tolist()
+            compMOFWithM            = curDf['Modo de Falla'].shift(1)[curDf['tempIdM'] == 1].dropna().tolist()
             
+            # aiLogger.debug(compMOFWithM)
+            # aiLogger.debug(len(compMOFWithM))
             # --------------------------
             # Extract to handle later
             curDf["isBreak"]                        = curDf['Modo de Falla'].isin(elimination)        
@@ -491,7 +495,8 @@ class PreProcessData(object):
             shutdownMask[compKey]["isShutdownNM"]   = curDf["isShutdownNM"]     # Extract the shutdown mask to cover the shutdown time
             shutdownMask[compKey]["isShutdownM"]    = curDf["isShutdownM"]      # 
             withIDDf[compKey]                       = curDf                     # Extract the dictionary of data for each component (curDf will change in for loop)
-            mofOrder[compKey]                       = compMOFWithM              # Extract the order of mode of failure which is used for visualization
+            mofOrder[compKey]["compMOFWithM"]       = compMOFWithM              # Extract the order of mode of failure which is used for visualization
+            mofOrder[compKey]["compMOFWithoutM"] = compMOFWithoutM
             # --------------------------
             # use OR operator to get the event
             # from each component for system
@@ -848,7 +853,7 @@ class PreProcessData(object):
         # nan_rows_count                                  = dfFiltered[validColumn].isnull().any(axis=1).sum()
         # print("Number of rows with at least one NaN value:", nan_rows_count)
 
-        dfFiltered                                      = self.nanFilling(dfFiltered, validColumn= validColumn)
+        dfFiltered                                      = self.nanFilling(dfFiltered, validColumn = validColumn, typeOfPadding=typeOfPadding, padAtEdge = padAtEdge)
 
         if replaceMOFWithNan:
             dfFiltered.loc[maskNonCritial, 'Modo de Falla'] = np.nan
@@ -870,6 +875,7 @@ class PreProcessData(object):
     def nanFilling(self,dfFiltered, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True):
         aiLogger.info("Filtering the nan values")
         dfFiltered[validColumn]   = dfFiltered[validColumn].apply(pd.to_numeric, errors='coerce')         # Convert all the column to numeric, the exception string will be Nan  
+        
         if validColumn is None:
             validColumn = dfFiltered.columns()
         # ---------------------------------
@@ -886,9 +892,9 @@ class PreProcessData(object):
         
         elif typeOfPadding == "meanPrevious":
             for col in validColumn:
-                rolling_mean    = dfFiltered[col].rolling(window=180, min_periods=1, closed='left').mean() 
+                rolling_mean    = dfFiltered[col].rolling(window=256, min_periods=255, closed='left').mean()        # Create the mean value with if have 255 element -> to get the first mean for nan
                 dfFiltered[col] = dfFiltered[col].fillna(rolling_mean)
-            dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
+            # dfFiltered[validColumn] = dfFiltered[validColumn].interpolate(method='linear')
         else:
             dfFiltered = dfFiltered
         # -----------------------------------------

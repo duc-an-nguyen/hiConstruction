@@ -346,7 +346,6 @@ class SensorSelection(tf.keras.Model):
                                            trainable    = True,
                                            name         = 'mask_logits')
 
-        
     def call(self,rawData):
                           
         probs           = tf.sigmoid(self.mask_logits)
@@ -355,12 +354,10 @@ class SensorSelection(tf.keras.Model):
         mask            = binary_mask + probs - tf.stop_gradient(probs)
         mask            = tf.expand_dims(mask, axis=0)
 
-        
         # maskedData      = rawData * mask
         maskedData      = rawData * probs
 
         return maskedData, probs, binary_mask
-
 
     # def call(self, rawData):
     #     # Calculate probabilities
@@ -489,7 +486,6 @@ class SystemModel(tf.keras.Model):
             # ------------------------------------
             if self.config["useMask"]:
                 encIn, probsMask, binaryMask= self.mask(seqEff)
-
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
 
@@ -527,9 +523,9 @@ class SystemModel(tf.keras.Model):
             
             if self.config["useMask"] :
                 maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-                enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2)
+                # enforceUnchangedFeatureLoss = 10 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
 
-                totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
+                totalLoss += (maskLoss)
             else:
                 maskLoss = 0
 
