@@ -522,9 +522,9 @@ class SystemModel(tf.keras.Model):
             
             if self.config["useMask"] :
                 maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-                # enforceUnchangedFeatureLoss = 10 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
+                enforceUnchangedFeatureLoss = 10 * tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
 
-                totalLoss += (maskLoss)
+                totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
             else:
                 maskLoss = 0
 

@@ -310,7 +310,7 @@ class PreProcessData(object):
         
         # -----------------------------
         # Extract before splitting
-        timeLabel               = ["tFailureWithoutMaintenance","tFailureWithMaintenance"]
+        timeLabel               = ["tFailureWithMaintenance"]
         dataCr1                 = withTimeDataCr1[ timeLabel + handledValues]
         cycleCr1                = withTimeDataCr1["tFailureWithoutMaintenance"]
         rulCr1                  = withTimeDataCr1["rul"]
@@ -743,7 +743,7 @@ class PreProcessData(object):
             df["tFailureWithoutMaintenance"]    = df["tFailureWithoutMaintenance"].fillna(method='ffill')
             df["tBreak"]                        = df["tBreak"].fillna(method='ffill')
 
-        df["rul"]                           = df.groupby('trajIDWithM',sort=False)['hours'].transform(lambda x: x.max() - x)
+        df["rul"]                           = df.groupby('trajIDWithoutM',sort=False)['hours'].transform(lambda x: x.max() - x)
         return df
     
     def addFloatTimeOld(self,data):
