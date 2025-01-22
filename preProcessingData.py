@@ -215,14 +215,14 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
-        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "InterpolatedWholeConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         # -------------------------------
         # Handle to make the length of 
         # each component consistently
-        cr1 = self.nanFilling(dfFiltered=cr1, validColumn=self.crusher1Value)
-        cr2 = self.nanFilling(dfFiltered=cr2, validColumn=self.crusher2Value)
-        cv2 = self.nanFilling(dfFiltered=cv2, validColumn=self.conveyorValue + self.crusher2ConveyorValue)
+        # cr1 = self.nanFilling(dfFiltered=cr1, validColumn=self.crusher1Value)
+        # cr2 = self.nanFilling(dfFiltered=cr2, validColumn=self.crusher2Value)
+        # cv2 = self.nanFilling(dfFiltered=cv2, validColumn=self.conveyorValue + self.crusher2ConveyorValue)
         # insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
         #                                                                      validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
 
@@ -310,21 +310,21 @@ class PreProcessData(object):
         
         # -----------------------------
         # Extract before splitting
-        timeLabel               = []
+        timeLabel               = ["tFailureWithoutMaintenance","tFailureWithMaintenance"]
         dataCr1                 = withTimeDataCr1[ timeLabel + handledValues]
-        cycleCr1                = withTimeDataCr1["tFailureWithMaintenance"]
+        cycleCr1                = withTimeDataCr1["tFailureWithoutMaintenance"]
         rulCr1                  = withTimeDataCr1["rul"]
-        trajectIDCr1            = withTimeDataCr1["trajIDWithM"]
+        trajectIDCr1            = withTimeDataCr1["trajIDWithoutM"]
 
         dataCr2                 = withTimeDataCr2[timeLabel + self.crusher2Value]
-        cycleCr2                = withTimeDataCr2["tFailureWithMaintenance"]
+        cycleCr2                = withTimeDataCr2["tFailureWithoutMaintenance"]
         rulCr2                  = withTimeDataCr2["rul"]
-        trajectIDCr2            = withTimeDataCr2["trajIDWithM"]
+        trajectIDCr2            = withTimeDataCr2["trajIDWithoutM"]
 
         dataCv2                 = withTimeDataCv2[timeLabel + self.conveyorValue + self.crusher2ConveyorValue]
-        cycleCv2                = withTimeDataCv2["tFailureWithMaintenance"]
+        cycleCv2                = withTimeDataCv2["tFailureWithoutMaintenance"]
         rulCv2                  = withTimeDataCv2["rul"]
-        trajectIDCv2            = withTimeDataCv2["trajIDWithM"]
+        trajectIDCv2            = withTimeDataCv2["trajIDWithoutM"]
 
         systemRUL               = withTimeDataSys["rul"]
 
@@ -532,21 +532,21 @@ class PreProcessData(object):
 
         return withIDDf, mofOrder, shutdownMask
     
-    # ===================================
-    # Sumarry data from file
-    # -----------------------------------
-    def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep", usefulMOFOnly = True):
-        '''
-        inData: the time series data overtime with the MOF column
+    # # ===================================
+    # # Sumarry data from file
+    # # -----------------------------------
+    # def sumarryDataFromFile(self,inData, printUsefulMOF = False, printMarkedPoint = False, printMOFTable = False, typeOfTime = "timestep", usefulMOFOnly = True):
+    #     '''
+    #     inData: the time series data overtime with the MOF column
 
-        markedPoint:
-        mofTable: Content the concise content of the data to print
-        '''
-        aiLogger.info("Sumarry the data")
-        timeCol = "tiempo" if typeOfTime == "timestep" else "hours"
+    #     markedPoint:
+    #     mofTable: Content the concise content of the data to print
+    #     '''
+    #     aiLogger.info("Sumarry the data")
+    #     timeCol = "tiempo" if typeOfTime == "timestep" else "hours"
         
-        mofTable                = PrettyTable()
-        mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
+    #     mofTable                = PrettyTable()
+    #     mofTable.field_names    = ["No","MOF", "startingTime", "endingTime", "staringRow","endingRow"]
 
 
 
@@ -823,7 +823,7 @@ class PreProcessData(object):
     # This function is used to interpolate
     # the redundant MOF
     # -----------------------------------
-    def redundantMOFInterpolation(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = False):
+    def redundantMOFInterpolation(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = True):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 

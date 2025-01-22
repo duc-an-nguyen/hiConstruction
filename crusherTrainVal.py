@@ -7,8 +7,8 @@ from preProcessingData                  import PreProcessData
 # from preprocessingData2                 import PreProcessData
 # from model.systemModel                  import SystemModel
 # from model.systemModel               import SubclassModelCheckpoint
-from model.componentModelBefore               import SystemModel
-from model.componentModelBefore               import SubclassModelCheckpoint
+from model.componentModel               import SystemModel
+from model.componentModel               import SubclassModelCheckpoint
 
 # from model.componentModel_RULonly       import SystemModel
 # from model.componentModel_RULonly       import SubclassModelCheckpoint
@@ -40,11 +40,11 @@ class CrusherTrainerTester():
         self.saveCheckpoint  =   SubclassModelCheckpoint(   customSaveFunction      = self.model.save,  # Your custom save function
                                                             filepath                = self.outputDir + 'checkpoint/bestModel/',     # Where the model should be saved
                                                             config                  = config,
-                                                            monitor                 = "totalLoss",                         # Monitoring validation loss
+                                                            monitor                 = "totalLoss",                          # Monitoring validation loss
                                                             # monitor                 = "rulLoss",
-                                                            mode                    = 'min',                                 # 'min' because we want to minimize loss
-                                                            save_best_only          = True,                        # Only save the best version
-                                                            verbose                 = 1                                   # Show a message when saving
+                                                            mode                    = 'min',                                # 'min' because we want to minimize loss
+                                                            save_best_only          = True,                                 # Only save the best version
+                                                            verbose                 = 1                                     # Show a message when saving
                                                             )
 
         log_dir = self.outputDir + "checkpoint/logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
