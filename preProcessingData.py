@@ -216,7 +216,7 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
-        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "InterpolatedWholeConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "WITHOUTNonCriticalData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         # -------------------------------
         # Handle to make the length of 
