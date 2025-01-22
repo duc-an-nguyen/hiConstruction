@@ -451,7 +451,6 @@ class SystemModel(tf.keras.Model):
     # Get custom layer
     # ------------------------------------------
     def getHIandRUL(self,input):
-       
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------

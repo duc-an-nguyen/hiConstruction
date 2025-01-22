@@ -7,8 +7,8 @@ from preProcessingData                  import PreProcessData
 # from preprocessingData2                 import PreProcessData
 # from model.systemModel                  import SystemModel
 # from model.systemModel               import SubclassModelCheckpoint
-from model.componentModel                  import SystemModel
-from model.componentModel               import SubclassModelCheckpoint
+from model.componentModelBefore               import SystemModel
+from model.componentModelBefore               import SubclassModelCheckpoint
 
 # from model.componentModel_RULonly       import SystemModel
 # from model.componentModel_RULonly       import SubclassModelCheckpoint

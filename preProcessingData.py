@@ -173,8 +173,7 @@ class PreProcessData(object):
                                     'Detector metales con alarma',
                                     "Falta de Operador",
                                     'Chutes/tolva/tolvines con rotura',
-                                    "Cortes de Alimentación"
-                                    
+                                    "Cortes de Alimentación"      
                                     ]
         
         # [ 'Sensor temperatura lectura errónea', 
@@ -269,7 +268,7 @@ class PreProcessData(object):
         withIDResults, mofOrder, shutdownMask = self.attachIDPerEvent(df = [withHourCr1,withHourCr2,withHourCv2])
         # withIDCr1, withIDCr2, withIDCv2, IdSys
 
-        print(mofOrder["cr1"])
+        print(mofOrder["cr1"], len(mofOrder["cr1"]))
         print(withIDResults["cr1"])
 
         print("--------------------WITHOUT MAINTENANCE--------------------------")
@@ -311,21 +310,21 @@ class PreProcessData(object):
         
         # -----------------------------
         # Extract before splitting
-        timeLabel               = ["tFailureWithMaintenance", "tFailureWithoutMaintenance", "tBreak"]
-        dataCr1                 = withTimeDataCr1[timeLabel + handledValues]
-        cycleCr1                = withTimeDataCr1["tFailureWithoutMaintenance"]
+        timeLabel               = []
+        dataCr1                 = withTimeDataCr1[ timeLabel + handledValues]
+        cycleCr1                = withTimeDataCr1["tFailureWithMaintenance"]
         rulCr1                  = withTimeDataCr1["rul"]
-        trajectIDCr1            = withTimeDataCr1["trajIDWithoutM"]
+        trajectIDCr1            = withTimeDataCr1["trajIDWithM"]
 
         dataCr2                 = withTimeDataCr2[timeLabel + self.crusher2Value]
-        cycleCr2                = withTimeDataCr2["tFailureWithoutMaintenance"]
+        cycleCr2                = withTimeDataCr2["tFailureWithMaintenance"]
         rulCr2                  = withTimeDataCr2["rul"]
-        trajectIDCr2            = withTimeDataCr2["trajIDWithoutM"]
+        trajectIDCr2            = withTimeDataCr2["trajIDWithM"]
 
         dataCv2                 = withTimeDataCv2[timeLabel + self.conveyorValue + self.crusher2ConveyorValue]
-        cycleCv2                = withTimeDataCv2["tFailureWithoutMaintenance"]
+        cycleCv2                = withTimeDataCv2["tFailureWithMaintenance"]
         rulCv2                  = withTimeDataCv2["rul"]
-        trajectIDCv2            = withTimeDataCv2["trajIDWithoutM"]
+        trajectIDCv2            = withTimeDataCv2["trajIDWithM"]
 
         systemRUL               = withTimeDataSys["rul"]
 
@@ -714,7 +713,7 @@ class PreProcessData(object):
     def addCycleAndRul(self,df, shutdownMask = None):
         df["tFailureWithMaintenance"]       = df.groupby('trajIDWithM',     sort=False)['hours'].transform(lambda x: x - x.min())
         df["tFailureWithoutMaintenance"]    = df.groupby('trajIDWithoutM',  sort=False)['hours'].transform(lambda x: x - x.min())
-        print(df["tFailureWithMaintenance"])
+        # print(df["tFailureWithMaintenance"])
         if shutdownMask is not None:
             # ---------------------------
             # Shutdown mask with maintenance
