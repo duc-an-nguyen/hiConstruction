@@ -215,14 +215,14 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
-        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "InterpolatedWholeConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
+        cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "RemovedJointNonCriticalMOF", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         # -------------------------------
         # Handle to make the length of 
         # each component consistently
-        # cr1 = self.nanFilling(dfFiltered=cr1, validColumn=self.crusher1Value)
-        # cr2 = self.nanFilling(dfFiltered=cr2, validColumn=self.crusher2Value)
-        # cv2 = self.nanFilling(dfFiltered=cv2, validColumn=self.conveyorValue + self.crusher2ConveyorValue)
+        cr1 = self.nanFilling(dfFiltered=cr1, validColumn=self.crusher1Value)
+        cr2 = self.nanFilling(dfFiltered=cr2, validColumn=self.crusher2Value)
+        cv2 = self.nanFilling(dfFiltered=cv2, validColumn=self.conveyorValue + self.crusher2ConveyorValue)
         # insertedCr1, insertedCr2,  insertedCv2   = self.fillForTheSameLength(data         = [withHourCr1,withHourCr2,withHourCv2], 
         #                                                                      validColumn  = [self.crusher1Value, self.crusher2Value, self.conveyorValue + self.crusher2ConveyorValue])
 
@@ -310,7 +310,7 @@ class PreProcessData(object):
         
         # -----------------------------
         # Extract before splitting
-        timeLabel               = ["tFailureWithMaintenance"]
+        timeLabel               = ["hours", "tFailureWithMaintenance", "tFailureWithoutMaintenance"]
         dataCr1                 = withTimeDataCr1[ timeLabel + handledValues]
         cycleCr1                = withTimeDataCr1["tFailureWithoutMaintenance"]
         rulCr1                  = withTimeDataCr1["rul"]
@@ -823,7 +823,7 @@ class PreProcessData(object):
     # This function is used to interpolate
     # the redundant MOF
     # -----------------------------------
-    def redundantMOFInterpolation(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = True):
+    def redundantMOFInterpolation(self, orginalData, validColumn = None, typeOfPadding = "meanPrevious", padAtEdge = True, replaceNonMOFWithNan = True, saveToFile = False, typeToSave = 'h5', nameOfSaving = "default", mainternanceAsMOF = True):
         '''
         originalData    : it should be a pandas with continious running time of singal. 
         typeOfPadding   : the type of inference. 
@@ -854,7 +854,7 @@ class PreProcessData(object):
 
         dfFiltered                                      = self.nanFilling(dfFiltered, validColumn = validColumn, typeOfPadding=typeOfPadding, padAtEdge = padAtEdge)
 
-        if replaceMOFWithNan:
+        if replaceNonMOFWithNan:
             dfFiltered.loc[maskNonCritial, 'Modo de Falla'] = np.nan
     
         if saveToFile:      # Use for debugging
