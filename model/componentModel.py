@@ -386,9 +386,9 @@ class SensorSelection(tf.keras.Model):
 # ==================================================
 #                   SYSTEM MODEL
 # ==================================================
-class SystemModel(tf.keras.Model):
+class mainModel(tf.keras.Model):
     def __init__(self,config = None):
-        super(SystemModel, self).__init__()
+        super(mainModel, self).__init__()
         # ----------------------------
         # For model
         # ----------------------------
@@ -477,7 +477,7 @@ class SystemModel(tf.keras.Model):
             # ====================================
             #           MODEL FLOW
             # ------------------------------------
-            seqEff,seqCycle             = input[0]
+            seqEff,seqCycle, env        = input[0]
             rulY                        = input[1]
 
             # ------------------------------------
@@ -532,8 +532,8 @@ class SystemModel(tf.keras.Model):
             # Add the constrain to the latent space
             # ------------------------------------
             if self.config["latentConstrains"] :
-                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
+                # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle, env], type = "exportCurveWithEnv", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -568,8 +568,8 @@ class SystemModel(tf.keras.Model):
         return {
             "totalLoss"             : self.totalLossTracker.result(),
             "rulLoss"               : self.rulLossTracker.result(),        
-            "cstrLoss"            : self.cr1ConstructionTracker.result(),
-            "zLoss"               : self.cr1ZLossTracker.result(),
+            "cstrLoss"              : self.cr1ConstructionTracker.result(),
+            "zLoss"                 : self.cr1ZLossTracker.result(),
             "maskLoss"              : self.maskLossTracker.result()
         }
 
@@ -758,6 +758,26 @@ class SystemModel(tf.keras.Model):
             k       = 0.04986
             y       = tf.exp(-k*x)
             loss    = tf.reduce_mean(tf.square(y - x))
+
+        elif type == "exportCurveWithEnv":
+            z,t,env = inputData
+            # Define HI functions for each environment
+            hiEnv1 = 0.0001 * (t - 60)**3 + 65 if t > 60 else 65
+            hiEnv2 = 65                               
+            hiEnv3 = 64.8295 + 0.0248*tf.exp(0.064*(t+20)) if t>30 else 65                   
+          
+
+            # Create masks for each environment
+            mask1 = tf.cast(tf.equal(env, 1), tf.float32)
+            mask2 = tf.cast(tf.equal(env, 2), tf.float32)
+            mask3 = tf.cast(tf.equal(env, 3), tf.float32)
+            # mask4 = tf.cast(tf.equal(env, 4), tf.float32)
+
+            # Compute the target HI based on environment
+            hiTarget = mask1 * hiEnv1 + mask2 * hiEnv2 + mask3 * hiEnv3 
+
+            # Compute L2 loss
+            loss = tf.reduce_mean(tf.square(z - hiTarget))
         return alpha*loss
 
 

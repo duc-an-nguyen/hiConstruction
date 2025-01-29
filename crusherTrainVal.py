@@ -7,7 +7,7 @@ from preProcessingDataTEP               import PreProcessData
 # from preprocessingData2                 import PreProcessData
 # from model.systemModel                  import SystemModel
 # from model.systemModel               import SubclassModelCheckpoint
-from model.componentModel               import SystemModel
+from model.componentModel               import mainModel
 from model.componentModel               import SubclassModelCheckpoint
 
 # from model.componentModel_RULonly       import SystemModel
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     # ------------------------------------
     # preData     = PreProcessData()
     preData     = PreProcessData(config = myConfig)                                         # Preprocessing data
-    model       = SystemModel(myConfig)                                                     # Model
+    model       = mainModel(myConfig)                                                       # Model
     if myConfig["component"] == "system":
         model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inCr1"]),(None, myConfig["seqLength"], myConfig["inCr2"]), (None, myConfig["seqLength"], myConfig["inCv2"])])
     else:

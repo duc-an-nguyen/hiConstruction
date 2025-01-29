@@ -188,6 +188,7 @@ class PreProcessData(object):
         # ---------------------------
         # Extract the data in each Case
         data                = norData[self.config["case"]]
+        # print(data.head)
         trajectID           = data["Id"]
         # reactor             = data[preData.headline["reactor"]]
         # separator           = data[preData.headline["separator"]]
@@ -656,6 +657,7 @@ class PreProcessData(object):
     # -----------------------------------
     def getTensorData(self, dataList        = [None], 
                             trajectId       = None, 
+                            env             = None,
                             getAtIdx        = None,
                             shuffle         = False,
                             getLastOnly     = False,

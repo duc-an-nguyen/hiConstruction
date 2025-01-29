@@ -33,7 +33,6 @@
     "learningRate":     0.01, 
     "batchSize":        256,
     "__component":      "allWithoutLabelNoBias",
-    "component":        "reactor",
     "latentConstrains": true,
     "allSensors":       45,
     "featureDim":       45,
@@ -43,7 +42,12 @@
     "ckptPath":         "checkpoint/",
     "epochs":           300,
     "hiddenVAESize":    [200, 100, 50],
-    "dataDir"           : "~/Desktop/Dropbox/codeData/tepDataWithoutGit/"
+    "dataDir"           : "~/Desktop/Dropbox/codeData/tepDataWithoutGit/",
+    "inReac":           45,
+    "inSep":            45,
+    "inStrip":          45,
+    "component":        "Reac",
+    "diffEnv":          true
 },
 
 
