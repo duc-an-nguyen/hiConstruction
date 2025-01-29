@@ -1,5 +1,5 @@
 {
-"system": {
+"crusher": {
     "_name":            "SystemHI",
     "hiddenVAESize":    [250,100,50],
     "learningRate":     0.01,
@@ -19,7 +19,31 @@
     "component"         : "Cr1",
     "frezeComponents"   : false,
     "saveHIResultsToXlsx": false,
-    "_component"        : "Cr1,Cr2,Cv2"
+    "_component"        : "Cr1,Cr2,Cv2",
+    "dataDir"           : "~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/"
+},
+
+
+"tep": {
+    "_name":            "HiSystem",
+    "cuda":             0,
+    "case":             2,
+    "validation":       true,
+    "splitTrainTest":   false,   
+    "learningRate":     0.01, 
+    "batchSize":        256,
+    "__component":      "allWithoutLabelNoBias",
+    "component":        "reactor",
+    "latentConstrains": true,
+    "allSensors":       45,
+    "featureDim":       45,
+    "latentDim":        1,
+    "overLap":          127,
+    "seqLength":        128,
+    "ckptPath":         "checkpoint/",
+    "epochs":           300,
+    "hiddenVAESize":    [200, 100, 50],
+    "dataDir"           : "~/Desktop/Dropbox/codeData/tepDataWithoutGit/"
 },
 
 

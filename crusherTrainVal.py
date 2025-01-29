@@ -3,7 +3,7 @@
 # =============================================
 from keras.optimizers                   import Adam
 from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
-from preProcessingData                  import PreProcessData
+from preProcessingDataTEP               import PreProcessData
 # from preprocessingData2                 import PreProcessData
 # from model.systemModel                  import SystemModel
 # from model.systemModel               import SubclassModelCheckpoint
@@ -33,7 +33,7 @@ class CrusherTrainerTester():
         self.config                 = config
         self.model                  = model
         package.include()
-        self.outputDir              = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
+        self.outputDir              = os.path.expanduser(self.config["dataDir"])
         # --------------------------
         # Add callback
         # --------------------------
@@ -50,7 +50,6 @@ class CrusherTrainerTester():
         log_dir = self.outputDir + "checkpoint/logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 
         # --------------------------
-        # 
         self.tensorboardCallback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
         earlyStopLoss       = 'totalLoss'
@@ -105,7 +104,7 @@ if __name__ == '__main__':
     # ------------------------------------
     with open('utility/modelConfig.json', 'r') as configFile:
         config = json.load(configFile)
-    myConfig   = config["system"]
+    myConfig   = config["tep"]
    
     # ====================================
     # Preprocessing, Model, Trainer

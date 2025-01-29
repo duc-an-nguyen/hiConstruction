@@ -14,7 +14,6 @@ import os
 import package
 
 
-
 class PreProcessData(object):
     def __init__(self,  config = None
                 ):
@@ -206,15 +205,15 @@ class PreProcessData(object):
                                     'Temperatura fuera de rango',                   'Mantención programada']
                                                                          
 
-    
+
     # ====================================
     # This function is used to generate 
     # the data which are alight with the
     # input of AI
     # ------------------------------------
-    def getTrainData(self,):
+    def getTrainDataCrusher(self,):
         package.include()
-        outputDir       = os.path.expanduser("~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/")
+        outputDir       = os.path.expanduser(self.config["dataDir"])
         cr1, cr2, cv2   = self.loadH5File(dir=outputDir + "data/", name = "InterpolatedWholeConsistentData", keys = ["cr1", "cr2", "cv2"])                           # Load the data from critical file
 
         # -------------------------------
