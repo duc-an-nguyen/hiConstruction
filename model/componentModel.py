@@ -291,7 +291,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputRUL1 = Input(shape=(4, 5))
+        inputRUL1 = Input(shape=(8, 5))
         # inputRUL2 = Input(shape=(8, 5))
         # inputRUL3 = Input(shape=(8, 5))
 
@@ -477,8 +477,8 @@ class mainModel(tf.keras.Model):
             # ====================================
             #           MODEL FLOW
             # ------------------------------------
-            seqEff,seqCycle, env        = input[0]
-            rulY                        = input[1]
+            seqEff, seqCycle, env           = input[0]
+            rulY                            = input[1]
 
             # ------------------------------------
             # Encoder and Decoder for 3 components
@@ -533,7 +533,7 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             if self.config["latentConstrains"] :
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle, env], type = "exportCurveWithEnv", alpha=10)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1,    seqCycle, env], type = "exportCurveWithEnv", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -635,7 +635,7 @@ class mainModel(tf.keras.Model):
         # Add the constrain to the latent space
         # ------------------------------------
         if self.config["latentConstrains"] :
-            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurve", alpha=10)
             # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
             totalLoss    += zReacLoss
         else:
@@ -760,25 +760,28 @@ class mainModel(tf.keras.Model):
             loss    = tf.reduce_mean(tf.square(y - x))
 
         elif type == "exportCurveWithEnv":
-            z,t,env = inputData
+            z, t, env = inputData  # Unpacking input data
+
+            # Ensure t is float32
+            t = tf.cast(t, tf.float32)
+
             # Define HI functions for each environment
-            hiEnv1 = 0.0001 * (t - 60)**3 + 65 if t > 60 else 65
-            hiEnv2 = 65                               
-            hiEnv3 = 64.8295 + 0.0248*tf.exp(0.064*(t+20)) if t>30 else 65                   
-          
+            hiEnv1 = (tf.cast(t > 30, tf.float32) * (64.8295 + 0.0248 * tf.exp(0.064 * (t + 20)))) + \
+                    (tf.cast(t <= 30, tf.float32) * tf.ones_like(t) * 65.0)
+
+            hiEnv3 = (tf.cast(t > 30, tf.float32) * (64.8295 - 0.0248 * tf.exp(0.064 * (t + 20)))) + \
+                    (tf.cast(t <= 30, tf.float32) * tf.ones_like(t) * 65.0)
 
             # Create masks for each environment
             mask1 = tf.cast(tf.equal(env, 1), tf.float32)
-            mask2 = tf.cast(tf.equal(env, 2), tf.float32)
             mask3 = tf.cast(tf.equal(env, 3), tf.float32)
-            # mask4 = tf.cast(tf.equal(env, 4), tf.float32)
 
             # Compute the target HI based on environment
-            hiTarget = mask1 * hiEnv1 + mask2 * hiEnv2 + mask3 * hiEnv3 
+            hiTarget = (mask1 * hiEnv1) + (mask3 * hiEnv3)
 
             # Compute L2 loss
             loss = tf.reduce_mean(tf.square(z - hiTarget))
-        return alpha*loss
+        return alpha*loss, hiTarget
 
 
     # --------------------------------

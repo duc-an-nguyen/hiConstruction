@@ -109,7 +109,6 @@ if __name__ == '__main__':
     # ====================================
     # Preprocessing, Model, Trainer
     # ------------------------------------
-    # preData     = PreProcessData()
     preData     = PreProcessData(config = myConfig)                                         # Preprocessing data
     model       = mainModel(myConfig)                                                       # Model
     if myConfig["component"] == "system":
