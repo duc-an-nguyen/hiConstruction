@@ -1,7 +1,7 @@
 # ====================================
 #  IMPORT LIBRARIES
 # ====================================
-from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, Embedding, MultiHeadAttention
+from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, Embedding, MultiHeadAttention, Lambda, Multiply
 from keras                          import backend as K
 from keras.models                   import Model
 from keras.optimizers               import Adam
@@ -301,11 +301,29 @@ class HiSystemAndRul(tf.keras.Model):
         inputHISys2 = Input(shape=(1,))
         inputHISys3 = Input(shape=(1,))
 
+        hiSelectionSensor = Input(shape=(46,), name = "SensorInputForHISelection")
+        # ------------------------------
+        # Create the HI selection
+        # ------------------------------
+        x                   = Dense(32, activation="relu")(hiSelectionSensor)
+        x                   = Dense(16, activation="relu")(x)
+        selection_logits    = Dense(3, activation=None, name="Selection_Logits")(x)
+        hiMatrixOutput   = Lambda(lambda x: tf.nn.softmax(x / 1), name="Selection_Output")(selection_logits)  # Softmax with τ=0.1 for sharper selection
 
+
+        # ------------------------------
+        # Create min, max and linear HI
+        # ------------------------------
         concatenatedHiInput = Concatenate(axis=-1)([inputHISys1, inputHISys2, inputHISys3])
-        # concatenatedHiInput = Concatenate(axis=-1)([inputHISys1, inputHISys2])
-        hiSystem            = tf.keras.layers.Dense(1)(concatenatedHiInput)
-                
+        minSysHi            = tf.keras.layers.Minimum(concatenatedHiInput)
+        maxSysHi            = tf.keras.layers.Maximum(concatenatedHiInput) 
+        linearSysHi         = tf.keras.layers.Dense(1)(concatenatedHiInput)
+        
+        sysConcatenatedHi   = tf.keras.layers.Concatenate(axis=-1, name="sysConcatenatedHi")([minSysHi, maxSysHi, linearSysHi])
+        selected_HI         = Multiply(name="Selected_HI")([hiMatrixOutput, sysConcatenatedHi])
+        sysHi               = Lambda(lambda x: tf.reduce_sum(x, axis=-1, keepdims=True), name="Final_HI")(selected_HI)            # Final HI (ensuring only one HI contributes to output)
+
+        
         # ------------------------------
         # RUL
         # ------------------------------
@@ -314,13 +332,12 @@ class HiSystemAndRul(tf.keras.Model):
         rulLayer1   = GRU(32, return_sequences=True)(concatenatedRULInput)
         rulLayer2   = GRU(16, return_sequences=True)(rulLayer1)
         rulLayer3   = GRU(3, return_sequences=False)(rulLayer2)
-        rulLayer4   = Concatenate(axis=-1)([rulLayer3, hiSystem])
+        rulLayer4   = Concatenate(axis=-1)([rulLayer3, sysHi])
         rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
         
         # Create the model
-        self.model = Model(inputs=[inputRUL1, inputRUL2, inputRUL3, inputHISys1,inputHISys2,inputHISys3], outputs=[hiSystem,rul])
+        self.model = Model(inputs=[hiSelectionSensor, inputRUL1, inputRUL2, inputRUL3, inputHISys1,inputHISys2,inputHISys3], outputs=[hiMatrixOutput, sysHi,rul])
         # self.model = Model(inputs=[inputRUL1, inputRUL2, inputHISys1,inputHISys2], outputs=[hiSystem,rul])
-        
 
 
     def call(self, inputs):
@@ -344,8 +361,7 @@ class SensorSelection(tf.keras.Model):
                                            name         = 'mask_logits')
 
         
-    def call(self,rawData):
-                          
+    def call(self,rawData):                
         probs           = tf.sigmoid(self.mask_logits)
         random_uniform  = tf.random.uniform(tf.shape(probs))
         binary_mask     = tf.cast(tf.less(random_uniform, probs), tf.float32)
@@ -431,7 +447,7 @@ class SystemModel(tf.keras.Model):
 
 
         self.rulLossTracker                 = Mean(name= "rulLoss")
-
+        self.hiSelectionLossTracker         = Mean(name = "hiSelectionLoss")
 
         self.bestLoss                      = tf.Variable(float('inf'), trainable=False)
 
@@ -552,7 +568,6 @@ class SystemModel(tf.keras.Model):
             seqDataCr2,seqCycleCr2, \
             seqDataCv2,seqCycleCv2              = input[0]
             rulY                                = input[1]
-
             # ------------------------------------
             # Encoder and Decoder for 3 components
             # ------------------------------------
@@ -590,13 +605,11 @@ class SystemModel(tf.keras.Model):
                 # decOutCr2                               = self.decoderCr2(zCr2)
                 # decOutCv2                               = self.decoderCv2(zCv2)
             
-            # ------------------------------------
-            # Create RUL and HI System
-            # ------------------------------------
-            # tf.print("Sum of binary mask:", tf.reduce_sum(binaryMask))
-            # tf.print("Mask values:", binaryMask)
-            # print("HI and system rul")
-            hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+            if self.config["name"] == "tep":
+                hiSelectionSensors = seqDataCr1
+            else: 
+                hiSelectionSensors = np.concatenate([seqDataCr1, seqDataCr2, seqDataCv2], axis=-1)
+            hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([hiSelectionSensors, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
 
 
             # print("Loss funcion")
@@ -604,52 +617,17 @@ class SystemModel(tf.keras.Model):
             #               LOSS
             # ------------------------------------
             # Binarization regularization
-            
+            hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)
 
-
-
-            # ------------------------------------
-            # Loss for reconstruction
-            # ------------------------------------
-            # reconLossCr1   = self._get_reconstruction_loss(seqEff, reconsCr1)
-            # print(encIn.shape, decOut.shape)
-            # reconLossCr1    = tf.keras.losses.mae(encInCr1,decOutCr1)
-            # reconLossCr1    = tf.reduce_mean(reconLossCr1)
-
-            # reconLossCr2    = tf.keras.losses.mae(encInCr2,decOutCr2)
-            # reconLossCr2    = tf.reduce_mean(reconLossCr2)
-
-            # reconLossCv2    = tf.keras.losses.mae(encInCv2,decOutCv2)
-            # reconLossCv2    = tf.reduce_mean(reconLossCv2)
             # ------------------------------------
             # Loss for RUL
             # ------------------------------------
             rulLoss = tf.keras.losses.mae(predictedRul,rulY)
             rulLoss = tf.reduce_mean(rulLoss)
 
-            totalLoss =  rulLoss
+            totalLoss =  rulLoss + hiSelectionLoss
                         
-            # if self.config["useMask"] :
-            #     maskLossCr1 = 10* tf.reduce_sum(probsMaskCr1 * (1 - probsMaskCr1))
-            #     maskLossCr2 = 10* tf.reduce_sum(probsMaskCr2 * (1 - probsMaskCr2))
-            #     maskLossCv2 = 10* tf.reduce_sum(probsMaskCv2 * (1 - probsMaskCv2))
-            #     enforceUnchangedFeatureLoss = 100 * tf.reduce_sum((1 - probsMaskCv2[:self.config["unchangeFeatures"]]) ** 2)
-            #     totalLoss  += (maskLossCr1 + maskLossCr2  + maskLossCv2 + enforceUnchangedFeatureLoss)
-            # ------------------------------------
-            # Add the constrain to the latent space
-            # ------------------------------------
-            
-            # if self.config["latentConstrains"] :
-            #     zCr1Loss     = self._getConstrain(inputData = [zCr1,    seqCycleCr1], type = "trendability", alpha=10)
-            #     zCr2Loss     = self._getConstrain(inputData = [zCr2,    seqCycleCr2], type = "trendability", alpha=10)
-            #     zCv2Loss     = self._getConstrain(inputData = [zCv2,    seqCycleCv2], type = "trendability", alpha=10)
-
-            #     totalLoss    += ( zCr1Loss + zCr2Loss + zCv2Loss)
-            # else:
-            #     zCr1Loss = 0
-            #     zCr2Loss = 0
-            #     zCv2Loss = 0
-
+           
             
         # --------------------------------
         # Update gradient
@@ -662,37 +640,14 @@ class SystemModel(tf.keras.Model):
         # --------------------------------
         self.totalLossTracker.update_state(totalLoss)
         self.rulLossTracker.update_state(rulLoss)
+        self.hiSelectionLossTracker.update_state(hiSelectionLoss)
 
-        # Construction loss 
-        # self.cr1ConstructionTracker.update_state(reconLossCr1)
-        # self.cr2ConstructionTracker.update_state(reconLossCr2)
-        # self.cv2ConstructionTracker.update_state(reconLossCv2)
-        
-        # Latent loss
-        # if self.config["latentConstrains"] :
-        #     self.cr1ZLossTracker.update_state(zCr1Loss)
-        #     self.cr2ZLossTracker.update_state(zCr2Loss)
-            # self.cv2ZLossTracker.update_state(zCv2Loss)
 
-        # self.cr1MaskLossTracker.update_state(maskLossCr1)
-        # self.cr2MaskLossTracker.update_state(maskLossCr2)
-        # self.cv2MaskLossTracker.update_state(maskLossCv2)
 
         return {
             "totalLoss"                 : self.totalLossTracker.result(),
             "rulLoss"                   : self.rulLossTracker.result(), 
-                  
-            # "cr1CstrLoss"               : self.cr1ConstructionTracker.result(),
-            # "cr1ZLoss"                  : self.cr1ZLossTracker.result(),
-            # "cr1MaskLoss"               : self.cr1MaskLossTracker.result(),
-
-            # "cr2CstrLoss"               : self.cr2ConstructionTracker.result(),
-            # "cr2ZLoss"                  : self.cr2ZLossTracker.result(),
-            # "cr2MaskLoss"               : self.cr2MaskLossTracker.result(),
-
-            # "cv2CstrLoss"               : self.cv2ConstructionTracker.result(),
-            # "cv2ZLoss"                  : self.cv2ZLossTracker.result(),
-            # "cv2MaskLoss"               : self.cv2MaskLossTracker.result()
+            "hiSelectionLoss"           : self.hiSelectionLossTracker.result()
         }
 
     # -----------------------------

@@ -335,54 +335,39 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01):
+    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numModes = 3):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
         self.baseline    = baseline
-        self.mask_logits = self.add_weight(shape        = (inFeature,),
-                                           initializer  = 'zeros',
-                                           trainable    = True,
-                                           name         = 'mask_logits')
+        # self.mask_logits = self.add_weight(shape        = (inFeature,),
+        #                                    initializer  = 'zeros',
+        #                                    trainable    = True,
+        #                                    name         = 'mask_logits')
+        
+        self.mask_logits = self.add_weight( shape       =   (numModes, inFeature),  # Each mode has different sensor probabilities
+                                            initializer =   "random_normal",
+                                            trainable   =   True,
+                                            name        =   "sensorMask"
+                                        )
 
     def call(self,rawData):
-                          
-        probs           = tf.sigmoid(self.mask_logits)
-        random_uniform  = tf.random.uniform(tf.shape(probs))
-        binary_mask     = tf.cast(tf.less(random_uniform, probs), tf.float32)
-        mask            = binary_mask + probs - tf.stop_gradient(probs)
-        mask            = tf.expand_dims(mask, axis=0)
+        env                 = tf.cast(env, tf.int32)                                # Ensure integer type for indexing
+        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
+    
+        probs               = tf.sigmoid(env_mask_logits)
+        random_uniform      = tf.random.uniform(tf.shape(probs))
+        binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
+        mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
+        # mask                = tf.expand_dims(mask, axis=0)
 
         # maskedData      = rawData * mask
-        maskedData      = rawData * probs
+        maskedData          = rawData * probs
 
         return maskedData, probs, binary_mask
+    
 
-    # def call(self, rawData):
-    #     # Calculate probabilities
-    #     probs = tf.sigmoid(self.mask_logits)
-    #     random_uniform = tf.random.uniform(tf.shape(probs))
-    #     binary_mask = tf.cast(tf.less(random_uniform, probs), tf.float32)
-        
-    #     # Force first `unchangeFeatures` to be selected
-    #     fixed_mask = tf.concat([
-    #         tf.ones(self.unchangeFeatures),  # Force these features to be selected
-    #         tf.zeros(tf.shape(probs)[0] - self.unchangeFeatures)  # Others are trainable
-    #     ], axis=0)
-    #     fixed_mask = tf.cast(fixed_mask, tf.float32)
-        
-    #     # Combine fixed mask with trainable mask
-    #     binary_mask = tf.maximum(binary_mask, fixed_mask)  # Ensure fixed features are always selected
-        
-    #     # Straight-through estimator
-    #     mask = binary_mask + probs - tf.stop_gradient(probs)
-    #     mask = tf.expand_dims(mask, axis=0)
-        
-    #     # Apply mask
-    #     maskedData = rawData * mask
-        
-    #     return maskedData, probs, binary_mask
 # ==================================================
 #                   SYSTEM MODEL
 # ==================================================
@@ -487,7 +472,6 @@ class mainModel(tf.keras.Model):
                 encIn, probsMask, binaryMask= self.mask(seqEff)
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
-
                 decOut,_,_                  = self.mask(reconsCr1)
             else:
                 encIn                       = seqEff
@@ -533,7 +517,7 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             if self.config["latentConstrains"] :
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss,_   = self._getConstrain(inputData = [zCr1,    seqCycle, env], type = "exportCurveWithEnv", alpha=10)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1,    seqCycle, env], type = "expertCurve", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -749,9 +733,9 @@ class mainModel(tf.keras.Model):
             loss    = tf.reduce_mean(tf.abs(z-HI))
 
         elif type == "expertCurve":
-            x, t    = inputData
-            y       = tf.exp(kRate*(t+ tMovement))
-            loss    = tf.reduce_mean(tf.square(y - x))
+            x, t, env   = inputData
+            hiTarget    = tf.exp(kRate*(t+ tMovement))
+            loss        = tf.reduce_mean(tf.square(hiTarget - x))
 
         elif type == "normalExp":
             x, t    = inputData

@@ -172,18 +172,18 @@ class PreProcessData(object):
 
         # ---------------------------
         # For data
-        cleanData           = self.cleanData(rawSignal           =   withoutInitRawData,
+        cleanData           = self.cleanData(rawSignal              =   withoutInitRawData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
                                                 flipToDown          =   False)
         # ---------------------------
         # For label, flip only
-        cleanData           = self.cleanData(rawSignal           =   cleanData,
+        cleanData           = self.cleanData(rawSignal              =   cleanData,
                                                 columnName          =   self.degraLiq,
                                                 getMovingAverage    =   False,
                                                 flipToDown          =   False)
-        norData             = self.normalizeDataEachModes(rawData    =   cleanData,
-                                                             headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
+        norData             = self.normalizeDataEachModes(  rawData    =   cleanData,
+                                                            headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
         print(norData.keys())
         # ---------------------------
         # Extract the data in each Case
@@ -199,6 +199,7 @@ class PreProcessData(object):
             # separator           = data[preData.headline["separator"]]
             # stripper            = data[preData.headline["stripper"]]
             allSensor           = data[self.headline["allWithoutLabelNoBias"]]
+            # allSensor           = data[self.headline["reactor"]]
             rul                 = data["rul"]
             timeTraj            = data["Time"]
             env                 = data["environmentID"]

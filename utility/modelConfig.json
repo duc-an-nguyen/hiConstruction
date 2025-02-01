@@ -1,14 +1,14 @@
 {
 "crusher": {
-    "_name":            "SystemHI",
-    "hiddenVAESize":    [250,100,50],
-    "learningRate":     0.01,
-    "latentDim":        1,
-    "seqLength":        64,
-    "overlap":          63,
-    "inCr1":            44,
-    "inCr2":            34,
-    "inCv2":            35,
+    "name":            "crusher",
+    "hiddenVAESize"     : [250,100,50],
+    "learningRate"      : 0.01,
+    "latentDim"         : 1,
+    "seqLength"         : 64,
+    "overlap"           : 63,
+    "inCr1"             : 44,
+    "inCr2"             : 34,
+    "inCv2"             : 35,
     "batchSize"         : 256,
     "nEpoch"            : 200,
     "splitTrainTest"    : false,
@@ -25,13 +25,13 @@
 
 
 "tep": {
-    "_name":            "HiSystem",
-    "cuda":             0,
-    "case":             [2],
-    "validation":       true,
-    "splitTrainTest":   false,   
+    "name"             : "tep",
+    "cuda"              : 0,
+    "case"              : [1,2,3],
+    "validation"        : false,
+    "splitTrainTest"    : false,   
     "useMask"           : true,
-    "useRUL"            : false,
+    "useRUL"            : true,
     "latentConstrains"  : true,
     "unchangeFeatures"  : 0,
     "learningRate":     0.01, 
@@ -46,11 +46,11 @@
     "ckptPath":         "checkpoint/",
     "hiddenVAESize":    [200, 100, 50],
     "dataDir"           : "~/Desktop/Dropbox/codeData/tepDataWithoutGit/",
-    "inReac":           45,
-    "inSep":            45,
-    "inStrip":          45,
-    "component":        "Reac",
-    "diffEnv":          true
+    "inReac"            : 45,
+    "inSep"             : 45,
+    "inStrip"           : 45,
+    "component"         : "Reac",
+    "diffEnv"           : true
 },
 
 
