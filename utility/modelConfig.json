@@ -29,7 +29,7 @@
     "cuda"              : 0,
     "case"              : [1,2,3],
     "validation"        : false,
-    "splitTrainTest"    : false,   
+    "splitTrainTest"    : true,   
     "useMask"           : true,
     "useRUL"            : true,
     "latentConstrains"  : true,
@@ -50,7 +50,9 @@
     "inSep"             : 45,
     "inStrip"           : 45,
     "component"         : "Reac",
-    "diffEnv"           : true
+    "diffEnv"           : true,
+    "trajectoryPerCase" : 100,
+    "numOfCases"        : 3
 },
 
 

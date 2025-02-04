@@ -33,8 +33,8 @@ class PreProcessData(object):
      
         self.machine            = ["reactor","separator","stripper"]
         self.rawData            = {"reactor":[],"separator":[],"stripper":[],"label":[]}
-        self.numOfCases         = 6
-        self.trajectoryPerCase  = 100
+        self.numOfCases         = self.config["numOfCases"]
+        self.trajectoryPerCase  = self.config["trajectoryPerCase"]
 
         self.scenario           = {}
         self.scenario[1]        = "mode 6: reactor     -> separator"
@@ -166,8 +166,21 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir           = os.path.expanduser(self.config["dataDir"])
-        rawData             = self.loadDataFromH5Format(dir = outputDir,case="all")
-        withRULData         = self.addRULAndEnvironment(rawData)
+        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/newTeps.h5", case="all")
+
+        # ----------------------------
+        # Split train and test data
+        # ----------------------------
+        if self.config["splitTrainTest"]:
+            rawTrainData = {}
+            rawTestData  = {}
+            for idxKeys,idxValues in rawData.items():
+                rawTrainData[idxKeys] = idxValues[idxValues["Id"] <=    self.config["trajectoryPerCase"]].copy()
+                rawTestData[idxKeys]  = idxValues[idxValues["Id"] >     self.config["trajectoryPerCase"]].copy()
+        else:
+            rawTrainData = rawData
+
+        withRULData         = self.addRULAndEnvironment(rawTrainData)
         withoutInitRawData  = self.removeInitState(inData= withRULData)
 
         # ---------------------------
@@ -236,26 +249,44 @@ class PreProcessData(object):
     # This function is used to load the 
     # .csv file
     # -----------------------------------
-    def loadCSVDataFile(self,):
+    def loadCSVDataFile(self,dir = "data/", removeHigherThr = False, thr = [], columnNames = []):
+        '''
+        removeHigherThr : if True, remove the higher position of trajectories.
+        thr             : It can be min, max or values. If min max is use, use the min or max of thresholds.
+        columnName      : The column name to check
+        '''
+
         aiLogger.info("Loading data from files ...")
         self.case          = {}  
-        self.case[1]       = pd.read_csv('data/case1.csv')
-        self.case[2]       = pd.read_csv('data/case2.csv')
-        self.case[3]       = pd.read_csv('data/case3.csv')
-        self.case[4]       = pd.read_csv('data/case4.csv')
-        self.case[5]       = pd.read_csv('data/case5.csv')
-        self.case[6]       = pd.read_csv('data/case6.csv')
-
+        self.case[1]       = pd.read_csv(dir + 'data/case1mode3.csv')
+        self.case[2]       = pd.read_csv(dir + 'data/case2mode6.csv')
+        self.case[3]       = pd.read_csv(dir + 'data/case3mode2.csv')
+        if removeHigherThr:
+            for idx,keyCase in enumerate(self.case.keys()):
+                print("--------------------------------------", keyCase)
+                clName             = columnNames[idx]
+                curCase            = self.case[keyCase]
+                minAllID           = self.case[keyCase].groupby("Id")[clName].min()
+                maxAllID           = self.case[keyCase].groupby("Id")[clName].max()
+                print(minAllID, maxAllID)
+                removeTHR          = minAllID.max() if thr[idx] == "down" else maxAllID.min()
+                print("Threshold",removeTHR)
+                self.case[keyCase] = curCase[curCase[clName] > removeTHR] if thr[idx] == "down" else curCase[curCase[clName] < removeTHR]
+            
+        # self.case[4]       = pd.read_csv('data/case4.csv')
+        # self.case[5]       = pd.read_csv('data/case5.csv')
+        # self.case[6]       = pd.read_csv('data/case6.csv')
+        return self.case
     # ===================================
     # This function is used to save the 
     # file into H5 File
     # -----------------------------------
-    def save2H5Format(self,):
-
+    def save2H5Format(self,dir = "data/",data = None):
+        self.case = self.case if data is None else data
         aiLogger.info("Saving data to h5 file ...")
         for idxCase,valueCase in self.case.items():
 
-            valueCase.to_hdf('data/teps.h5', key=f"case{idxCase}", mode='a')
+            valueCase.to_hdf(dir + 'data/newTeps.h5', key=f"case{idxCase}", mode='a')
 
         aiLogger.info("Finish saving data to h5 file ...")
 
@@ -263,7 +294,7 @@ class PreProcessData(object):
     # ===================================
     # This function is used to load the h5 file
     # -----------------------------------
-    def loadDataFromH5Format(self,dir = "data/", name = "data/teps.h5", case = "all"):
+    def loadDataFromH5Format(self,dir = "./", name = "data/teps.h5", case = "all"):
         aiLogger.info("Loading data from H5 files ...")
         # print(dir)
         # ---------------------
