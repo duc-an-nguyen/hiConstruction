@@ -23,7 +23,7 @@ class PreProcessData(object):
         self.seqLength      = self.config["seqLength"]
         self.overlap        = self.config["overLap"]
         self.stabletime     = 30        # hours 
-        self.sampleRateTime = 3         # minuites per one sample
+        self.sampleRateTime = 6         # minuites per one sample
 
 
 
@@ -156,7 +156,7 @@ class PreProcessData(object):
     
         self.degraLiq           = ['Reactor Level','Product Sep Level','Stripper Level']
         self.degraInput         = ['Liquid Input Stripper',    'Liquid Input Separator',   'Liquid Input Reactor']
-
+        
         
     # ====================================
     # This function is used to generate 
@@ -239,10 +239,10 @@ class PreProcessData(object):
         allSeqXRulTrain         = np.concatenate(allSeqXRulTrain, axis=0)
         allSeqXTrainEnv         = np.concatenate(allSeqXTrainEnv, axis=0)
         allSeqTime              = np.concatenate(allSeqTime, axis=0)
-         
+        # comp                    = np.ones_like(allSeqXTrainEnv[:,-1,:]) * self.indexComponent[self.config["component"]]
         xTrain              = [allSeqXAllSensorTrain, allSeqTime[:,-1,:],allSeqXTrainEnv[:,-1,:]]
         yTrain              = [allSeqXRulTrain[:,-1,:]]
-        print(f"The size of the train data: {allSeqXAllSensorTrain.shape} {allSeqTime[:,-1,:].shape} {allSeqXTrainEnv.shape} {allSeqXRulTrain[:,-1,:].shape}")
+        print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
         return xTrain, yTrain
 
     # ===================================
@@ -415,7 +415,8 @@ class PreProcessData(object):
     # the initial stage of the data
     # -----------------------------------
     def removeInitState(self,inData):
-        initPoint  = int(self.stabletime*60/self.sampleRateTime)               # The intitial point at a stable time
+        initPoint  = int(self.stabletime*60/self.sampleRateTime) + 1           # The intitial point at a stable time
+        print(initPoint)
         outData    = inData.copy()                            
         for caseKey,value in inData.items():
             eachCaseFiltered            = value.groupby('Id',sort=False).apply(lambda x: x.iloc[initPoint:]).reset_index(drop=True)
@@ -768,7 +769,6 @@ class PreProcessData(object):
         if getAtIdx is None:
             for idxId in range(self.trajectoryPerCase):                                                 # Get each ID
                 trajectory          = mergedAll[trajectId.values == (idxId + 1)]                                 # Extract tracjectory from ID
-                # print(len(trajectory))
                 componentTrajectory = trajectory.reset_index(drop = True)                               # Get the only sensors for each component
             
                 sequences           = self.splitAndPadSequences(data                = componentTrajectory, 
@@ -783,6 +783,8 @@ class PreProcessData(object):
         # ---------------------------
         else:
             trajectory          = mergedAll[trajectId == getAtIdx]                           # Extract tracjectory from ID
+            # print("-----------------------",len(trajectory))
+
             componentTrajectory = trajectory.reset_index(drop = True)     # Get the only sensors for each component
             
             sequences           = self.splitAndPadSequences(data                = componentTrajectory, 

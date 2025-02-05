@@ -335,35 +335,39 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numModes = 3):
+    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3, numComponents = 1):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
         self.baseline    = baseline
-        # self.mask_logits = self.add_weight(shape        = (inFeature,),
-        #                                    initializer  = 'zeros',
-        #                                    trainable    = True,
-        #                                    name         = 'mask_logits')
-        
-        self.mask_logits = self.add_weight( shape       =   (numModes, inFeature),  # Each mode has different sensor probabilities
-                                            initializer =   "random_normal",
-                                            trainable   =   True,
-                                            name        =   "sensorMask"
-                                        )
-        # print(self.mask_logits.shape)
+        self.mask_logits = self.add_weight(shape        = (inFeature,),
+                                           initializer  = 'zeros',
+                                           trainable    = True,
+                                           name         = 'mask_logits')
+        # self.numComponents  = numComponents
+        # self.numModes       = numEnvs * numComponents  # 9 modes in total
+        # self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
+        #                                         initializer =   "random_normal",
+        #                                         trainable   =   True,
+        #                                         name        =   "sensorMask"
+        #                                     )
+        print(self.mask_logits.shape)
 
-    def call(self,rawData,env):
+    def call(self,rawData,env, comp):
         # ------------------------
         # Select the environment
 
         # ------------------------
-        env                 = tf.cast(env, tf.int32)                                # Ensure integer type for indexing
-        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
+        # print("-------------------------------", env.shape)
+        # env                 = tf.cast(env, tf.int32)                                # Ensure integer type for indexing
+        # modeIndex           = (env -1)* self.numComponents + comp
+        # env_mask_logits     = tf.gather(self.mask_logits, modeIndex, axis=0)              # (batch_size, num_sensors)                      
     
-        probs               = tf.sigmoid(env_mask_logits)
+        probs               = tf.sigmoid(self.mask_logits)
         random_uniform      = tf.random.uniform(tf.shape(probs))
         binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
+        # print("==================================",env_mask_logits.shape)
         # mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
         # mask                = tf.expand_dims(mask, axis=0)
 
@@ -411,7 +415,9 @@ class mainModel(tf.keras.Model):
         self.maskLossTracker                = Mean(name= "maskLoss")
         self.rulLossTracker                 = Mean(name= "rulLoss")
 
-        self.bestLoss                      = tf.Variable(float('inf'), trainable=False)
+        self.bestLoss                       = tf.Variable(float('inf'), trainable=False)
+        self.indexComponent                 = {"Reac": 0, "Sep": 1, "Strip": 2}
+        
 
 
     # ==========================================
@@ -424,12 +430,12 @@ class mainModel(tf.keras.Model):
         # ------------------------------------
         # print("Encoder ")
         # print(input.shape)
-        data, seqCycle, env           = input
+        data, seqCycle, env             = input
 
         binaryMask = None
         probs      = None
         if self.config["useMask"]:
-            encIn, probs, binaryMask    = self.mask(data,env)
+            encIn, probs, binaryMask    = self.mask(data,env,self.indexComponent[self.config["component"]])
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
         else:
@@ -438,12 +444,13 @@ class mainModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(data)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
-        return zCr1, binaryMask,probs, rul
+        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv", comp = self.config["component"])
+        return hi, binaryMask,probs, rul
 
     # ==========================================
     # Get custom layer
     # ------------------------------------------
-    def getHIandRUL(self,input, comp):
+    def getHIandRUL(self,input):
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
@@ -454,7 +461,7 @@ class mainModel(tf.keras.Model):
         binaryMask = None
         probs      = None
         if self.config["useMask"]:
-            encIn, probs, binaryMask    = self.mask(data,env)
+            encIn, probs, binaryMask    = self.mask(data,env,self.indexComponent[self.config["component"]])
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
         else:
@@ -463,8 +470,8 @@ class mainModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(data)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
-        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv", comp = comp)
-        return hi, binaryMask,probs, rul
+        # _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurve", comp = self.config["component"])
+        return zCr1, binaryMask,probs, rul
     # ==========================================
     # Training (replace the default)
     # ------------------------------------------
@@ -476,15 +483,15 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             seqEff, seqCycle, env           = input[0]
             rulY                            = input[1]
-
+            
             # ------------------------------------
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encIn, probsMask, binaryMask= self.mask(seqEff,env)
+                encIn, probsMask, binaryMask= self.mask(seqEff, env, self.indexComponent[self.config["component"]])
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
-                decOut,_,_                  = self.mask(reconsCr1,env)
+                decOut,_,_                  = self.mask(reconsCr1, env, self.indexComponent[self.config["component"]])
             else:
                 encIn                       = seqEff
                 zCr1,  sysHILayerCr1        = self.encoder(seqEff)
@@ -529,7 +536,7 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             if self.config["latentConstrains"] :
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv", alpha=10)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurve", alpha=1)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -631,7 +638,7 @@ class mainModel(tf.keras.Model):
         # Add the constrain to the latent space
         # ------------------------------------
         if self.config["latentConstrains"] :
-            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurve", alpha=10)
+            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurveWithEnv", alpha=10)
             # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
             totalLoss    += zReacLoss
         else:
@@ -683,7 +690,7 @@ class mainModel(tf.keras.Model):
         # --------------------------------
         # Latent space constrains
         # --------------------------------
-    def _getConstrain(self,inputData, type="expertCurve",alpha = 1, initCurve = 0, kRate = 0.064, tMovement = 20, comp = None):
+    def _getConstrain(self,inputData, type="expertCurve",alpha = 1, initCurve = 0, kRate = 0.064, tMovement = 30, comp = None):
         if type == "trendability":
             x, t = inputData
             x_mu = tf.reduce_mean(x)        # Calculate means
@@ -746,7 +753,9 @@ class mainModel(tf.keras.Model):
 
         elif type == "expertCurve":
             x, t, env   = inputData
+            # t           = tf.cast(t, tf.float32)
             hiTarget    = tf.exp(kRate*(t+ tMovement))
+            # hiTarget    = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
             loss        = tf.reduce_mean(tf.square(hiTarget - x))
 
         elif type == "normalExp":
