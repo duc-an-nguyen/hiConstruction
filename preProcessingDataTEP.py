@@ -185,7 +185,7 @@ class PreProcessData(object):
 
         # ---------------------------
         # For data
-        cleanData           = self.cleanData(rawSignal              =   withoutInitRawData,
+        cleanData           = self.cleanData(   rawSignal           =   withoutInitRawData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
                                                 flipToDown          =   False)

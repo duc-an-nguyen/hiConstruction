@@ -72,7 +72,7 @@ class CrusherTrainerTester():
                                     shuffle     = True,
                                     callbacks   = [self.earlyStop_Callback, self.reduceLR, self.saveCheckpoint, self.tensorboardCallback],
                                     verbose     = 1,
-                            # validation_data = (seqXReacVal,seqXReacVal)
+                                # validation_data = (seqXReacVal,seqXReacVal)
         )
     
         return history

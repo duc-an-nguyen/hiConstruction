@@ -114,7 +114,7 @@ if __name__ == '__main__':
     if myConfig["component"] == "system":
         model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inCr1"]),(None, myConfig["seqLength"], myConfig["inCr2"]), (None, myConfig["seqLength"], myConfig["inCv2"])])
     else:
-        model.build(input_shape=(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]))
+        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]), (None, 1, myConfig["in" + myConfig["component"]]), (None, 1)])
     model.summary()
 
     trainer     = TEPTrainerTester(model = model, config = myConfig)                    # Trainer
