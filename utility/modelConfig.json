@@ -27,7 +27,7 @@
 "tep": {
     "name"             : "tep",
     "cuda"              : 0,
-    "case"              : [2],
+    "case"              : [1,2,3],
     "validation"        : true,
     "splitTrainTest"    : false,   
     "useMask"           : true,
@@ -49,7 +49,7 @@
     "inReac"            : 45,
     "inSep"             : 45,
     "inStrip"           : 45,
-    "component"         : "Reac",
+    "component"         : "Sep",
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,
     "numOfCases"        : 3

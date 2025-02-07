@@ -23,7 +23,7 @@ class PreProcessData(object):
         self.seqLength      = self.config["seqLength"]
         self.overlap        = self.config["overLap"]
         self.stabletime     = 30        # hours 
-        self.sampleRateTime = 3         # minuites per one sample
+        self.sampleRateTime = 6         # minuites per one sample
 
 
 
@@ -166,7 +166,7 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir           = os.path.expanduser(self.config["dataDir"])
-        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case="all")
+        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/newTeps.h5", case="all")
 
         # ----------------------------
         # Split train and test data
@@ -211,8 +211,8 @@ class PreProcessData(object):
             # reactor             = data[preData.headline["reactor"]]
             # separator           = data[preData.headline["separator"]]
             # stripper            = data[preData.headline["stripper"]]
-            # allSensor           = data[self.headline["allWithoutLabelNoBias"]]
-            allSensor           = data[self.headline["reactor"]]
+            allSensor           = data[self.headline["allWithoutLabelNoBias"]]
+            # allSensor           = data[self.headline["reactor"]]
             rul                 = data["rul"]
             timeTraj            = data["Time"]
             env                 = data["environmentID"]

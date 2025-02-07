@@ -335,23 +335,23 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3, numComponents = 1):
+    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3, numComponents = 3):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
         self.baseline    = baseline
-        self.mask_logits = self.add_weight(shape        = (inFeature,),
-                                           initializer  = 'zeros',
-                                           trainable    = True,
-                                           name         = 'mask_logits')
-        # self.numComponents  = numComponents
-        # self.numModes       = numEnvs * numComponents  # 9 modes in total
-        # self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
-        #                                         initializer =   "random_normal",
-        #                                         trainable   =   True,
-        #                                         name        =   "sensorMask"
-        #                                     )
+        # self.mask_logits = self.add_weight(shape        = (inFeature,),
+        #                                    initializer  = 'zeros',
+        #                                    trainable    = True,
+        #                                    name         = 'mask_logits')
+        self.numComponents  = numComponents
+        self.numModes       = numEnvs * numComponents  # 9 modes in total
+        self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
+                                                initializer =   "random_normal",
+                                                trainable   =   True,
+                                                name        =   "sensorMask"
+                                            )
         # print(self.mask_logits.shape)
 
     def call(self,rawData,env, comp):
@@ -360,11 +360,11 @@ class SensorSelection(tf.keras.Model):
 
         # ------------------------
         # print("-------------------------------", env.shape)
-        # env                 = tf.cast(env, tf.int32)                                # Ensure integer type for indexing
-        # modeIndex           = (env -1)* self.numComponents + comp
-        # env_mask_logits     = tf.gather(self.mask_logits, modeIndex, axis=0)              # (batch_size, num_sensors)                      
+        env                 = tf.cast(env, tf.int32)                                # Ensure integer type for indexing
+        modeIndex           = (env -1)* self.numComponents + comp
+        env_mask_logits     = tf.gather(self.mask_logits, modeIndex, axis=0)              # (batch_size, num_sensors)                      
     
-        probs               = tf.sigmoid(self.mask_logits)
+        probs               = tf.sigmoid(env_mask_logits)
         random_uniform      = tf.random.uniform(tf.shape(probs))
         binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
         # print("==================================",env_mask_logits.shape)
@@ -536,7 +536,7 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             if self.config["latentConstrains"] :
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurve", alpha=10)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -789,15 +789,15 @@ class mainModel(tf.keras.Model):
             else:
                 raise KeyError("Check again the component names!!!")
             
-            epsilon = 1e-6  # Small value to prevent abrupt transitions
-            mask1 = tf.cast(tf.equal(env, 1), tf.float32) + epsilon
-            mask2 = tf.cast(tf.equal(env, 2), tf.float32) + epsilon
-            mask3 = tf.cast(tf.equal(env, 3), tf.float32) + epsilon
+            # epsilon = 1e-6  # Small value to prevent abrupt transitions
+            mask1 = tf.cast(tf.equal(env, 1), tf.float32)
+            mask2 = tf.cast(tf.equal(env, 2), tf.float32) 
+            mask3 = tf.cast(tf.equal(env, 3), tf.float32)
 
-            mask_sum = mask1 + mask2 + mask3  # Normalize to sum up to 1
-            mask1 /= mask_sum
-            mask2 /= mask_sum
-            mask3 /= mask_sum
+            # mask_sum = mask1 + mask2 + mask3  # Normalize to sum up to 1
+            # mask1 /= mask_sum
+            # mask2 /= mask_sum
+            # mask3 /= mask_sum
 
 
             # Compute the target HI based on environment
