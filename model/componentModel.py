@@ -352,7 +352,7 @@ class SensorSelection(tf.keras.Model):
         #                                         trainable   =   True,
         #                                         name        =   "sensorMask"
         #                                     )
-        print(self.mask_logits.shape)
+        # print(self.mask_logits.shape)
 
     def call(self,rawData,env, comp):
         # ------------------------
@@ -524,8 +524,8 @@ class mainModel(tf.keras.Model):
                 rulLoss = 0
             
             if self.config["useMask"] :
-                maskLoss                    = tf.reduce_sum(probsMask * (1 - probsMask))
-                enforceUnchangedFeatureLoss = tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
+                maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
+                enforceUnchangedFeatureLoss = 10* tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
 
                 totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
             else:
@@ -753,8 +753,7 @@ class mainModel(tf.keras.Model):
 
         elif type == "expertCurve":
             x, t, env   = inputData
-            # t           = tf.cast(t, tf.float32)
-            hiTarget    = tf.exp(kRate*(t - tMovement))
+            hiTarget    = tf.exp(kRate*(t + tMovement))
             # hiTarget    = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
             loss        = tf.reduce_mean(tf.square(hiTarget - x))
 
