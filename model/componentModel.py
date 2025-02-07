@@ -494,7 +494,7 @@ class mainModel(tf.keras.Model):
                 decOut,_,_                  = self.mask(reconsCr1, env, self.indexComponent[self.config["component"]])
             else:
                 encIn                       = seqEff
-                zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+                zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 decOut                      = self.decoder(zCr1)
 
             # reconsCr1                   = self.decoder([zCr1,seqMani])
@@ -536,7 +536,7 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             if self.config["latentConstrains"] :
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurve", alpha=1)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurve", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -754,7 +754,7 @@ class mainModel(tf.keras.Model):
         elif type == "expertCurve":
             x, t, env   = inputData
             # t           = tf.cast(t, tf.float32)
-            hiTarget    = tf.exp(kRate*(t+ tMovement))
+            hiTarget    = tf.exp(kRate*(t - tMovement))
             # hiTarget    = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
             loss        = tf.reduce_mean(tf.square(hiTarget - x))
 
