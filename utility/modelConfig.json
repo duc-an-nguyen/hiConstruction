@@ -49,7 +49,7 @@
     "inReac"            : 45,
     "inSep"             : 45,
     "inStrip"           : 45,
-    "component"         : "Sep",
+    "component"         : "Strip",
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,
     "numOfCases"        : 3
