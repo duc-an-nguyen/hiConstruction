@@ -27,7 +27,7 @@
 "tep": {
     "name"             : "tep",
     "cuda"              : 0,
-    "case"              : [1,2,3],
+    "case"              : [2,3,4],
     "validation"        : true,
     "splitTrainTest"    : false,   
     "useMask"           : true,
@@ -35,7 +35,7 @@
     "latentConstrains"  : true,
     "unchangeFeatures"  : 0,
     "learningRate":     0.01, 
-    "batchSize":        256,
+    "batchSize":        32,
     "nEpoch":           300,
     "__component":      "allWithoutLabelNoBias",
     "allSensors":       45,
@@ -49,10 +49,10 @@
     "inReac"            : 45,
     "inSep"             : 45,
     "inStrip"           : 45,
-    "component"         : "Strip",
+    "component"         : "Reac",
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,
-    "numOfCases"        : 3
+    "numOfCases"        : 6
 },
 
 
