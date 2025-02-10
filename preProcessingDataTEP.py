@@ -166,8 +166,8 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir           = os.path.expanduser(self.config["dataDir"])
-        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/newTeps.h5", case="all")
-
+        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case="all", reduceSampleRate = True)
+        # print(rawData.keys())
         # ----------------------------
         # Split train and test data
         # ----------------------------
@@ -181,11 +181,11 @@ class PreProcessData(object):
             rawTrainData = rawData
 
         withRULData         = self.addRULAndEnvironment(rawTrainData)
-        withoutInitRawData  = self.removeInitState(inData= withRULData)
+        # withoutInitRawData  = self.removeInitState(inData= withRULData)
 
         # ---------------------------
         # For data
-        cleanData           = self.cleanData(   rawSignal           =   withoutInitRawData,
+        cleanData           = self.cleanData(   rawSignal           =   withRULData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
                                                 flipToDown          =   False)
@@ -294,7 +294,7 @@ class PreProcessData(object):
     # ===================================
     # This function is used to load the h5 file
     # -----------------------------------
-    def loadDataFromH5Format(self,dir = "./", name = "data/teps.h5", case = "all"):
+    def loadDataFromH5Format(self,dir = "./", name = "data/teps.h5", case = "all", reduceSampleRate = False):
         aiLogger.info("Loading data from H5 files ...")
         # print(dir)
         # ---------------------
@@ -302,8 +302,9 @@ class PreProcessData(object):
         if case == "all":
             self.rawData = {}
             for idxCase in range(self.numOfCases):
-                curCase                        = idxCase + 1                                           # index starts from 0, case starts from 1
-                self.rawData[idxCase + 1]   = pd.read_hdf(dir+ name, key='case' + str(curCase))
+                curCase                         = idxCase + 1                                           # index starts from 0, case starts from 1
+                curRawData                      = pd.read_hdf(dir+ name, key='case' + str(curCase))
+                self.rawData[idxCase + 1]       = curRawData[curRawData.index % 2 != 1] if reduceSampleRate else curRawData
         # ---------------------
         # Reading 1 case only
         else:

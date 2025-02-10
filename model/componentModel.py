@@ -524,8 +524,8 @@ class mainModel(tf.keras.Model):
                 rulLoss = 0
             
             if self.config["useMask"] :
-                maskLoss                    = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-                enforceUnchangedFeatureLoss = 10* tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
+                maskLoss                    = tf.reduce_sum(probsMask * (1 - probsMask))
+                enforceUnchangedFeatureLoss = tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
 
                 totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
             else:
@@ -536,7 +536,7 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             if self.config["latentConstrains"] :
                 # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv", alpha=10)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -638,7 +638,7 @@ class mainModel(tf.keras.Model):
         # Add the constrain to the latent space
         # ------------------------------------
         if self.config["latentConstrains"] :
-            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurveWithEnv", alpha=10)
+            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurveWithEnv1", alpha=10)
             # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
             totalLoss    += zReacLoss
         else:
@@ -772,19 +772,62 @@ class mainModel(tf.keras.Model):
                 comp = self.config["component"]
 
             if comp == "Reac":
-                hiEnv1 = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
+                hiEnv1 = tf.cast(t > 60, tf.float32) * (-0.0001 * tf.pow(t - 60, 3))
                 hiEnv2 = tf.zeros_like(t)  # Always 0
-                hiEnv3 = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
+                hiEnv3 = tf.cast(t > 60, tf.float32) * (-0.0001 * tf.pow(t - 60, 3))
 
             elif comp == "Sep":
                 hiEnv1 = tf.zeros_like(t)  # Always 0
-                hiEnv2 = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
-                hiEnv3 = tf.cast(t > 30, tf.float32) * (-(1 / 1080) * tf.pow(t - 60, 3))
+                hiEnv2 = tf.cast(t > 60, tf.float32) * (-0.0001 * tf.pow(t - 60, 3))
+                hiEnv3 = tf.cast(t > 60, tf.float32) * (-(1 / 1080) * tf.pow(t - 60, 3))
 
             elif comp == "Strip":
-                hiEnv1 = tf.cast(t > 30, tf.float32) * (-(1 / 450) * tf.pow(t - 60, 3))
-                hiEnv2 = tf.cast(t > 30, tf.float32) * (-(1 / 450) * tf.pow(t - 60, 3))
-                hiEnv3 = tf.cast(t > 30, tf.float32) * (-(1 / 160) * tf.pow(t - 75, 3))
+                hiEnv1 = tf.cast(t > 60, tf.float32) * (-(1 / 450) * tf.pow(t - 90, 3))
+                hiEnv2 = tf.cast(t > 60, tf.float32) * (-(1 / 450) * tf.pow(t - 90, 3))
+                hiEnv3 = tf.cast(t > 60, tf.float32) * (-(1 / 160) * tf.pow(t - 75, 3))
+
+            else:
+                raise KeyError("Check again the component names!!!")
+            
+            # epsilon = 1e-6  # Small value to prevent abrupt transitions
+            mask1 = tf.cast(tf.equal(env, 1), tf.float32)
+            mask2 = tf.cast(tf.equal(env, 2), tf.float32) 
+            mask3 = tf.cast(tf.equal(env, 3), tf.float32)
+
+            # mask_sum = mask1 + mask2 + mask3  # Normalize to sum up to 1
+            # mask1 /= mask_sum
+            # mask2 /= mask_sum
+            # mask3 /= mask_sum
+
+
+            # Compute the target HI based on environment
+            hiTarget = (mask1 * hiEnv1) + (mask2 * hiEnv2) + (mask3 * hiEnv3)
+
+            # Compute L2 loss
+            loss = tf.reduce_mean(tf.square(z - hiTarget))
+
+        elif type == "expertCurveWithEnv1":
+            z, t, env = inputData  # Unpacking input data
+
+            # Ensure t is float32
+            t = tf.cast(t, tf.float32)
+            if comp is None:
+                comp = self.config["component"]
+
+            if comp == "Reac":
+                hiEnv1 = -tf.exp(0.044*(t - 30))
+                hiEnv2 = -tf.zeros_like(t)  # Always 0
+                hiEnv3 = -tf.exp(0.044*(t - 30))
+
+            elif comp == "Sep":
+                hiEnv1 = -tf.zeros_like(t)  # Always 0
+                hiEnv2 = -tf.exp(0.044*(t - 30))
+                hiEnv3 = -tf.exp(0.079*(t - 60))
+
+            elif comp == "Strip":
+                hiEnv1 = -tf.exp(0.079*(t - 60))
+                hiEnv2 = -tf.exp(0.079*(t - 60))
+                hiEnv3 = -tf.exp(0.197*(t - 90))
 
             else:
                 raise KeyError("Check again the component names!!!")
