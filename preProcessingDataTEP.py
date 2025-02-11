@@ -197,7 +197,7 @@ class PreProcessData(object):
                                                 flipToDown          =   False)
         norData             = self.normalizeDataEachModes(  rawData    =   cleanData,
                                                             headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
-        print(norData.keys())
+        aiLogger.info(norData.keys())
         # ---------------------------
         # Extract the data in each Case
         allSeqXAllSensorTrain   = []
@@ -344,6 +344,7 @@ class PreProcessData(object):
         # -------------------
         for key in inData.keys():
             inData[key].insert(2,"environmentID",key)                     # Insert the case = idx + 1
+            # aiLogger.debug(key)
 
         # self.headline["reactor"]    = ["environmentID"]    +    self.headline["reactor"]
         # self.headline["separator"]  = ["environmentID"]    +    self.headline["separator"]    

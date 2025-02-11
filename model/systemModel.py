@@ -288,42 +288,48 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
 #  Hi system block and RUL
 # ====================================
 class HiSystemAndRul(tf.keras.Model):
-    def __init__(self):
+    def __init__(self, config):
         super(HiSystemAndRul, self).__init__()
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputRUL1 = Input(shape=(4, 5))
-        inputRUL2 = Input(shape=(4, 5))
-        inputRUL3 = Input(shape=(4, 5))
+        inputSensor = Input(shape=(45,),    name = "SensorInputForHISelection")
+        inputRUL1   = Input(shape=(8, 5),     name = "lastLayerAEComponent1")
+        inputRUL2   = Input(shape=(8, 5),     name = "lastLayerAEComponent2")
+        inputRUL3   = Input(shape=(8, 5),     name = "lastLayerAEComponent3")
 
-        inputHISys1 = Input(shape=(1,))
-        inputHISys2 = Input(shape=(1,))
-        inputHISys3 = Input(shape=(1,))
+        inputHI1    = Input(shape=(1,),     name = "compHI1")
+        inputHI2    = Input(shape=(1,),     name = "compHI2")
+        inputHI3    = Input(shape=(1,),     name = "compHI3")
 
-        hiSelectionSensor = Input(shape=(46,), name = "SensorInputForHISelection")
+        if config["useInputAsHISelection"]:
+            hiSelectionInput = inputSensor
+        else:
+            hiSelectionInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
         # ------------------------------
         # Create the HI selection
         # ------------------------------
-        x                   = Dense(32, activation="relu")(hiSelectionSensor)
+        x                   = Dense(24, activation="relu")(hiSelectionInput)
         x                   = Dense(16, activation="relu")(x)
         selection_logits    = Dense(3, activation=None, name="Selection_Logits")(x)
-        hiMatrixOutput   = Lambda(lambda x: tf.nn.softmax(x / 1), name="Selection_Output")(selection_logits)  # Softmax with τ=0.1 for sharper selection
+        hiMatrixOutput      = Lambda(lambda x: tf.nn.softmax(x / 1), name="Selection_Output")(selection_logits)  # Softmax with τ=0.1 for sharper selection
 
 
         # ------------------------------
         # Create min, max and linear HI
         # ------------------------------
-        concatenatedHiInput = Concatenate(axis=-1)([inputHISys1, inputHISys2, inputHISys3])
-        minSysHi            = tf.keras.layers.Minimum(concatenatedHiInput)
-        maxSysHi            = tf.keras.layers.Maximum(concatenatedHiInput) 
+        concatenatedHiInput = Concatenate(axis=-1)([inputHI1, inputHI2, inputHI3])
+        minSysHi            = tf.keras.layers.Minimum([inputHI1, inputHI2, inputHI3])
+        maxSysHi            = tf.keras.layers.Maximum([inputHI1, inputHI2, inputHI3]) 
         linearSysHi         = tf.keras.layers.Dense(1)(concatenatedHiInput)
+
+        aiLogger.debug(minSysHi.shape, maxSysHi.shape, linearSysHi.shape)
         
         sysConcatenatedHi   = tf.keras.layers.Concatenate(axis=-1, name="sysConcatenatedHi")([minSysHi, maxSysHi, linearSysHi])
+        aiLogger.debug(sysConcatenatedHi.shape)
         selected_HI         = Multiply(name="Selected_HI")([hiMatrixOutput, sysConcatenatedHi])
         sysHi               = Lambda(lambda x: tf.reduce_sum(x, axis=-1, keepdims=True), name="Final_HI")(selected_HI)            # Final HI (ensuring only one HI contributes to output)
 
-        
         # ------------------------------
         # RUL
         # ------------------------------
@@ -336,8 +342,7 @@ class HiSystemAndRul(tf.keras.Model):
         rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
         
         # Create the model
-        self.model = Model(inputs=[hiSelectionSensor, inputRUL1, inputRUL2, inputRUL3, inputHISys1,inputHISys2,inputHISys3], outputs=[hiMatrixOutput, sysHi,rul])
-        # self.model = Model(inputs=[inputRUL1, inputRUL2, inputHISys1,inputHISys2], outputs=[hiSystem,rul])
+        self.model = Model(inputs=[inputSensor, inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
 
 
     def call(self, inputs):
@@ -349,30 +354,49 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, hiddenSize=64, seqLength = 128, outputSize=45*3, baseline=0.01):
+    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
         self.baseline    = baseline
-        self.mask_logits = self.add_weight(shape        = (inFeature,),
-                                           initializer  = 'zeros',
-                                           trainable    = True,
-                                           name         = 'mask_logits')
+        # self.mask_logits = self.add_weight(shape        = (inFeature,),
+        #                                    initializer  = 'zeros',
+        #                                    trainable    = True,
+        #                                    name         = 'mask_logits')
+        # self.numComponents  = numComponents
+        self.numModes       = numEnvs         # 3 modes in total
+        self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
+                                                initializer =   "random_normal",
+                                                trainable   =   True,
+                                                name        =   "sensorMask"
+                                            )
+        # print(self.mask_logits.shape)
 
-        
-    def call(self,rawData):                
-        probs           = tf.sigmoid(self.mask_logits)
-        random_uniform  = tf.random.uniform(tf.shape(probs))
-        binary_mask     = tf.cast(tf.less(random_uniform, probs), tf.float32)
-        mask            = binary_mask + probs - tf.stop_gradient(probs)
-        mask            = tf.expand_dims(mask, axis=0)
-
-        print(rawData.shape,probs.shape)
+    def call(self,rawData,env):
+        # ------------------------
+        # Select the environment
+        # ------------------------
+        # print("-------------------------------", env.shape)
+        env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
+        # # modeIndex           = (env -1)* self.numComponents + comp
+        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
+    
+        probs               = tf.sigmoid(env_mask_logits)
+        random_uniform      = tf.random.uniform(tf.shape(probs))
+        binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
+        # print("==================================",env_mask_logits.shape)
+        # mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
+        # mask                = tf.expand_dims(mask, axis=0)
         # maskedData      = rawData * mask
-        maskedData      = rawData * probs
-
+        maskedData          = rawData * probs
         return maskedData, probs, binary_mask
+    
+    def getMask(self,):
+        probs               = tf.sigmoid(self.mask_logits)   
+        random_uniform      = tf.random.uniform(tf.shape(probs))
+        binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32) 
+        return binary_mask, probs
 
 
 
@@ -426,26 +450,12 @@ class SystemModel(tf.keras.Model):
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
-        self.hiSystemAndRul  = HiSystemAndRul()
+        self.hiSystemAndRul  = HiSystemAndRul(self.config)
 
         # ----------------------------
         # For loss tracker
         # ----------------------------
         self.totalLossTracker               = Mean(name="totalLoss")
-
-        # self.cr1ConstructionTracker         = Mean( name="cr1CstrLoss" )
-        # self.cr1ZLossTracker                = Mean(name = "cr1ZLoss")
-        # self.cr1MaskLossTracker             = Mean(name= "cr1MaskLoss")
-
-        # self.cr2ConstructionTracker         = Mean( name="cr2CstrLoss" )
-        # self.cr2ZLossTracker                = Mean(name = "cr2ZLoss")
-        # self.cr2MaskLossTracker             = Mean(name= "cr2MaskLoss")
-
-        # self.cv2ConstructionTracker         = Mean( name="cv2CstrLoss" )
-        # self.cv2ZLossTracker                = Mean(name = "cv2ZLoss")
-        # self.cv2MaskLossTracker             = Mean(name= "cv2MaskLoss")
-
-
         self.rulLossTracker                 = Mean(name= "rulLoss")
         self.hiSelectionLossTracker         = Mean(name = "hiSelectionLoss")
 
@@ -564,34 +574,23 @@ class SystemModel(tf.keras.Model):
             # ====================================
             #           MODEL FLOW
             # ------------------------------------
-            seqDataCr1,seqCycleCr1, \
-            seqDataCr2,seqCycleCr2, \
-            seqDataCv2,seqCycleCv2              = input[0]
-            rulY                                = input[1]
+            seqDataCr1,seqCycleCr1, env1,       \
+            seqDataCr2,seqCycleCr2, env2,       \
+            seqDataCv2,seqCycleCv2, env3              = input[0]
+            rulY                                    = input[1]
             # ------------------------------------
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
-                encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
-                encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+                encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1, env1)
+                encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2, env2)
+                encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2, env3)
 
 
                 zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
                 zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
                 zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
                 
-
-                # reconsCr1                               = self.decoderCr1(zCr1)
-                # reconsCr2                               = self.decoderCr2(zCr2)
-                # reconsCv2                               = self.decoderCv2(zCv2)
-
-                # decOutCr1,_,_                           = self.maskCr1(reconsCr1)
-                # decOutCr2,_,_                           = self.maskCr2(reconsCr2)
-                # decOutCv2,_,_                           = self.maskCv2(reconsCv2)
-            # encInCv2                    = seqDataCv2
-            # zCv2,  sysHILayerCv2        = self.encoderCv2(encInCv2)
-            # decOutCv2                   = self.decoderCv2(zCv2)
             else:
                 encInCr1                                = seqDataCr1
                 encInCr2                                = seqDataCr2
@@ -606,7 +605,7 @@ class SystemModel(tf.keras.Model):
                 # decOutCv2                               = self.decoderCv2(zCv2)
             
             if self.config["name"] == "tep":
-                hiSelectionSensors = seqDataCr1
+                hiSelectionSensors = seqDataCr1         # The input data are the same in TEP
             else: 
                 hiSelectionSensors = np.concatenate([seqDataCr1, seqDataCr2, seqDataCv2], axis=-1)
             hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([hiSelectionSensors, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])

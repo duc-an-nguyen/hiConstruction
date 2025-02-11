@@ -335,12 +335,11 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3):
+    def __init__(self, inFeature = 45, numEnvs = 3):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
-        self.baseline    = baseline
         # self.mask_logits = self.add_weight(shape        = (inFeature,),
         #                                    initializer  = 'zeros',
         #                                    trainable    = True,
@@ -359,8 +358,8 @@ class SensorSelection(tf.keras.Model):
         # Select the environment
         # ------------------------
         # print("-------------------------------", env.shape)
-        env                 = tf.cast(env-1, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
-        # modeIndex           = (env -1)* self.numComponents + comp
+        env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
+        # # modeIndex           = (env -1)* self.numComponents + comp
         env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
     
         probs               = tf.sigmoid(env_mask_logits)
@@ -372,6 +371,7 @@ class SensorSelection(tf.keras.Model):
         # maskedData      = rawData * mask
         maskedData          = rawData * probs
         return maskedData, probs, binary_mask
+    
     def getMask(self,):
         probs               = tf.sigmoid(self.mask_logits)   
         random_uniform      = tf.random.uniform(tf.shape(probs))
@@ -435,7 +435,7 @@ class mainModel(tf.keras.Model):
         binaryMask = None
         probs      = None
         if self.config["useMask"]:
-            encIn, probs, binaryMask    = self.mask(data,env,self.indexComponent[self.config["component"]])
+            encIn, probs, binaryMask    = self.mask(data,env)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
         else:
@@ -444,7 +444,7 @@ class mainModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(data)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
-        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv", comp = self.config["component"])
+        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", comp = self.config["component"])
         return hi, binaryMask,probs, rul
 
     # ==========================================
@@ -461,7 +461,7 @@ class mainModel(tf.keras.Model):
         binaryMask = None
         probs      = None
         if self.config["useMask"]:
-            encIn, probs, binaryMask    = self.mask(data,env,self.indexComponent[self.config["component"]])
+            encIn, probs, binaryMask    = self.mask(data,env)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
         else:
@@ -488,10 +488,10 @@ class mainModel(tf.keras.Model):
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encIn, probsMask, binaryMask= self.mask(seqEff, env, self.indexComponent[self.config["component"]])
+                encIn, probsMask, binaryMask= self.mask(seqEff, env)
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
                 reconsCr1                   = self.decoder(zCr1)
-                decOut,_,_                  = self.mask(reconsCr1, env, self.indexComponent[self.config["component"]])
+                decOut,_,_                  = self.mask(reconsCr1, env)
             else:
                 encIn                       = seqEff
                 zCr1,  sysHILayerCr1        = self.encoder(encIn)
@@ -753,9 +753,11 @@ class mainModel(tf.keras.Model):
 
         elif type == "expertCurve":
             x, t, env   = inputData
-            hiTarget    = tf.exp(kRate*(t + tMovement))
-            # hiTarget    = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
+            # hiTarget    = tf.exp(kRate*(t + tMovement))
+            hiTarget    = tf.exp(0.197*(t - 90))
             loss        = tf.reduce_mean(tf.square(hiTarget - x))
+            # hiTarget    = tf.cast(t > 30, tf.float32) * (-0.0001 * tf.pow(t - 30, 3))
+            
 
         elif type == "normalExp":
             x, t    = inputData
@@ -790,9 +792,9 @@ class mainModel(tf.keras.Model):
                 raise KeyError("Check again the component names!!!")
             
             # epsilon = 1e-6  # Small value to prevent abrupt transitions
-            mask1 = tf.cast(tf.equal(env, 1), tf.float32)
-            mask2 = tf.cast(tf.equal(env, 2), tf.float32) 
-            mask3 = tf.cast(tf.equal(env, 3), tf.float32)
+            mask1 = tf.cast(tf.equal(env, 2), tf.float32)
+            mask2 = tf.cast(tf.equal(env, 3), tf.float32) 
+            mask3 = tf.cast(tf.equal(env, 4), tf.float32)
 
             # mask_sum = mask1 + mask2 + mask3  # Normalize to sum up to 1
             # mask1 /= mask_sum
@@ -827,14 +829,14 @@ class mainModel(tf.keras.Model):
             elif comp == "Strip":
                 hiEnv1 = tf.exp(0.079*(t - 60))
                 hiEnv2 = tf.exp(0.079*(t - 60))
-
+                hiEnv3 = tf.exp(0.197*(t - 90))
             else:
                 raise KeyError("Check again the component names!!!")
             
             # epsilon = 1e-6  # Small value to prevent abrupt transitions
-            mask1 = tf.cast(tf.equal(env, 1), tf.float32)
-            mask2 = tf.cast(tf.equal(env, 2), tf.float32) 
-            mask3 = tf.cast(tf.equal(env, 3), tf.float32)
+            mask1 = tf.cast(tf.equal(env, 2), tf.float32)
+            mask2 = tf.cast(tf.equal(env, 3), tf.float32) 
+            mask3 = tf.cast(tf.equal(env, 4), tf.float32)
 
             # mask_sum = mask1 + mask2 + mask3  # Normalize to sum up to 1
             # mask1 /= mask_sum
