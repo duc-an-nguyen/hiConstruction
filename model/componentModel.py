@@ -450,7 +450,7 @@ class mainModel(tf.keras.Model):
     # ==========================================
     # Get custom layer
     # ------------------------------------------
-    def getHIandRUL(self,input):
+    def getHIandRUL(self,input,comp = "Reac"):
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
@@ -470,8 +470,8 @@ class mainModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(data)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
-        # _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurve", comp = self.config["component"])
-        return zCr1, binaryMask,probs, rul
+        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", comp = comp)
+        return hi, binaryMask,probs, rul
     # ==========================================
     # Training (replace the default)
     # ------------------------------------------

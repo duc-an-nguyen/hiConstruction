@@ -1,6 +1,7 @@
 {
 "crusher": {
     "name":            "crusher",
+    "allComp"           : ["Cr1", "Cr2", "Cv2"],
     "hiddenVAESize"     : [250,100,50],
     "learningRate"      : 0.01,
     "latentDim"         : 1,
@@ -28,6 +29,7 @@
     "name"             : "tep",
     "cuda"              : 0,
     "case"              : [2,3,4],
+    "allComp"           : ["Reac", "Sep", "Strip"],
     "useInputAsHISelection" : false,
     "validation"        : true,
     "splitTrainTest"    : false,   
@@ -47,10 +49,12 @@
     "ckptPath":         "checkpoint/",
     "hiddenVAESize":    [200, 100, 50],
     "dataDir"           : "~/Desktop/Dropbox/codeData/tepDataWithoutGit/",
+    "preTrainedForSys"  : "checkpoint/sysBest_Trendability_SensorSelection/",
     "inReac"            : 45,
     "inSep"             : 45,
     "inStrip"           : 45,
-    "component"         : "Strip",
+    "component"         : "Sep",
+    "_componentName"    : ["Reac", "Sep", "Strip", "Sys"],
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,
     "numOfCases"        : 6

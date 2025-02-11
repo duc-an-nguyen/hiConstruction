@@ -129,7 +129,9 @@ class MatPlot(object):
                         subPlotName = "Name",
                         numRow      = 2,
                         numCol      = 2,
-                        color       = None
+                        color       = None,
+                        xLim        = [],
+                        yLim        = []
                         ):
         
         if type(inY)  is not list:
@@ -180,6 +182,8 @@ class MatPlot(object):
 
                 axes[idxEachHi].set_title("T" + str(idxEachHi+1))
                 axes[idxEachHi].grid(True)  # Add grid
+                if (len(yLim) != 0):
+                    axes[idxEachHi].set_ylim(yLim) 
         plt.tight_layout()
         plt.show()
 

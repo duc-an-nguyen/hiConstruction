@@ -1,0 +1,1015 @@
+# ====================================
+#  IMPORT LIBRARIES
+# ====================================
+from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, Embedding, MultiHeadAttention, Lambda, Multiply
+from keras                          import backend as K
+from keras.models                   import Model
+from keras.optimizers               import Adam
+from model.vaeBase                  import BaseVariationalAutoencoder, Sampling 
+from re                             import T
+from keras.metrics                  import Mean
+from utility.logger                 import aiLogger
+from scipy.stats                    import spearmanr
+import  numpy                       as np
+import  tensorflow                  as tf
+import time
+import  os, warnings, sys
+import  joblib, random, json
+
+
+# -----------------------
+# Filter the level of 
+# debuging
+# -----------------------
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+warnings.filterwarnings('ignore') 
+tf.random.set_seed(1)
+ 
+# ====================================
+#  The custom model checkpoint for 
+#   subclass method
+# ====================================
+class SubclassModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
+    def __init__(self, customSaveFunction, config= None, *args, **kwargs):
+        super(SubclassModelCheckpoint, self).__init__(*args, **kwargs)
+
+        self.config             = config
+        self.customSaveFunction = customSaveFunction
+
+    # --------------------------------
+    # Override the default saving function
+    # --------------------------------
+    def _save_model(self, epoch, logs, *args, **kwargs):
+        logs    = logs or {}
+        current = logs.get(self.monitor)                                       # Get the monitored metric value (e.g., val_loss)
+
+        if current is None:
+            print(f"Warning: Metric {self.monitor} is not available.")
+            return
+        
+        if self.save_best_only: 
+            if self.monitor_op(current, self.best):
+                if self.verbose > 0:
+                    print(f" \n Epoch {epoch + 1}: {self.monitor} improved from {self.best} to {current}. Saving model...")
+                
+                self.best   = current
+                filepath    = self.filepath.format(epoch=epoch + 1, **logs)         # Format the file path and get the directory
+                model_dir   = os.path.dirname(filepath)                             # Extract the directory
+                self.customSaveFunction(model_dir, config=self.config)              # Call the custom save function
+        else:
+            filepath    = self.filepath.format(epoch=epoch + 1, **logs)
+            model_dir   = os.path.dirname(filepath)                             # Extract the directory
+            self.customSaveFunction(model_dir, config=self.config)              # Call the custom save function
+            
+
+# ====================================
+# Attention convolution
+# ====================================
+class AttentionMaskedConv1D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size, strides=2,  activation='relu', padding = 'same', **kwargs):
+        super(AttentionMaskedConv1D, self).__init__(**kwargs)
+        self.conv = Conv1D(filters, kernel_size, strides=strides, padding=padding, activation=activation)
+        self.attention_weights = Dense(filters, activation='sigmoid')
+        
+    def call(self, inputs):
+        conv_output = self.conv(inputs)
+        attn_weights = self.attention_weights(conv_output)
+        attended_output = conv_output * attn_weights
+        return attended_output
+    
+# ====================================
+# VAE Time (VariationalAutoencoderConv)
+# ====================================
+class VAEConvInterpretable(BaseVariationalAutoencoder):    
+    def __init__(   self,  
+                    hidden_layer_sizes, 
+                    config      = None,
+                    **kwargs   ):
+        '''
+            hidden_layer_sizes  : list of number of filters in convolutional layers in encoder and residual connection of decoder. 
+            trend_poly          : integer for number of orders for trend component. e.g. setting trend_poly = 2 will include linear and quadratic term. 
+            num_gen_seas        : Number of sine-waves to use to model seasonalities. Each sine wae will have its own amplitude, frequency and phase. 
+            custom_seas         : list of tuples of (num_seasons, len_per_season). 
+            num_seasons         : number of seasons per cycle. 
+            len_per_season      : number of epochs (time-steps) per season.
+            use_residual_conn   : boolean value indicating whether to use a residual connection for reconstruction in addition to trend, generic and custom seasonalities.       
+        '''
+
+        super(VAEConvInterpretable, self).__init__(**kwargs)
+
+        self.hidden_layer_sizes = hidden_layer_sizes
+        self.encoder            = self.get_encoder()
+        self.decoder            = self.get_decoder() 
+        self.config             = config
+
+    # ================================
+    # Full AE
+    # --------------------------------
+    def getUnsymetricDecoder(self,kernelSize = 3, stride = 1): 
+        z   = Input(shape=(self.latent_dim,), name="decoder_input")
+        wIn = Input(shape=(self.seq_len,self.config["manipulationDim"]), name="manipulatedVar")
+
+        x = tf.keras.layers.RepeatVector(self.seq_len,name='repeat')(z)
+        x = tf.keras.layers.Concatenate(axis  =-1)([x, wIn])
+
+        for numFilters in reversed(self.hidden_layer_sizes):
+            x = tf.keras.layers.Conv1D(filters      =   numFilters,
+                                       kernel_size  =   kernelSize,
+                                       stride      =   stride,
+                                       activation   =   'relu',
+                                       padding = 'same')(x)
+        
+        reconsData  = tf.keras.layers.Dense(self.config["efficiencyDim"],name='X')(x)   
+    
+        decoder     = tf.keras.models.Model([z, wIn],reconsData)
+        return decoder
+    
+    # ================================
+    # Attention encoder
+    # --------------------------------
+    def getAttentionEncoder(self, kernelSize = 3, stride = 2):
+        encoder_inputs  = Input(shape   = (self.seq_len, self.feat_dim), 
+                                name    = 'encoder_input')
+        x               = encoder_inputs
+        # --------------------
+        # Repeat to create Conv1D
+        # --------------------
+        for i, num_filters in enumerate(self.hidden_layer_sizes):
+            x = AttentionMaskedConv1D(  filters     = num_filters, 
+                                        kernel_size = kernelSize, 
+                                        strides     = stride, 
+                                        activation  = 'relu', 
+                                        padding     = 'same',
+                                        name        = f'enc_conv_{i}')(x)
+        sysHILayer = AttentionMaskedConv1D(     filters     = 5, 
+                                                kernel_size = kernelSize, 
+                                                strides     = stride, 
+                                                activation  = 'relu', 
+                                                padding     = 'same',
+                                                name        = 'extractedSysHiLayer')(x)
+        
+        print("The shape of sysHILayer",sysHILayer.shape)
+        # --------------------
+        # Flat and create latent
+        # --------------------
+        x                       = Flatten(name='enc_flatten')(x)
+        self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
+        
+        # ----------------------
+        # For VAE
+        # ----------------------
+        encoder_output          = Dense(self.latent_dim, name="encoder_output")(x)
+        self.encoder_output     = encoder_output
+        
+        encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
+        return encoder
+    # ================================
+    # Create module Encoder separately
+    # --------------------------------
+    def get_encoder(self, kernelSize = 3, stride = 2):
+        # --------------------
+        # Input
+        # --------------------
+        encoder_inputs  = Input(shape   = (self.seq_len, self.feat_dim), 
+                                name    = 'encoder_input')
+        x               = encoder_inputs
+        # --------------------
+        # Repeat to create Conv1D
+        # --------------------
+        for i, num_filters in enumerate(self.hidden_layer_sizes):
+            x = Conv1D( filters     = num_filters, 
+                        kernel_size = kernelSize, 
+                        strides     = stride, 
+                        activation  = 'relu', 
+                        padding     = 'same',
+                        name        = f'enc_conv_{i}')(x)
+        sysHILayer = Conv1D(    filters     = 5, 
+                                kernel_size = kernelSize, 
+                                strides     = stride, 
+                                activation  = 'relu', 
+                                padding     = 'same',
+                                name        = 'extractedSysHiLayer')(x)
+        print("The shape of sysHILayer",sysHILayer.shape)
+        # --------------------
+        # Flat and create latent
+        # --------------------
+        x                       = Flatten(name='enc_flatten')(x)
+        self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
+        
+        # ----------------------
+        # For VAE
+        # ----------------------
+        encoder_output          = Dense(self.latent_dim, name="encoder_output")(x)
+        self.encoder_output     = encoder_output
+        
+        encoder                 = Model(encoder_inputs, [encoder_output, sysHILayer], name="encoder")
+        # print(encoder.summary())
+        return encoder
+
+    # =================================
+    # ---------------------------------
+    def get_decoder(self, kernelSize = 3, stride = 2):
+        decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
+
+        x = decoder_inputs
+        x = Dense(self.encLastDenseDim, name="dec_dense", activation="relu")(x)
+
+
+        x = Reshape(target_shape=(-1, self.hidden_layer_sizes[-1]), name="dec_reshape")(x)
+     
+
+        for i, num_filters in enumerate(reversed(self.hidden_layer_sizes[:-1])):
+            x = Conv1DTranspose(    filters     = num_filters,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
+                                    padding     = "same",
+                                    activation  = "relu",
+                                    name        = f"dec_deconv_{i}",
+                                )(x)
+       
+
+        # last de-convolution
+        self.decoder_outputs = Conv1DTranspose(        filters     = self.feat_dim,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
+                                    padding     = "same",
+                                    activation  = "relu",
+                                    name        = f"dec_deconv__{i+1}",
+                                )(x)
+
+
+        # x                       = Flatten(name="dec_flatten")(x)
+        # x                       = Dense(self.seq_len * self.feat_dim, name="decoder_dense_final")(x)
+        # self.decoder_outputs    = Reshape(target_shape=(self.seq_len, self.feat_dim))(x)
+        decoder                 = Model(decoder_inputs, self.decoder_outputs, name="decoder")
+        # print(decoder.summary())
+        return decoder
+    # =================================
+    # This one is decoder model. Using it
+    # when the input is the power of 2
+    # ---------------------------------
+    def decoderNoDense(self, kernelSize = 3, stride = 2):
+        decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
+
+        x = decoder_inputs
+        x = Dense(self.encLastDenseDim, name="dec_dense", activation="relu")(x)
+
+
+        x = Reshape(target_shape=(-1, self.hidden_layer_sizes[-1]), name="dec_reshape")(x)
+     
+
+        for i, num_filters in enumerate(reversed(self.hidden_layer_sizes[:-1])):
+            x = Conv1DTranspose(    filters     = num_filters,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
+                                    padding     = "same",
+                                    activation  = "relu",
+                                    name        = f"dec_deconv_{i}",
+                                )(x)
+       
+
+        # last de-convolution
+        self.decoder_outputs = Conv1DTranspose(        filters     = self.feat_dim,
+                                    kernel_size = kernelSize,
+                                    strides     = stride,
+                                    padding     = "same",
+                                    activation  = "relu",
+                                    name        = f"dec_deconv__{i+1}",
+                                )(x)
+
+        # x                       = Flatten(name="dec_flatten")(x)
+        # x                       = Dense(self.seq_len * self.feat_dim, name="decoder_dense_final")(x)
+        # self.decoder_outputs    = Reshape(target_shape=(self.seq_len, self.feat_dim))(x)
+        decoder                 = Model(decoder_inputs, self.decoder_outputs, name="decoder")
+        return decoder
+    
+    
+# ====================================
+#  Hi system block and RUL
+# ====================================
+class HiSystemAndRul(tf.keras.Model):
+    def __init__(self, config):
+        super(HiSystemAndRul, self).__init__()
+        # ------------------------------
+        # Input from latent space
+        # ------------------------------
+        inputSensor = Input(shape=(45,),    name = "SensorInputForHISelection")
+        inputRUL1   = Input(shape=(8, 5),     name = "lastLayerAEComponent1")
+        inputRUL2   = Input(shape=(8, 5),     name = "lastLayerAEComponent2")
+        inputRUL3   = Input(shape=(8, 5),     name = "lastLayerAEComponent3")
+
+        inputHI1    = Input(shape=(1,),     name = "compHI1")
+        inputHI2    = Input(shape=(1,),     name = "compHI2")
+        inputHI3    = Input(shape=(1,),     name = "compHI3")
+
+        if config["useInputAsHISelection"]:
+            hiSelectionInput = inputSensor
+        else:
+            hiSelectionInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
+        
+        aiLogger.debug(f"The shape of hiSelectionInput {hiSelectionInput.shape}")
+        # ------------------------------
+        # Create the HI selection
+        # ------------------------------
+        x                   = Dense(24, activation="relu")(hiSelectionInput)
+        x                   = Dense(16, activation="relu")(x)
+        selection_logits    = Dense(3, activation=None, name="Selection_Logits")(x)
+        hiMatrixOutput      = Lambda(lambda x: tf.nn.softmax(x / 1), name="Selection_Output")(selection_logits)  # Softmax with τ=0.1 for sharper selection
+
+
+        # ------------------------------
+        # Create min, max and linear HI
+        # ------------------------------
+        concatenatedHiInput = Concatenate(axis=-1)([inputHI1, inputHI2, inputHI3])
+        minSysHi            = tf.keras.layers.Minimum([inputHI1, inputHI2, inputHI3])
+        maxSysHi            = tf.keras.layers.Maximum([inputHI1, inputHI2, inputHI3]) 
+        linearSysHi         = tf.keras.layers.Dense(1)(concatenatedHiInput)
+
+        aiLogger.debug(f"The shape of min, max and linear HI {minSysHi.shape, maxSysHi.shape, linearSysHi.shape}")
+        
+        sysConcatenatedHi   = tf.keras.layers.Concatenate(axis=-1, name="sysConcatenatedHi")([minSysHi, maxSysHi, linearSysHi])
+        aiLogger.debug(sysConcatenatedHi.shape)
+        selected_HI         = Multiply(name="Selected_HI")([hiMatrixOutput, sysConcatenatedHi])
+
+        aiLogger.debug(f"The shape of seleted_HI {selected_HI.shape}")
+        sysHi               = Lambda(lambda x: tf.reduce_sum(x, axis=-1, keepdims=True), name="Final_HI")(selected_HI)            # Final HI (ensuring only one HI contributes to output)
+
+        # ------------------------------
+        # RUL
+        # ------------------------------
+        concatenatedRULInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
+        # concatenatedRULInput = Concatenate(axis=-1)([inputRUL1, inputRUL2])
+        rulLayer1   = GRU(32, return_sequences=True)(concatenatedRULInput)
+        rulLayer2   = GRU(16, return_sequences=True)(rulLayer1)
+        rulLayer3   = GRU(3, return_sequences=False)(rulLayer2)
+        rulLayer4   = Concatenate(axis=-1)([rulLayer3, sysHi])
+        rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
+        
+        # Create the model
+        self.model = Model(inputs=[inputSensor, inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
+
+
+    def call(self, inputs):
+        # print("----------------------------------")
+        # print(inputs.shape)
+        return self.model(inputs)
+    
+# ====================================
+#  The sensor selection block
+# ====================================
+class SensorSelection(tf.keras.Model):
+    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3):
+        '''
+        The input size should be (batchSize, timeStep, featureDim)        
+        '''
+        super(SensorSelection, self).__init__()
+        self.baseline    = baseline
+        # self.mask_logits = self.add_weight(shape        = (inFeature,),
+        #                                    initializer  = 'zeros',
+        #                                    trainable    = True,
+        #                                    name         = 'mask_logits')
+        # self.numComponents  = numComponents
+        self.numModes       = numEnvs         # 3 modes in total
+        self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
+                                                initializer =   "random_normal",
+                                                trainable   =   True,
+                                                name        =   "sensorMask"
+                                            )
+        # print(self.mask_logits.shape)
+
+    def call(self,rawData,env):
+        # ------------------------
+        # Select the environment
+        # ------------------------
+        # print("-------------------------------", env.shape)
+        env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
+        # # modeIndex           = (env -1)* self.numComponents + comp
+        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
+    
+        probs               = tf.sigmoid(env_mask_logits)
+        random_uniform      = tf.random.uniform(tf.shape(probs))
+        binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
+        # print("==================================",env_mask_logits.shape)
+        # mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
+        # mask                = tf.expand_dims(mask, axis=0)
+        # maskedData      = rawData * mask
+        maskedData          = rawData * probs
+        return maskedData, probs, binary_mask
+    
+    def getMask(self,):
+        probs               = tf.sigmoid(self.mask_logits)   
+        random_uniform      = tf.random.uniform(tf.shape(probs))
+        binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32) 
+        return binary_mask, probs
+
+
+
+# ==================================================
+#                   SYSTEM MODEL
+# ==================================================
+class SystemModel(tf.keras.Model):
+    def __init__(self,config = None):
+        super(SystemModel, self).__init__()
+        # ----------------------------
+        # For model
+        # ----------------------------
+        self.config             = config
+        
+        vaeCr1                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
+                                                            feat_dim            = config["allComp"][0], 
+                                                            latent_dim          = config["latentDim"], 
+                                                            hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
+                                                            config              = config
+                                                        )
+        vaeCr2                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
+                                                            feat_dim            = config["allComp"][1], 
+                                                            latent_dim          = config["latentDim"], 
+                                                            hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
+                                                            config              = config
+                                                            )
+        vaeCv2                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
+                                                            feat_dim            = config["allComp"][2], 
+                                                            latent_dim          = config["latentDim"], 
+                                                            hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
+                                                            config              = config
+                                                            )
+        
+
+        self.maskCr1           = SensorSelection(inFeature= config["allComp"][0])
+        self.maskCr2           = SensorSelection(inFeature= config["allComp"][1])
+        self.maskCv2           = SensorSelection(inFeature= config["allComp"][2])
+
+        # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
+        self.encoderCr1        = vaeCr1.get_encoder(kernelSize = 3, stride = 2)
+        self.decoderCr1        = vaeCr1.decoderNoDense(kernelSize = 3, stride = 2)
+
+        self.encoderCr2        = vaeCr2.get_encoder(kernelSize = 3, stride = 2)
+        self.decoderCr2        = vaeCr2.decoderNoDense(kernelSize = 3, stride = 2)
+
+        self.encoderCv2        = vaeCv2.get_encoder(kernelSize = 3, stride = 2)
+        self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
+
+        modelName1             = "bestModel30Reac"
+        modelName2             = "bestModel31Sep"
+        modelName3             = "bestModel32Strip"
+        if config["frezeComponents"]:
+            self.loadWeightAndFreezePretrainedHI(modelDirComp1= config["dataDir"] + "checkpoint/" + modelName1,
+                                                 modelDirComp2= config["dataDir"] + "checkpoint/" + modelName2,
+                                                 modelDirComp3= config["dataDir"] + "checkpoint/" + modelName3)
+
+        # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
+        # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
+        self.hiSystemAndRul  = HiSystemAndRul(self.config)
+
+        # ----------------------------
+        # For loss tracker
+        # ----------------------------
+        self.totalLossTracker               = Mean(name="totalLoss")
+        self.rulLossTracker                 = Mean(name= "rulLoss")
+        self.hiSelectionLossTracker         = Mean(name = "hiSelectionLoss")
+
+        self.bestLoss                      = tf.Variable(float('inf'), trainable=False)
+
+
+    # ==========================================
+    # Call function
+    # ------------------------------------------
+    def call(self,input):
+
+        seqDataCr1, seqDataCr2, seqDataCv2 = input
+        # ------------------------------------
+        # Encoder and Decoder for 3 components
+        # ------------------------------------
+        # print("Encoder ")
+        # print(input.shape)
+        binaryMaskCr1 = None
+        binaryMaskCr2 = None
+        binaryMaskCv2 = None
+        probsMaskCr1 = None
+        probsMaskCr2 = None
+        probsMaskCv2 = None
+        if self.config["useMask"]:
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+        else:
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqDataCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqDataCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqDataCv2)
+        
+        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
+
+     
+        return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, hiSystem, predictedRul
+
+    # ==========================================
+    # Get custom layer
+    # ------------------------------------------
+    def getHIandRUL(self,input):
+        seqDataCr1, seqDataCr2, seqDataCv2 = input
+        # ------------------------------------
+        # Encoder and Decoder for 3 components
+        # ------------------------------------
+        # print("Encoder ")
+        # print(input.shape)
+        binaryMaskCr1 = None
+        binaryMaskCr2 = None
+        binaryMaskCv2 = None
+        probsMaskCr1 = None
+        probsMaskCr2 = None
+        probsMaskCv2 = None
+        if self.config["useMask"]:
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+        else:
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqDataCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqDataCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqDataCv2)
+        
+        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
+
+     
+        return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, hiSystem, predictedRul
+    
+    def getRUL(self,input):
+        seqDataCr1, seqDataCr2, seqDataCv2 = input
+        # ------------------------------------
+        # Encoder and Decoder for 3 components
+        # ------------------------------------
+        # print("Encoder ")
+        # print(input.shape)
+        binaryMaskCr1 = None
+        binaryMaskCr2 = None
+        binaryMaskCv2 = None
+        probsMaskCr1 = None
+        probsMaskCr2 = None
+        probsMaskCv2 = None
+        if self.config["useMask"]:
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+        else:
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqDataCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqDataCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqDataCv2)
+        
+        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
+
+     
+        return predictedRul
+
+    # ==========================================
+    # Training (replace the default)
+    # ------------------------------------------
+    def train_step(self, input):
+        with tf.GradientTape() as tape:
+
+            # ====================================
+            #           MODEL FLOW
+            # ------------------------------------
+            seqData,seqCycle, env                   = input[0]
+            rulY                                    = input[1]
+            # ------------------------------------
+            # Encoder and Decoder for 3 components
+            # ------------------------------------
+            if self.config["useMask"]:
+                encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
+                encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
+                encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
+
+
+                zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+                zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+                zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+                
+            else:
+                encInCr1                                = seqData
+                encInCr2                                = seqData
+                encInCv2                                = seqData
+
+                zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+                zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+                zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+
+
+            hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+
+            # ====================================
+            #               LOSS
+            # ------------------------------------
+            hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)    #  Entropy-like loss to select only 1 value of 1
+
+            # ------------------------------------
+            # Loss for RUL
+            # ------------------------------------
+            rulLoss = tf.keras.losses.mae(predictedRul,rulY)
+            rulLoss = tf.reduce_mean(rulLoss)
+
+            totalLoss =  rulLoss + hiSelectionLoss
+                        
+        # --------------------------------
+        # Update gradient
+        # --------------------------------
+        grads = tape.gradient(totalLoss, self.trainable_weights)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
+    
+        # --------------------------------
+        # Update losses
+        # --------------------------------
+        self.totalLossTracker.update_state(totalLoss)
+        self.rulLossTracker.update_state(rulLoss)
+        self.hiSelectionLossTracker.update_state(hiSelectionLoss)
+
+
+
+        return {
+            "totalLoss"                 : self.totalLossTracker.result(),
+            "rulLoss"                   : self.rulLossTracker.result(), 
+            "hiSelectionLoss"           : self.hiSelectionLossTracker.result()
+        }
+
+    # -----------------------------
+    # Testing (replace the default)
+    # -----------------------------
+    def test_step(self, input): 
+
+        # with tf.GradientTape() as tape:
+
+        # ====================================
+        #           MODEL FLOW
+        # ------------------------------------
+        seqXTrainEnv,seqXAllSensorTrain             = input[0]
+        reacSensorY,sepSensorY,stripSensorY,rulY    = input[1]
+
+        # ------------------------------------
+        # Sensor selection
+        # ------------------------------------
+        # allSensor   = Input(shape=(128,47))(seqXAllSensorTrain)
+        compIn          = self.sensorSelection(seqXAllSensorTrain)
+        
+        selectedReac    = compIn[:,:,:self.config["featureDim"]]
+        selectedSep     = compIn[:,:,self.config["featureDim"]:self.config["featureDim"]*2]
+        selectedStrip   = compIn[:,:,self.config["featureDim"]*2:self.config["featureDim"]*3]
+
+
+        # print(selectedReac.shape, selectedSep.shape, selectedStrip.shape)
+        
+        # ------------------------------------
+        # Encoder and Decoder for 3 components
+        # ------------------------------------
+        # print("Encoder ")
+        zMeanReac,  zLogReac,   zReac    = self.encoderReac(selectedReac)
+        zMeanSep,   zLogSep,    zSep     = self.encoderSep(selectedSep)
+        zMeanStrip, zLogStrip,  zStrip   = self.encoderStrip(selectedStrip)
+
+        # print("Latent size",z_mean.shape)
+
+        # print("decoder")
+        reconsReac  = self.decoderReac(zReac)
+        reconsSep   = self.decoderSep(zSep)
+        reconsStrip = self.decoderStrip(zStrip)
+
+        # ------------------------------------
+        # Create RUL and HI System
+        # ------------------------------------
+
+        # print("HI and system rul")
+        hiSystem, predictedRul = self.hiSystemAndRul([zReac,zSep,zStrip])
+
+        # print("Loss funcion")
+        # ====================================
+        #               LOSS
+        # ------------------------------------
+        # Loss function for sensor selection
+        # ------------------------------------
+        sensorReacLoss  = tf.keras.losses.mse(selectedReac, reacSensorY)
+        # sensorReacLoss *= self.config["latentDim"]
+        sensorReacLoss   = tf.reduce_mean(sensorReacLoss)
+
+        sensorSepLoss   = tf.keras.losses.mse(selectedSep,sepSensorY)
+        # sensorSepLoss *= self.config["latentDim"]
+        sensorSepLoss   = tf.reduce_mean(sensorSepLoss)
+
+        sensorStripLoss  = tf.keras.losses.mse(selectedStrip,stripSensorY)
+        # sensorStripLoss *= self.config["latentDim"]
+        sensorStripLoss  = tf.reduce_mean(sensorStripLoss)
+
+
+        # ------------------------------------
+        # Loss for reconstruction
+        # ------------------------------------
+
+        reconLossCr1   = tf.keras.losses.mse(reconsReac,   reacSensorY)
+        reconLossCr1   = tf.reduce_mean(reconLossCr1)
+        reconLossSep    = tf.keras.losses.mse(reconsSep,    sepSensorY)
+        reconLossSep    = tf.reduce_mean(reconLossSep)
+        reconLossStrip  = tf.keras.losses.mse(reconsStrip,  stripSensorY)
+        reconLossStrip  = tf.reduce_mean(reconLossStrip)
+        # ------------------------------------
+        # Loss for RUL
+        # ------------------------------------
+        rulLoss = tf.keras.losses.mse(predictedRul,rulY)
+        rulLoss = tf.reduce_mean(rulLoss)
+
+        totalLoss = (sensorReacLoss + sensorSepLoss + sensorStripLoss) +            \
+                    (reconLossCr1 + reconLossSep + reconLossStrip) +               \
+                    2*rulLoss 
+            
+        # --------------------------------
+        # Update losses
+        # --------------------------------
+        self.totalLossTracker.update_state(totalLoss)
+        self.rulLossTracker.update_state(rulLoss)
+
+        # Sensor loss
+        self.reacSensorTracker.update_state(sensorReacLoss)
+        self.sepSensorTracker.update_state(sensorSepLoss)
+        self.stripSensorTracker.update_state(sensorStripLoss)
+
+        # Construction loss 
+        self.reacConstructionTracker.update_state(reconLossCr1)
+        self.sepConstructionTracker.update_state(reconLossSep)
+        self.stripConstructionTracker.update_state(reconLossStrip)
+
+        # KL Loss
+        # self.reacKlLossTracker.update_state(klLossReac)
+        # self.sepKlLossTracker.update_state(klLossSep)
+        # self.stripKlLossTracker.update_state(klLossStrip)
+      
+
+        return {
+            "totalLoss"             : self.totalLossTracker.result(),
+            "rulLoss"               : self.rulLossTracker.result(),
+            "ssReLoss"              : self.reacSensorTracker.result(),
+            "ssSeLoss"              : self.sepSensorTracker.result(),
+            "ssStLoss"              : self.stripSensorTracker.result(),
+            "cstrReLoss"            : self.reacConstructionTracker.result(),
+            "cstrSeLoss"            : self.sepConstructionTracker.result(),
+            "cstrStLoss"            : self.stripConstructionTracker.result(),
+        }
+    
+    # --------------------------------
+    # The reconstruction loss
+    # --------------------------------
+    def _get_reconstruction_loss(self, X, X_recons): 
+        def get_reconst_loss_by_axis(X, X_c, axis): 
+            x_r     = tf.reduce_mean(X, axis = axis)
+            x_c_r   = tf.reduce_mean(X_recons, axis = axis)
+            err     = tf.math.squared_difference(x_r, x_c_r)
+            loss    = tf.reduce_sum(err)
+            return loss
+
+        # overall    
+        err             = tf.math.squared_difference(X, X_recons)
+        reconst_loss    = tf.reduce_sum(err)
+      
+        reconst_loss += get_reconst_loss_by_axis(X, X_recons, axis=[2])     # by time axis        
+        # reconst_loss += get_reconst_loss_by_axis(X, X_recons, axis=[1])    # by feature axis
+        return reconst_loss
+    
+        # --------------------------------
+        # Latent space constrains
+        # --------------------------------
+    def _getConstrain(self,inputData, type="expertCurve",alpha = 1, initCurve = 0, kRate = 0.064, tMovement = 20):
+        if type == "trendability":
+            x, t = inputData
+            x_mu = tf.reduce_mean(x)        # Calculate means
+            t_mu = tf.reduce_mean(t)        # Calculate means
+            
+            # -------------------------
+            # Calculate covariance and 
+            # standard deviation
+            # -------------------------
+            cov = tf.reduce_sum((x - x_mu) * (t - t_mu))
+            
+
+            # Calculate standard deviations
+            std = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu))) * tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
+            # -------------------------
+            # Check if std is finite and 
+            # greater than zero
+            # -------------------------
+            loss = tf.cond(tf.math.is_finite(std) & (std > 0), lambda: cov / (std), lambda: self.bestLoss)  # Use last loss if std is not finite
+            self.add_update(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
+            # loss = tf.abs(1/loss)                               # Making positive values and increase
+
+
+
+        elif type == "reliability":
+            # A       = 0.012
+            # B       = 4.95
+            # C       = 0.89
+            # BETA    = 6.7
+            # P       = 0.5
+
+            A       = 3.24689126e-04
+            B       = 6.75139693e-01
+            C       = 1.02044605e+00
+            BETA    = 3.5
+            P       = 0.5
+
+            # x, t        = inputData
+            # exp_part    = tf.pow(-tf.math.log(1 - P), -1 / BETA)
+            # HI          = C - tf.pow((t * exp_part) * A, B)
+            # # Use tf.where to ensure no negative HI values
+            # HI          = tf.where(HI < 0, tf.zeros_like(HI), HI)
+            # loss        = tf.reduce_mean(tf.abs(x - HI))    
+
+            z, t    = inputData
+            HI      = C - ((t * (-np.log(1 - P))**(-1/BETA))*A)**B
+            mask    = tf.math.less(HI,0)
+            HI      = tf.where(mask,0.0,HI)
+
+            # print(HI.shape, z.shape)
+            
+            loss    = tf.reduce_mean(tf.abs(z-HI))
+
+        elif type == "expertCurve":
+            x, t    = inputData
+            y       = tf.exp(kRate*(t+ tMovement))
+            loss    = tf.reduce_mean(tf.square(y - x))
+
+        elif type == "normalExp":
+            x, t    = inputData
+            k       = 0.04986
+            y       = tf.exp(-k*x)
+            loss    = tf.reduce_mean(tf.square(y - x))
+        return alpha*loss
+
+
+    # --------------------------------
+    # Save weight of each block
+    # --------------------------------
+    def save_weights(self, modelDir, type = "subclass"):
+        # encoderCr1Wts       = self.encoderCr1.get_weights()
+        # decoderCr1Wts       = self.decoderCr1.get_weights()
+        # maskCr1Wts          = self.maskCr1.get_weights()
+
+        # encoderCr2Wts       = self.encoderCr2.get_weights()
+        # decoderCr2Wts       = self.decoderCr2.get_weights()
+        # maskCr2Wts          = self.maskCr2.get_weights()
+
+        # encoderCv2Wts       = self.encoderCv2.get_weights()
+        # decoderCv2Wts       = self.decoderCv2.get_weights()
+        # maskCv2Wts          = self.maskCv2.get_weights()
+
+
+        hiAndRulWts         = self.hiSystemAndRul.get_weights()
+        
+        # joblib.dump(encoderCr1Wts, os.path.join(modelDir, "encoderCr1Wts.h5"))
+        # joblib.dump(decoderCr1Wts, os.path.join(modelDir, "decoderCr1Wts.h5"))
+        # joblib.dump(maskCr1Wts, os.path.join(modelDir, "maskCr1Wts.h5"))
+
+        # joblib.dump(encoderCr2Wts, os.path.join(modelDir, "encoderCr2Wts.h5"))
+        # joblib.dump(decoderCr2Wts, os.path.join(modelDir, "decoderCr2Wts.h5"))
+        # joblib.dump(maskCr2Wts, os.path.join(modelDir, "maskCr2Wts.h5"))
+
+        # joblib.dump(encoderCv2Wts, os.path.join(modelDir, "encoderCv2Wts.h5"))
+        # joblib.dump(decoderCv2Wts, os.path.join(modelDir, "decoderCv2Wts.h5"))
+        # joblib.dump(maskCv2Wts, os.path.join(modelDir, "maskCv2Wts.h5"))
+
+        joblib.dump(hiAndRulWts, os.path.join(modelDir, "hiAndRulWts.h5"))
+
+
+
+    # --------------------------------
+    # Load weight for each block
+    # of the model
+    # --------------------------------
+    def load_weights(self, modelDirComp1, modelDirComp2, modelDirComp3, modelDirSys,type = "subclass"):
+        aiLogger.info(f"Loading the model at the direction: {modelDirComp1}, {modelDirComp2}, {modelDirComp3}, {modelDirSys}")
+        encoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "encoderWts.h5"))
+        decoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "decoderWts.h5"))
+        maskCr1Wts         = joblib.load(os.path.join(modelDirComp1, "maskWts.h5"))
+
+        encoderCr2Wts      = joblib.load(os.path.join(modelDirComp2, "encoderWts.h5"))
+        decoderCr2Wts      = joblib.load(os.path.join(modelDirComp2, "decoderWts.h5"))
+        maskCr2Wts         = joblib.load(os.path.join(modelDirComp2, "maskWts.h5"))
+
+        encoderCv2Wts      = joblib.load(os.path.join(modelDirComp3, "encoderWts.h5"))
+        decoderCv2Wts      = joblib.load(os.path.join(modelDirComp3, "decoderWts.h5"))
+        maskCv2Wts         = joblib.load(os.path.join(modelDirComp3, "maskWts.h5"))
+
+        hiAndRulWts         = joblib.load(os.path.join(modelDirSys, "hiAndRulWts.h5"))
+
+        self.encoderCr1.set_weights(encoderCr1Wts)
+        self.decoderCr1.set_weights(decoderCr1Wts)
+        self.maskCr1.set_weights(maskCr1Wts)
+
+        self.encoderCr2.set_weights(encoderCr2Wts)
+        self.decoderCr2.set_weights(decoderCr2Wts)
+        self.maskCr2.set_weights(maskCr2Wts)
+
+        self.encoderCv2.set_weights(encoderCv2Wts)
+        self.decoderCv2.set_weights(decoderCv2Wts)
+        self.maskCv2.set_weights(maskCv2Wts)
+
+
+        # print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        # for layer in hiAndRulWts:
+        #     print(layer)
+        self.hiSystemAndRul.set_weights(hiAndRulWts)
+        aiLogger.info(f"Loaded the model at the direction:{modelDirComp1}, {modelDirComp2}, {modelDirComp3}, {modelDirSys} successfully!!!")
+    
+    def loadWeightAndFreezePretrainedHI(self, modelDirComp1, modelDirComp2, modelDirComp3, type = "subclass"):
+        aiLogger.info(f"Loading the model at the direction: {modelDirComp1}, {modelDirComp2}, {modelDirComp3}")
+        encoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "encoderWts.h5"))
+        decoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "decoderWts.h5"))
+        maskCr1Wts         = joblib.load(os.path.join(modelDirComp1, "maskWts.h5"))
+
+        encoderCr2Wts      = joblib.load(os.path.join(modelDirComp2, "encoderWts.h5"))
+        decoderCr2Wts      = joblib.load(os.path.join(modelDirComp2, "decoderWts.h5"))
+        maskCr2Wts         = joblib.load(os.path.join(modelDirComp2, "maskWts.h5"))
+
+        encoderCv2Wts      = joblib.load(os.path.join(modelDirComp3, "encoderWts.h5"))
+        decoderCv2Wts      = joblib.load(os.path.join(modelDirComp3, "decoderWts.h5"))
+        maskCv2Wts         = joblib.load(os.path.join(modelDirComp3, "maskWts.h5"))
+
+
+        self.encoderCr1.set_weights(encoderCr1Wts)
+        self.decoderCr1.set_weights(decoderCr1Wts)
+        self.maskCr1.set_weights(maskCr1Wts)
+
+        self.encoderCr2.set_weights(encoderCr2Wts)
+        self.decoderCr2.set_weights(decoderCr2Wts)
+        self.maskCr2.set_weights(maskCr2Wts)
+
+        self.encoderCv2.set_weights(encoderCv2Wts)
+        self.decoderCv2.set_weights(decoderCv2Wts)
+        self.maskCv2.set_weights(maskCv2Wts)
+
+
+        self.encoderCr1.trainable   = False
+        self.decoderCr1.trainable   = False
+        self.maskCr1.trainable      = False
+
+        self.encoderCr2.trainable   = False
+        self.decoderCr2.trainable   = False
+        self.maskCr2.trainable      = False
+
+        self.encoderCv2.trainable   = False
+        self.decoderCv2.trainable   = False
+        self.maskCv2.trainable      = False
+
+        aiLogger.info(f"Loaded the model at the direction:{modelDirComp1, modelDirComp2, modelDirComp3} and freezed it successfully!!!")
+
+    # --------------------------------
+    # This function is used for subclassing
+    # saving, for function api or sequential 
+    # method, change to use tensorflow saving
+    # --------------------------------
+    def save(self, model_dir, config = None):
+        aiLogger.info(f"Saving the model at the direction:{model_dir}")
+        os.makedirs(model_dir, exist_ok=True)
+        self.save_weights(model_dir)
+
+        # print(config)
+        # ---------------------
+        # Save parameter if possible
+        # if config is not None:
+        #     parameters = {  "seqLength"             : config["seqLength"],
+        #                     "featureDim"            : config["inFeatureDim"],
+        #                     "latentDim"             : config["latentDim"],
+        #                     "hiddenVAESize"         : config["hiddenVAESize"],
+        #                     }
+        #     parameterFile = os.path.join(model_dir, "parameters.pkl")
+        #     joblib.dump(parameters, parameterFile)
+        aiLogger.info(f"Saved the model at the direction:{model_dir} successfully!!!")
+
+
+
+# if __name__ == '__main__':
+#     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  
+#     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # or any {'0', '1', '2'}
+#     warnings.filterwarnings('ignore') 
+
+#     np.random.seed(1)
+#     random.seed(1)
+#     tf.random.set_seed(1)
+
+#     # ====================================
+#     # Config
+#     # ------------------------------------
+#     with open('utility/modelConfig.json', 'r') as configFile:
+#         config = json.load(configFile)
+#     myConfig   = config["system"]
+
+#     model       = SystemModel(myConfig)       
+#     model.compile( optimizer   =   Adam())
+

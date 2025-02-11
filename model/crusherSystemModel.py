@@ -306,6 +306,8 @@ class HiSystemAndRul(tf.keras.Model):
             hiSelectionInput = inputSensor
         else:
             hiSelectionInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
+        
+        aiLogger.debug(f"The shape of hiSelectionInput {hiSelectionInput.shape}")
         # ------------------------------
         # Create the HI selection
         # ------------------------------
@@ -323,11 +325,13 @@ class HiSystemAndRul(tf.keras.Model):
         maxSysHi            = tf.keras.layers.Maximum([inputHI1, inputHI2, inputHI3]) 
         linearSysHi         = tf.keras.layers.Dense(1)(concatenatedHiInput)
 
-        aiLogger.debug(minSysHi.shape, maxSysHi.shape, linearSysHi.shape)
+        aiLogger.debug(f"The shape of min, max and linear HI {minSysHi.shape, maxSysHi.shape, linearSysHi.shape}")
         
         sysConcatenatedHi   = tf.keras.layers.Concatenate(axis=-1, name="sysConcatenatedHi")([minSysHi, maxSysHi, linearSysHi])
         aiLogger.debug(sysConcatenatedHi.shape)
         selected_HI         = Multiply(name="Selected_HI")([hiMatrixOutput, sysConcatenatedHi])
+
+        aiLogger.debug(f"The shape of seleted_HI {selected_HI.shape}")
         sysHi               = Lambda(lambda x: tf.reduce_sum(x, axis=-1, keepdims=True), name="Final_HI")(selected_HI)            # Final HI (ensuring only one HI contributes to output)
 
         # ------------------------------
@@ -412,28 +416,28 @@ class SystemModel(tf.keras.Model):
         self.config             = config
         
         vaeCr1                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
-                                                            feat_dim            = config["inCr1"], 
+                                                            feat_dim            = config["allComp"][0], 
                                                             latent_dim          = config["latentDim"], 
                                                             hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                             config              = config
                                                         )
         vaeCr2                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
-                                                            feat_dim            = config["inCr2"], 
+                                                            feat_dim            = config["allComp"][1], 
                                                             latent_dim          = config["latentDim"], 
                                                             hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                             config              = config
                                                             )
         vaeCv2                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
-                                                            feat_dim            = config["inCv2"], 
+                                                            feat_dim            = config["allComp"][2], 
                                                             latent_dim          = config["latentDim"], 
                                                             hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                             config              = config
                                                             )
         
 
-        self.maskCr1           = SensorSelection(inFeature= config["inCr1"])
-        self.maskCr2           = SensorSelection(inFeature= config["inCr2"])
-        self.maskCv2           = SensorSelection(inFeature= config["inCv2"])
+        self.maskCr1           = SensorSelection(inFeature= config["allComp"][0])
+        self.maskCr2           = SensorSelection(inFeature= config["allComp"][1])
+        self.maskCv2           = SensorSelection(inFeature= config["allComp"][2])
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoderCr1        = vaeCr1.get_encoder(kernelSize = 3, stride = 2)
@@ -445,8 +449,13 @@ class SystemModel(tf.keras.Model):
         self.encoderCv2        = vaeCv2.get_encoder(kernelSize = 3, stride = 2)
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
+        modelName1             = "bestModel30Reac"
+        modelName2             = "bestModel31Sep"
+        modelName3             = "bestModel32Strip"
         if config["frezeComponents"]:
-            self.loadWeightAndFreezePretrainedHI(model_dir="checkpoint/sysBest_Trendability_SensorSelection/")
+            self.loadWeightAndFreezePretrainedHI(modelDirComp1= config["dataDir"] + "checkpoint/" + modelName1,
+                                                 modelDirComp2= config["dataDir"] + "checkpoint/" + modelName2,
+                                                 modelDirComp3= config["dataDir"] + "checkpoint/" + modelName3)
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
@@ -615,8 +624,7 @@ class SystemModel(tf.keras.Model):
             # ====================================
             #               LOSS
             # ------------------------------------
-            # Binarization regularization
-            hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)
+            hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)    #  Entropy-like loss to select only 1 value of 1
 
             # ------------------------------------
             # Loss for RUL
@@ -626,8 +634,6 @@ class SystemModel(tf.keras.Model):
 
             totalLoss =  rulLoss + hiSelectionLoss
                         
-           
-            
         # --------------------------------
         # Update gradient
         # --------------------------------
@@ -934,19 +940,19 @@ class SystemModel(tf.keras.Model):
         self.hiSystemAndRul.set_weights(hiAndRulWts)
         aiLogger.info(f"Loaded the model at the direction:{model_dir} successfully!!!")
     
-    def loadWeightAndFreezePretrainedHI(self, model_dir, type = "subclass"):
-        aiLogger.info(f"Loading the model at the direction: {model_dir}")
-        encoderCr1Wts      = joblib.load(os.path.join(model_dir, "encoderCr1Wts.h5"))
-        decoderCr1Wts      = joblib.load(os.path.join(model_dir, "decoderCr1Wts.h5"))
-        maskCr1Wts         = joblib.load(os.path.join(model_dir, "maskCr1Wts.h5"))
+    def loadWeightAndFreezePretrainedHI(self, modelDirComp1, modelDirComp2, modelDirComp3, type = "subclass"):
+        aiLogger.info(f"Loading the model at the direction: {modelDirComp1}, {modelDirComp2}, {modelDirComp3}")
+        encoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "encoderWts.h5"))
+        decoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "decoderWts.h5"))
+        maskCr1Wts         = joblib.load(os.path.join(modelDirComp1, "maskWts.h5"))
 
-        encoderCr2Wts      = joblib.load(os.path.join(model_dir, "encoderCr2Wts.h5"))
-        decoderCr2Wts      = joblib.load(os.path.join(model_dir, "decoderCr2Wts.h5"))
-        maskCr2Wts         = joblib.load(os.path.join(model_dir, "maskCr2Wts.h5"))
+        encoderCr2Wts      = joblib.load(os.path.join(modelDirComp2, "encoderWts.h5"))
+        decoderCr2Wts      = joblib.load(os.path.join(modelDirComp2, "decoderWts.h5"))
+        maskCr2Wts         = joblib.load(os.path.join(modelDirComp2, "maskWts.h5"))
 
-        encoderCv2Wts      = joblib.load(os.path.join(model_dir, "encoderCv2Wts.h5"))
-        decoderCv2Wts      = joblib.load(os.path.join(model_dir, "decoderCv2Wts.h5"))
-        maskCv2Wts         = joblib.load(os.path.join(model_dir, "maskCv2Wts.h5"))
+        encoderCv2Wts      = joblib.load(os.path.join(modelDirComp3, "encoderWts.h5"))
+        decoderCv2Wts      = joblib.load(os.path.join(modelDirComp3, "decoderWts.h5"))
+        maskCv2Wts         = joblib.load(os.path.join(modelDirComp3, "maskWts.h5"))
 
 
         self.encoderCr1.set_weights(encoderCr1Wts)
@@ -974,7 +980,7 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2.trainable   = False
         self.maskCv2.trainable      = False
 
-        aiLogger.info(f"Loaded the model at the direction:{model_dir} successfully!!!")
+        aiLogger.info(f"Loaded the model at the direction:{modelDirComp1, modelDirComp2, modelDirComp3} and freezed it successfully!!!")
 
     # --------------------------------
     # This function is used for subclassing
