@@ -53,11 +53,12 @@
     "inReac"            : 45,
     "inSep"             : 45,
     "inStrip"           : 45,
-    "component"         : "Sep",
+    "component"         : "Sys",
     "_componentName"    : ["Reac", "Sep", "Strip", "Sys"],
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,
-    "numOfCases"        : 6
+    "numOfCases"        : 6,
+    "frezeComponents"   : true
 },
 
 

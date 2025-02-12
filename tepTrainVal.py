@@ -114,7 +114,7 @@ if __name__ == '__main__':
                                                          # Model
     if myConfig["component"] == "Sys":
         model       = SystemModel(myConfig)  
-        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inCr1"]),(None, myConfig["seqLength"], myConfig["inCr2"]), (None, myConfig["seqLength"], myConfig["inCv2"])])
+        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inReac"]), (None, 1, myConfig["inReac"]), (None, 1)])
     else:
         model       = mainModel(myConfig)  
         model.build(input_shape=[(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]), (None, 1, myConfig["in" + myConfig["component"]]), (None, 1)])

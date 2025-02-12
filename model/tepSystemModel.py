@@ -1,7 +1,7 @@
 # ====================================
 #  IMPORT LIBRARIES
 # ====================================
-from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, Embedding, MultiHeadAttention, Lambda, Multiply
+from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, Embedding, MultiHeadAttention, Lambda, Multiply, Minimum, Maximum
 from keras                          import backend as K
 from keras.models                   import Model
 from keras.optimizers               import Adam
@@ -293,7 +293,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputSensor = Input(shape=(45,),    name = "SensorInputForHISelection")
+        inputSensor = Input(shape=(128,45),    name = "SensorInputForHISelection")
         inputRUL1   = Input(shape=(8, 5),     name = "lastLayerAEComponent1")
         inputRUL2   = Input(shape=(8, 5),     name = "lastLayerAEComponent2")
         inputRUL3   = Input(shape=(8, 5),     name = "lastLayerAEComponent3")
@@ -305,35 +305,39 @@ class HiSystemAndRul(tf.keras.Model):
         if config["useInputAsHISelection"]:
             hiSelectionInput = inputSensor
         else:
-            hiSelectionInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
+            flatInRUL1          = Flatten()(inputRUL1)  # Shape: (32, 40)
+            flatInRUL2          = Flatten()(inputRUL2)  # Shape: (32, 40)
+            flatInRUL3          = Flatten()(inputRUL3)  # Shape: (32, 40)
+            hiSelectionInput    = Concatenate(axis=-1)([flatInRUL1, flatInRUL2, flatInRUL3])
         
         aiLogger.debug(f"The shape of hiSelectionInput {hiSelectionInput.shape}")
         # ------------------------------
-        # Create the HI selection
+        # Create the HI selection matrix
         # ------------------------------
-        x                   = Dense(24, activation="relu")(hiSelectionInput)
+        x                   = Dense(32, activation="relu")(hiSelectionInput)
         x                   = Dense(16, activation="relu")(x)
         selection_logits    = Dense(3, activation=None, name="Selection_Logits")(x)
         hiMatrixOutput      = Lambda(lambda x: tf.nn.softmax(x / 1), name="Selection_Output")(selection_logits)  # Softmax with τ=0.1 for sharper selection
-
+        aiLogger.debug(f"The shape of multiplied matrix {hiMatrixOutput.shape}")
 
         # ------------------------------
         # Create min, max and linear HI
         # ------------------------------
         concatenatedHiInput = Concatenate(axis=-1)([inputHI1, inputHI2, inputHI3])
-        minSysHi            = tf.keras.layers.Minimum([inputHI1, inputHI2, inputHI3])
-        maxSysHi            = tf.keras.layers.Maximum([inputHI1, inputHI2, inputHI3]) 
-        linearSysHi         = tf.keras.layers.Dense(1)(concatenatedHiInput)
+        minSysHi            = Minimum()([inputHI1, inputHI2, inputHI3])
+        maxSysHi            = Maximum()([inputHI1, inputHI2, inputHI3]) 
+        linearSysHi         = Dense(1)(concatenatedHiInput)
 
         aiLogger.debug(f"The shape of min, max and linear HI {minSysHi.shape, maxSysHi.shape, linearSysHi.shape}")
         
         sysConcatenatedHi   = tf.keras.layers.Concatenate(axis=-1, name="sysConcatenatedHi")([minSysHi, maxSysHi, linearSysHi])
-        aiLogger.debug(sysConcatenatedHi.shape)
+        aiLogger.debug(f"The shape after concatenation {sysConcatenatedHi.shape}")
         selected_HI         = Multiply(name="Selected_HI")([hiMatrixOutput, sysConcatenatedHi])
 
-        aiLogger.debug(f"The shape of seleted_HI {selected_HI.shape}")
+        aiLogger.debug(f"The shape after multiplying with mask {selected_HI.shape}")
         sysHi               = Lambda(lambda x: tf.reduce_sum(x, axis=-1, keepdims=True), name="Final_HI")(selected_HI)            # Final HI (ensuring only one HI contributes to output)
 
+        aiLogger.debug(f"The shape of HI after reducing dimension {sysHi.shape}")
         # ------------------------------
         # RUL
         # ------------------------------
@@ -358,12 +362,11 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, unchangeFeatures = 0, baseline=0.01, numEnvs = 3):
+    def __init__(self, inFeature = 45, numEnvs = 3):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
         super(SensorSelection, self).__init__()
-        self.baseline    = baseline
         # self.mask_logits = self.add_weight(shape        = (inFeature,),
         #                                    initializer  = 'zeros',
         #                                    trainable    = True,
@@ -416,28 +419,28 @@ class SystemModel(tf.keras.Model):
         self.config             = config
         
         vaeCr1                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
-                                                            feat_dim            = config["allComp"][0], 
+                                                            feat_dim            = config["in" + config["allComp"][0]], 
                                                             latent_dim          = config["latentDim"], 
                                                             hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                             config              = config
                                                         )
         vaeCr2                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
-                                                            feat_dim            = config["allComp"][1], 
+                                                            feat_dim            = config["in" + config["allComp"][1]], 
                                                             latent_dim          = config["latentDim"], 
                                                             hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                             config              = config
                                                             )
         vaeCv2                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
-                                                            feat_dim            = config["allComp"][2], 
+                                                            feat_dim            = config["in" + config["allComp"][2]], 
                                                             latent_dim          = config["latentDim"], 
                                                             hidden_layer_sizes  = config["hiddenVAESize"], # [50,100,200]      #[80, 200, 250] 
                                                             config              = config
                                                             )
         
 
-        self.maskCr1           = SensorSelection(inFeature= config["allComp"][0])
-        self.maskCr2           = SensorSelection(inFeature= config["allComp"][1])
-        self.maskCv2           = SensorSelection(inFeature= config["allComp"][2])
+        self.maskCr1           = SensorSelection(inFeature= config["in" + config["allComp"][0]], )
+        self.maskCr2           = SensorSelection(inFeature= config["in" + config["allComp"][1]], )
+        self.maskCv2           = SensorSelection(inFeature= config["in" + config["allComp"][2]], )
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoderCr1        = vaeCr1.get_encoder(kernelSize = 3, stride = 2)
@@ -449,13 +452,14 @@ class SystemModel(tf.keras.Model):
         self.encoderCv2        = vaeCv2.get_encoder(kernelSize = 3, stride = 2)
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
+        dataDir                = os.path.expanduser(config["dataDir"])
         modelName1             = "bestModel30Reac"
         modelName2             = "bestModel31Sep"
         modelName3             = "bestModel32Strip"
         if config["frezeComponents"]:
-            self.loadWeightAndFreezePretrainedHI(modelDirComp1= config["dataDir"] + "checkpoint/" + modelName1,
-                                                 modelDirComp2= config["dataDir"] + "checkpoint/" + modelName2,
-                                                 modelDirComp3= config["dataDir"] + "checkpoint/" + modelName3)
+            self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/" + modelName1,
+                                                 modelDirComp2= dataDir + "checkpoint/" + modelName2,
+                                                 modelDirComp3= dataDir + "checkpoint/" + modelName3)
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
@@ -476,7 +480,7 @@ class SystemModel(tf.keras.Model):
     # ------------------------------------------
     def call(self,input):
 
-        seqDataCr1, seqDataCr2, seqDataCv2 = input
+        seqData,seqCycle, env                   = input
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
@@ -489,29 +493,28 @@ class SystemModel(tf.keras.Model):
         probsMaskCr2 = None
         probsMaskCv2 = None
         if self.config["useMask"]:
-            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
-            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
-            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
 
             zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
             zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
         else:
-            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqDataCr1)
-            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqDataCr2)
-            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqDataCv2)
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqData)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
         
-        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
-
      
-        return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, hiSystem, predictedRul
+        return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, sysHi, predictedRul
 
     # ==========================================
     # Get custom layer
     # ------------------------------------------
     def getHIandRUL(self,input):
-        seqDataCr1, seqDataCr2, seqDataCv2 = input
+        seqData,seqCycle, env                   = input
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
@@ -524,23 +527,25 @@ class SystemModel(tf.keras.Model):
         probsMaskCr2 = None
         probsMaskCv2 = None
         if self.config["useMask"]:
-            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqDataCr1)
-            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqDataCr2)
-            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqDataCv2)
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
 
             zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
             zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
         else:
-            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqDataCr1)
-            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqDataCr2)
-            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqDataCv2)
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqData)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
         
-        hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        
+        # hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
 
      
-        return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, hiSystem, predictedRul
+        return zCr1, zCr2,  zCv2, sysHi, predictedRul
     
     def getRUL(self,input):
         seqDataCr1, seqDataCr2, seqDataCv2 = input
@@ -929,7 +934,7 @@ class SystemModel(tf.keras.Model):
     
     def loadWeightAndFreezePretrainedHI(self, modelDirComp1, modelDirComp2, modelDirComp3, type = "subclass"):
         aiLogger.info(f"Loading the model at the direction: {modelDirComp1}, {modelDirComp2}, {modelDirComp3}")
-        encoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "encoderWts.h5"))
+        encoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, 'encoderWts.h5'))
         decoderCr1Wts      = joblib.load(os.path.join(modelDirComp1, "decoderWts.h5"))
         maskCr1Wts         = joblib.load(os.path.join(modelDirComp1, "maskWts.h5"))
 
