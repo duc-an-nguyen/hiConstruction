@@ -470,8 +470,10 @@ class mainModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(data)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
-        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", comp = comp)
-        return hi, binaryMask,probs, rul
+        # hi   = self.hiFormular(z = zCr1, env = env, comp = comp)
+        return zCr1, binaryMask,probs, rul
+    
+
     # ==========================================
     # Training (replace the default)
     # ------------------------------------------

@@ -1,5 +1,6 @@
 import pandas       as pd
 import numpy        as np
+import tensorflow   as tf
 import random
 import json
 import package
@@ -294,7 +295,13 @@ class PreProcessData(object):
     # ===================================
     # This function is used to load the h5 file
     # -----------------------------------
-    def loadDataFromH5Format(self,dir = "./", name = "data/teps.h5", case = "all", reduceSampleRate = False):
+    def loadDataFromH5Format(self,dir   = "./", 
+                             name       = "data/teps.h5", 
+                             case       = "all", 
+                             reduceSampleRate   = False, 
+                             removeHigherThr    = False, 
+                             columnNames        = ["Product Sep Level", "Stripper Level","Stripper Level","Stripper Level", "Product Sep Level", "Product Sep Level"], 
+                             trend              = ["up", "up", "up", "up", "up", "up"]):
         aiLogger.info("Loading data from H5 files ...")
         # print(dir)
         # ---------------------
@@ -304,7 +311,19 @@ class PreProcessData(object):
             for idxCase in range(self.numOfCases):
                 curCase                         = idxCase + 1                                           # index starts from 0, case starts from 1
                 curRawData                      = pd.read_hdf(dir+ name, key='case' + str(curCase))
-                self.rawData[idxCase + 1]       = curRawData[curRawData.index % 2 != 1] if reduceSampleRate else curRawData
+                self.rawData[curCase]           = curRawData[curRawData.index % 2 != 1] if reduceSampleRate else curRawData
+
+                if removeHigherThr:
+                    aiLogger.info(f"Remove the exceeded amplitude at the case {curCase}")
+                    clName             = columnNames[idxCase]
+                    curCaseRm          = self.rawData[curCase].copy()
+                    minAllID           = curCaseRm.groupby("Id")[clName].min()
+                    maxAllID           = curCaseRm.groupby("Id")[clName].max()
+                    aiLogger.debug(f" The min and max value at the case {curCase} are {minAllID, maxAllID}")
+                    removeTHR          = minAllID.max() if trend[idxCase] == "down" else maxAllID.min()
+                    aiLogger.debug(f"Threshold to remove is {removeTHR}")
+                    self.rawData[curCase] = curCaseRm[curCaseRm[clName] > removeTHR] if trend[idxCase] == "down" else curCaseRm[curCaseRm[clName] < removeTHR]
+                    # print(self.rawData[curCase])
         # ---------------------
         # Reading 1 case only
         else:
@@ -563,14 +582,40 @@ class PreProcessData(object):
 
         return outData
     
-    def normalizeHIInGeneral(self,inData = None):
+    def normalizeHIInGeneral(self,inData = [None], indexToShutdown = 2):
+        
+        # global_min = min(df.min().min() for df in inData[indexToShutdown])
+        # threshold   = global_min  # Adjust 20 if needed
+        # outData = []
+        # for curData in inData:
+        #     curHI           = [1 - hi/threshold for hi in curData]
+        #     curHI           = tf.where(curHI < 0, 0.0, curHI)  # Set negative values to 0
+        #     outData.append(curHI)
+        # print(inData[2][0].shape)
+        # print(inData[2][0])
 
-        maxAllComp, minAllComp = self.getMaxNestedMatrix(inData)             # Get the max values of each feature
 
-        for comp in inData.keys():
-            inData[comp] = [(inData[comp][idx] - minAllComp)/(maxAllComp- minAllComp) for idx in range(self.trajectoryPerCase)]
+        max_values  = [tf.reduce_max(tensor).numpy() for tensor in inData[indexToShutdown]]
+        # print(max_values)
+        threshold   = min(max_values)  # Adjust 20 if needed
+        print(threshold)
+        outData = []
+        for curData in inData:
+            normalized_sublist = []
+            for tensor in curData:
+                # Apply normalization to each TensorFlow tensor
+                curHI = 1 - (tensor / threshold)
 
-        return inData
+                # Clip negative values to 0
+                curHI = tf.where(curHI < 0, 0.0, curHI)
+
+                normalized_sublist.append(curHI)
+
+            outData.append(normalized_sublist)
+
+        return outData
+
+        # return outData
     
 
     # ==============================
@@ -802,6 +847,7 @@ class PreProcessData(object):
         # -------------------
         tensor =   np.stack(allSeq, axis=0)   
 
+        aiLogger.debug(f"The shape of the tensor is {tensor.shape}")
         if shuffle:
             np.random.shuffle(tensor)
 
