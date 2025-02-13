@@ -444,8 +444,7 @@ class mainModel(tf.keras.Model):
             zCr1,  sysHILayerCr1        = self.encoder(data)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
     
-        _,hi   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", comp = self.config["component"])
-        return hi, binaryMask,probs, rul
+        return zCr1, binaryMask,probs, rul
 
     # ==========================================
     # Get custom layer
@@ -819,19 +818,19 @@ class mainModel(tf.keras.Model):
                 comp = self.config["component"]
 
             if comp == "Reac":
-                hiEnv1 = tf.exp(0.044*(t - 30))
-                hiEnv2 = tf.zeros_like(t)  # Always 0
-                hiEnv3 = tf.exp(0.044*(t - 30))
+                hiEnv1 = -tf.exp(0.044*(t - 30))
+                hiEnv2 = -tf.zeros_like(t)  # Always 0
+                hiEnv3 = -tf.exp(0.044*(t - 30))
 
             elif comp == "Sep":
-                hiEnv1 = tf.zeros_like(t)  # Always 0
-                hiEnv2 = tf.exp(0.044*(t - 30))
-                hiEnv3 = tf.exp(0.079*(t - 60))
+                hiEnv1 = -tf.zeros_like(t)  # Always 0
+                hiEnv2 = -tf.exp(0.044*(t - 30))
+                hiEnv3 = -tf.exp(0.079*(t - 60))
 
             elif comp == "Strip":
-                hiEnv1 = tf.exp(0.079*(t - 60))
-                hiEnv2 = tf.exp(0.079*(t - 60))
-                hiEnv3 = tf.exp(0.197*(t - 90))
+                hiEnv1 = -tf.exp(0.079*(t - 60))
+                hiEnv2 = -tf.exp(0.079*(t - 60))
+                hiEnv3 = -tf.exp(0.197*(t - 90))
             else:
                 raise KeyError("Check again the component names!!!")
             

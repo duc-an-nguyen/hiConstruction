@@ -336,6 +336,7 @@ class HiSystemAndRul(tf.keras.Model):
 
         aiLogger.debug(f"The shape after multiplying with mask {selected_HI.shape}")
         sysHi               = Lambda(lambda x: tf.reduce_sum(x, axis=-1, keepdims=True), name="Final_HI")(selected_HI)            # Final HI (ensuring only one HI contributes to output)
+        # sysHi               = linearSysHi
 
         aiLogger.debug(f"The shape of HI after reducing dimension {sysHi.shape}")
         # ------------------------------
@@ -453,9 +454,9 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
         dataDir                = os.path.expanduser(config["dataDir"])
-        modelName1             = "bestModel30Reac"
-        modelName2             = "bestModel31Sep"
-        modelName3             = "bestModel32Strip"
+        modelName1             = "bestModel34Reac"
+        modelName2             = "bestModel35Sep"
+        modelName3             = "bestModel36Strip"
         if config["frezeComponents"]:
             self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/" + modelName1,
                                                  modelDirComp2= dataDir + "checkpoint/" + modelName2,
@@ -505,7 +506,7 @@ class SystemModel(tf.keras.Model):
             zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
         
-        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
      
         return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, sysHi, predictedRul
@@ -545,7 +546,7 @@ class SystemModel(tf.keras.Model):
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
 
      
-        return zCr1, zCr2,  zCv2, sysHi, predictedRul
+        return zCr1, zCr2,  zCv2, sysHi, predictedRul, hiMatrixOutput
     
     def getRUL(self,input):
         seqDataCr1, seqDataCr2, seqDataCv2 = input
@@ -618,15 +619,21 @@ class SystemModel(tf.keras.Model):
             # ====================================
             #               LOSS
             # ------------------------------------
-            hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)    #  Entropy-like loss to select only 1 value of 1
-
+            
             # ------------------------------------
             # Loss for RUL
             # ------------------------------------
-            rulLoss = tf.keras.losses.mae(predictedRul,rulY)
-            rulLoss = tf.reduce_mean(rulLoss)
+            rulLoss     = tf.keras.losses.mae(predictedRul,rulY)
+            rulLoss     = tf.reduce_mean(rulLoss)
+            totalLoss   = rulLoss
 
-            totalLoss =  rulLoss + hiSelectionLoss
+            if self.config["hiSelection"]:
+                hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)    #  Entropy-like loss to select only 1 value of 1
+                totalLoss       += hiSelectionLoss
+            else:
+                hiSelectionLoss = 0
+
+
                         
         # --------------------------------
         # Update gradient
