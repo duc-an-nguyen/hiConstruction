@@ -582,38 +582,37 @@ class PreProcessData(object):
 
         return outData
     
-    def normalizeHIInGeneral(self,inData = [None], indexToShutdown = 2):
+    def normalizeHIInGeneral(self,inData = [None], indexToShutdown = 2, time = None, rul = None, multipliedMt = None, showRedundantShutdown = True):
         
-        # global_min = min(df.min().min() for df in inData[indexToShutdown])
-        # threshold   = global_min  # Adjust 20 if needed
-        # outData = []
-        # for curData in inData:
-        #     curHI           = [1 - hi/threshold for hi in curData]
-        #     curHI           = tf.where(curHI < 0, 0.0, curHI)  # Set negative values to 0
-        #     outData.append(curHI)
-        # print(inData[2][0].shape)
-        # print(inData[2][0])
-
-
-        max_values  = [tf.reduce_max(tensor).numpy() for tensor in inData[indexToShutdown]]
+        max_values  = [tf.reduce_min(tensor).numpy() for tensor in inData[indexToShutdown]]
         # print(max_values)
-        threshold   = min(max_values)  # Adjust 20 if needed
-        print(threshold)
+        threshold   = max(max_values)  # Adjust 20 if needed
+        mask        = [tf.greater_equal(curHI, threshold) for curHI in inData[indexToShutdown]]        # Create a mask for redundant shutdown
+        
+        time        = [time[idx][mask[idx]] for idx in range(len(time))] if not showRedundantShutdown else time
+        rul         = [rul[idx][mask[idx]] for idx in range(len(rul))] if not showRedundantShutdown else rul
+        rul         = [rul[idx] - rul[idx][-1] for idx in range(len(rul))] if not showRedundantShutdown else rul
+        multipliedMt = [multipliedMt[idx].numpy()[mask[idx].numpy().flatten()] for idx in range(len(multipliedMt))] if not showRedundantShutdown else multipliedMt
+
         outData = []
         for curData in inData:
             normalized_sublist = []
-            for tensor in curData:
+            for idxTensor, tensor in enumerate(curData):
                 # Apply normalization to each TensorFlow tensor
                 curHI = 1 - (tensor / threshold)
 
                 # Clip negative values to 0
-                curHI = tf.where(curHI < 0, 0.0, curHI)
+                if showRedundantShutdown:
+                    curHI = tf.where(curHI < 0, 0.0, curHI)
+                else:
+                    curHI           = curHI[mask[idxTensor]]
+                    
 
                 normalized_sublist.append(curHI)
 
             outData.append(normalized_sublist)
 
-        return outData
+        return outData, time, rul, multipliedMt
 
         # return outData
     

@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import os
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from utility.logger import aiLogger
 class MatPlot(object):
     def __init__(self):
@@ -187,6 +189,38 @@ class MatPlot(object):
         plt.tight_layout()
         plt.show()
 
+    def subPlotMultiImgPlotly(self,
+                        inX         = [],
+                        inY         = [],
+                        subPlotName = "Name",
+                        numRow      = 2,
+                        numCol      = 2,
+                        color       = None,
+                        xLim        = [],
+                        yLim        = []):
+
+        if type(inY) is not list:
+            raise ValueError("The inY should be a list of component HI. If you use one component only, please put them into the list as well.")
+
+        fig = make_subplots(rows=numRow, cols=numCol, subplot_titles=[f"T{i+1}" for i in range(len(inY[0]))])
+
+        for idxEachHi in range(len(inY[0])):
+            row = (idxEachHi // numCol) + 1
+            col = (idxEachHi % numCol) + 1
+
+            for idxComp in range(len(inY)):
+                line_color = color[idxComp] if color else None
+
+                if len(inX) == 0:
+                    fig.add_trace(go.Scatter(y=inY[idxComp][idxEachHi], mode='lines', line=dict(color=line_color)), row=row, col=col)
+                else:
+                    fig.add_trace(go.Scatter(x=inX[idxEachHi], y=inY[idxComp][idxEachHi], mode='lines', line=dict(color=line_color)), row=row, col=col)
+
+            if len(yLim) == 2:
+                fig.update_yaxes(range=yLim, row=row, col=col)
+
+        fig.update_layout(height=300*numRow, width=400*numCol, title_text=subPlotName, showlegend=False)
+        fig.show()
 
         # =============================
     # Plot multiple image in subplot
