@@ -314,7 +314,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Create the HI selection matrix
         # ------------------------------
-        x                   = Dense(32, activation="relu")(hiSelectionInput)
+        x                   = Dense(24, activation="relu")(hiSelectionInput)
         x                   = Dense(16, activation="relu")(x)
         selection_logits    = Dense(3, activation=None, name="Selection_Logits")(x)
         hiMatrixOutput      = Lambda(lambda x: tf.nn.softmax(x / 1), name="Selection_Output")(selection_logits)  # Softmax with τ=0.1 for sharper selection
@@ -344,9 +344,9 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         concatenatedRULInput = Concatenate(axis=-1)([inputRUL1, inputRUL2, inputRUL3])
         # concatenatedRULInput = Concatenate(axis=-1)([inputRUL1, inputRUL2])
-        rulLayer1   = GRU(32, return_sequences=True)(concatenatedRULInput)
-        rulLayer2   = GRU(16, return_sequences=True)(rulLayer1)
-        rulLayer3   = GRU(3, return_sequences=False)(rulLayer2)
+        rulLayer1   = LSTM(32, return_sequences=True)(concatenatedRULInput)
+        rulLayer2   = LSTM(16, return_sequences=True)(rulLayer1)
+        rulLayer3   = LSTM(3, return_sequences=False)(rulLayer2)
         rulLayer4   = Concatenate(axis=-1)([rulLayer3, sysHi])
         rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
         
