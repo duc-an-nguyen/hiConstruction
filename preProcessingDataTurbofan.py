@@ -37,29 +37,12 @@ class PreProcessData(object):
         self.numOfCases         = self.config["numOfCases"]
         self.trajectoryPerCase  = self.config["trajectoryPerCase"]
 
-        self.scenario           = {}
-        self.scenario[1]        = "mode 6: reactor     -> separator"
-        self.scenario[2]        = "mode 4: reactor     -> stripper"
-        self.scenario[3]        = "mode 6: separator   -> stripper"
-        self.scenario[4]        = "mode 2: reactor     -> separator    -> stripper"
-        self.scenario[5]        = "mode 1: reactor     -> stripper     -> separator"
-        self.scenario[6]        = "mode 5: separator   -> stripper     -> separator"
-        self.scenario[7]        = "mode 2: reactor     -> separator"
+    
         
         
-        self.allHeadline             = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         'Recycle',              'Purge', 
-                                        'Separator',                'Stripper',                 'Steam',                    'Reactor Coolant',      'Condenser Coolant',    'Agitator',                 # 12 manipulated variables
-                                        'msv A Feed',               'msv D Feed',               'msv E Feed',               'msv A and C Feed',     'Recycle Flow',         'Reactor Feed Rate',        # 41 measured variables
-                                        'Reactor Pressure',         'Reactor Temperature',      'Purge Rate',               'Product Sep Temp', 
-                                        'Product Sep Pressure',     'Product Sep Underflow',    'Stripper Pressure',        'Reactor Coolant Temp',
-                                        'Stripper Underflow',       'Stripper Temp',            'Stripper Steam Flow',      'Compressor Work',      
-                                        'Separator Coolant Temp',   'Component A to Reactor',   'Component B to Reactor',   'Component C to Reactor',
-                                        'Component D to Reactor',   'Component E to Reactor',   'Component F to Reactor',   'Component A to Purge',
-                                        'Component B to Purge',     'Component C to Purge',     'Component D to Purge',     'Component E to Purge',
-                                        'Component F to Purge',     'Component G to Purge',     'Component H to Purge',     'Component D to Product',
-                                        'Component E to Product',   'Component F to Product',   'Component G to Product',   'Component H to Product',
-                                        'Reactor Level',            'Product Sep Level',        'Stripper Level',
-                                        'Liquid Input Stripper',    'Liquid Input Separator',   'Liquid Input Reactor']     #"rul"
+        self.allHeadline             = ['id', 'cycle', 'setting1', 'setting2', 'setting3', 's1', 's2', 's3',
+                                        's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
+                                        's15', 's16', 's17', 's18', 's19', 's20', 's21']     #"rul"
         
         self.allWithoutLabel         = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         'Recycle',              'Purge', 
                                         'Separator',                'Stripper',                 'Steam',                    'Reactor Coolant',      'Condenser Coolant',    'Agitator',                 # 12 manipulated variables
@@ -245,6 +228,14 @@ class PreProcessData(object):
         yTrain              = [allSeqXRulTrain[:,-1,:]]
         print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
         return xTrain, yTrain
+
+    # ===================================
+    # -----------------------------------
+    def createSystemData(self,):
+           
+        
+        
+        return True
 
     # ===================================
     # This function is used to load the 
