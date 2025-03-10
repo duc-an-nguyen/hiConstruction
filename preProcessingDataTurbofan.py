@@ -45,33 +45,8 @@ class PreProcessData(object):
                                         's15', 's16', 's17', 's18', 's19', 's20', 's21']     #"rul"
     
         
-        self.allWithoutLabel         = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         'Recycle',              'Purge', 
-                                        'Separator',                'Stripper',                 'Steam',                    'Reactor Coolant',      'Condenser Coolant',    'Agitator',                 # 12 manipulated variables
-                                        'msv A Feed',               'msv D Feed',               'msv E Feed',               'msv A and C Feed',     'Recycle Flow',         'Reactor Feed Rate',        # 41 measured variables
-                                        'Reactor Pressure',         'Reactor Temperature',      'Purge Rate',               'Product Sep Temp', 
-                                        'Product Sep Pressure',     'Product Sep Underflow',    'Stripper Pressure',        'Reactor Coolant Temp',
-                                        'Stripper Underflow',       'Stripper Temp',            'Stripper Steam Flow',      'Compressor Work',      
-                                        'Separator Coolant Temp',   'Component A to Reactor',   'Component B to Reactor',   'Component C to Reactor',
-                                        'Component D to Reactor',   'Component E to Reactor',   'Component F to Reactor',   'Component A to Purge',
-                                        'Component B to Purge',     'Component C to Purge',     'Component D to Purge',     'Component E to Purge',
-                                        'Component F to Purge',     'Component G to Purge',     'Component H to Purge',     'Component D to Product',
-                                        'Component E to Product',   'Component F to Product',   'Component G to Product',   'Component H to Product',
-                                        ]     #"rul"
-        
-        self.allWithoutLabelNoBias  = [ 'E Feed',                    'A Feed',                   'A and C Feed',            'Purge', 
-                                        'Separator',                'Stripper',                 'Reactor Coolant',          'Condenser Coolant',                        # 12 manipulated variables
-                                        'msv A Feed',               'msv D Feed',               'msv E Feed',               'msv A and C Feed',     'Recycle Flow',         'Reactor Feed Rate',        # 41 measured variables
-                                        'Reactor Pressure',         'Reactor Temperature',      'Purge Rate',               'Product Sep Temp', 
-                                        'Product Sep Pressure',     'Product Sep Underflow',    'Stripper Pressure',        'Reactor Coolant Temp',
-                                        'Stripper Underflow',       'Stripper Temp',            'Compressor Work',      
-                                        'Separator Coolant Temp',   'Component A to Reactor',   'Component B to Reactor',   'Component C to Reactor',
-                                        'Component D to Reactor',   'Component E to Reactor',   'Component F to Reactor',   'Component A to Purge',
-                                        'Component B to Purge',     'Component C to Purge',     'Component D to Purge',     'Component E to Purge',
-                                        'Component F to Purge',     'Component G to Purge',     'Component H to Purge',     'Component D to Product',
-                                        'Component E to Product',   'Component F to Product',   'Component G to Product',   'Component H to Product',
-                                        ]     #"rul"
-        
-        
+        self.allWithoutLabel         = ['s2', 's3', 's4', 's7', 's8', 's9', 's11', 's12', 's13', 's14', 's15', 's17', 's20', 's21']     #"rul"
+            
         
         # --------------------------
         # The sensor for each machine
@@ -150,40 +125,23 @@ class PreProcessData(object):
     # ------------------------------------
     def getTrainData(self,):
         package.include()
-        # outputDir           = os.path.expanduser(self.config["dataDir"])
-        # rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case="all", reduceSampleRate = True)
-        rawData                 = self.createSystemData(numberOfTrajectories = 300)
-        # print(rawData.keys())
-        # ----------------------------
-        # Split train and test data
-        # ----------------------------
-        if self.config["splitTrainTest"]:
-            rawTrainData = {}
-            rawTestData  = {}
-            for idxKeys,idxValues in rawData.items():
-                rawTrainData[idxKeys] = idxValues[idxValues["Id"] <=    self.config["trajectoryPerCase"]].copy()
-                rawTestData[idxKeys]  = idxValues[idxValues["Id"] >     self.config["trajectoryPerCase"]].copy()
-        else:
-            rawTrainData = rawData
-
-        withRULData         = self.addRULAndEnvironment(rawTrainData)
+        outputDir           = os.path.expanduser(self.config["dataDir"])
+        rawData             = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
+        
         # withoutInitRawData  = self.removeInitState(inData= withRULData)
-
         # ---------------------------
         # For data
-        cleanData           = self.cleanData(   rawSignal           =   withRULData,
+        cleanData           = self.cleanData(   rawSignal           =   rawData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
                                                 flipToDown          =   False)
-        # ---------------------------
-        # For label, flip only
-        cleanData           = self.cleanData(rawSignal              =   cleanData,
-                                                columnName          =   self.degraLiq,
-                                                getMovingAverage    =   False,
-                                                flipToDown          =   False)
+
         norData             = self.normalizeDataEachModes(  rawData    =   cleanData,
                                                             headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
         aiLogger.info(norData.keys())
+
+        withRULData         = self.addRULAndEnvironment(rawData)
+        rawTrainData        = self.createSystemData(numberOfTrajectories = 300)
         # ---------------------------
         # Extract the data in each Case
         allSeqXAllSensorTrain   = []
@@ -192,22 +150,14 @@ class PreProcessData(object):
         allSeqTime              = []
         for idxCase in self.config["case"]:
             data                = norData[idxCase]
-            # print(data.head)
             trajectID           = data["Id"]
-            # reactor             = data[preData.headline["reactor"]]
-            # separator           = data[preData.headline["separator"]]
-            # stripper            = data[preData.headline["stripper"]]
             allSensor           = data[self.headline["allWithoutLabelNoBias"]]
-            # allSensor           = data[self.headline["reactor"]]
             rul                 = data["rul"]
             timeTraj            = data["Time"]
             env                 = data["environmentID"]
 
-            # # ---------------------------
-            # # For training
-            # seqXReacTrain,          \
-            # seqXSepTrain,           \
-            # seqXStripTrain,         \
+            # ---------------------------
+            # For training
             seqXAllSensorTrain,     \
             seqXRulTrain,           \
             seqXTrainEnv,seqTime        = self.getTensorData(dataList    = [allSensor,rul,env,timeTraj],
@@ -231,30 +181,6 @@ class PreProcessData(object):
         print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
         return xTrain, yTrain
 
-    # ===================================
-    # -----------------------------------
-    # def createSystemData(self,):
-    #     outputDir   = os.path.expanduser(self.config["dataDir"])
-    #     rawData     = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
-    #     data        = {}
-    #     for idxCase in range(3):
-    #         case        = idxCase + 1
-    #         data[case]          = {}
-    #         data[case]["comp1"] = pd.DataFrame()
-    #         data[case]["comp2"] = pd.DataFrame()
-    #         data[case]["comp3"] = pd.DataFrame()
-    #         for _ in range(400):
-    #             randomIdx           = np.random.choice(np.arange(1, 101), size=3, replace=False)
-    #             newCompTraject1     = rawData[rawData["id"] == randomIdx[0]]
-    #             data[case]["comp1"] = pd.concat([data[case]["comp1"], newCompTraject1], ignore_index=True)
-
-    #             newCompTraject2     = rawData[rawData["id"] == randomIdx[1]]
-    #             data[case]["comp2"] = pd.concat([data[case]["comp2"], newCompTraject2], ignore_index=True)
-
-    #             newCompTraject3     = rawData[rawData["id"] == randomIdx[2]]
-    #             data[case]["comp3"] = pd.concat([data[case]["comp2"], newCompTraject3], ignore_index=True)
-
-    #     return True
     # ===================================
     # This function is used to create the 
     # data from turbofan engine 
@@ -444,13 +370,7 @@ class PreProcessData(object):
         # -------------------
         for key in inData.keys():
             inData[key].insert(2,"environmentID",key)                     # Insert the case = idx + 1
-            # aiLogger.debug(key)
-
-        # self.headline["reactor"]    = ["environmentID"]    +    self.headline["reactor"]
-        # self.headline["separator"]  = ["environmentID"]    +    self.headline["separator"]    
-        # self.headline["stripper"]   = ["environmentID"]    +    self.headline["stripper"]     
-
-        # print(self.headline["reactor"])
+   
 
         withRulData = inData.copy()
         # -------------------
@@ -530,20 +450,16 @@ class PreProcessData(object):
         # Get average moving or 
         # flip to down
         # --------------------------
-        outSignal   = rawSignal.copy()                         # Copy the data to avoid changing the underline data
+        outSignal       = rawSignal.copy()                          # Copy the data to avoid changing the underline data
 
-        if columnName is None:
-            columnName  = rawSignal[1].columns[3:-4]               # Get a random case, and get the name of all column, exclude the time, ID, environment, inputs and rul
-        
-        for caseKey,value in outSignal.items():                 # Run each case to get a case from a dictionary, each case contains a pandas
-            for col in columnName:                              # Run with each pandas column to get the feature
-                if getMovingAverage:
-                    aiLogger.info(f"Getting average data at case {caseKey} and column {col} ...")
-                    outSignal[caseKey][col]   = value.groupby('Id',sort=False)[col].transform(lambda x: self.getMovingAverage(x, windowSize))   
-                
-                if flipToDown:
-                    aiLogger.info(f"Flipping data at case {caseKey} and column {col} ...")
-                    outSignal[caseKey][col]   = value.groupby('Id',sort=False)[col].transform(lambda x: self.flip2Down(x))   
+        for col in columnName:                                  # Run with each pandas column to get the feature
+            if getMovingAverage:
+                aiLogger.info(f"Getting average data column {col} ...")
+                outSignal[col]   = rawSignal.groupby('id',sort=False)[col].transform(lambda x: self.getMovingAverage(x, windowSize))   
+            
+            if flipToDown:
+                aiLogger.info(f"Flipping data at column {col} ...")
+                outSignal[col]   = rawSignal.groupby('id',sort=False)[col].transform(lambda x: self.flip2Down(x))   
 
         return outSignal
 
