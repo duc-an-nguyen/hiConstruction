@@ -43,6 +43,7 @@ class PreProcessData(object):
         self.allHeadline             = ['id', 'cycle', 'setting1', 'setting2', 'setting3', 's1', 's2', 's3',
                                         's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
                                         's15', 's16', 's17', 's18', 's19', 's20', 's21']     #"rul"
+    
         
         self.allWithoutLabel         = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         'Recycle',              'Purge', 
                                         'Separator',                'Stripper',                 'Steam',                    'Reactor Coolant',      'Condenser Coolant',    'Agitator',                 # 12 manipulated variables
@@ -149,8 +150,9 @@ class PreProcessData(object):
     # ------------------------------------
     def getTrainData(self,):
         package.include()
-        outputDir           = os.path.expanduser(self.config["dataDir"])
-        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case="all", reduceSampleRate = True)
+        # outputDir           = os.path.expanduser(self.config["dataDir"])
+        # rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case="all", reduceSampleRate = True)
+        rawData                 = self.createSystemData(numberOfTrajectories = 300)
         # print(rawData.keys())
         # ----------------------------
         # Split train and test data
@@ -231,11 +233,49 @@ class PreProcessData(object):
 
     # ===================================
     # -----------------------------------
-    def createSystemData(self,):
-           
-        
-        
-        return True
+    # def createSystemData(self,):
+    #     outputDir   = os.path.expanduser(self.config["dataDir"])
+    #     rawData     = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
+    #     data        = {}
+    #     for idxCase in range(3):
+    #         case        = idxCase + 1
+    #         data[case]          = {}
+    #         data[case]["comp1"] = pd.DataFrame()
+    #         data[case]["comp2"] = pd.DataFrame()
+    #         data[case]["comp3"] = pd.DataFrame()
+    #         for _ in range(400):
+    #             randomIdx           = np.random.choice(np.arange(1, 101), size=3, replace=False)
+    #             newCompTraject1     = rawData[rawData["id"] == randomIdx[0]]
+    #             data[case]["comp1"] = pd.concat([data[case]["comp1"], newCompTraject1], ignore_index=True)
+
+    #             newCompTraject2     = rawData[rawData["id"] == randomIdx[1]]
+    #             data[case]["comp2"] = pd.concat([data[case]["comp2"], newCompTraject2], ignore_index=True)
+
+    #             newCompTraject3     = rawData[rawData["id"] == randomIdx[2]]
+    #             data[case]["comp3"] = pd.concat([data[case]["comp2"], newCompTraject3], ignore_index=True)
+
+    #     return True
+    # ===================================
+    # This function is used to create the 
+    # data from turbofan engine 
+    # -----------------------------------
+    def createSystemData(self, numberOfTrajectories = 400):
+        outputDir       = os.path.expanduser(self.config["dataDir"])
+        rawData         = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
+        grouped_data    = {k: v for k, v in rawData.groupby("id")}                                                          # Pre-group `rawData` by 'id' for O(1) lookup
+        data            = {}                                                                                                # Initialize dictionary for cases
+        # print("the group data", grouped_data)
+        for idxCase in range(3):
+            case            = idxCase + 1
+            selected_ids    = np.array([np.random.choice(np.arange(1, 101), size=3, replace=False) for _ in range(numberOfTrajectories)])     # Generate 400 sets of 3 unique trajectory IDs per iteration
+            # print(f"ID selection at the Idx case {idxCase}")
+            # print(selected_ids)
+            comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
+            comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
+            comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
+
+            data[case] = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
+        return data
 
     # ===================================
     # This function is used to load the 
@@ -273,14 +313,42 @@ class PreProcessData(object):
     # This function is used to save the 
     # file into H5 File
     # -----------------------------------
-    def save2H5Format(self,dir = "data/",data = None):
-        self.case = self.case if data is None else data
-        aiLogger.info("Saving data to h5 file ...")
-        for idxCase,valueCase in self.case.items():
+    # def save2H5Format(self,dir = "data/",data = None):
+    #     self.case = self.case if data is None else data
+    #     aiLogger.info("Saving data to h5 file ...")
+    #     for idxCase,valueCase in self.case.items():
+    #         valueCase.to_hdf(dir + 'data/TurbofanEngines.h5', key=f"case{idxCase}", mode='a')
 
-            valueCase.to_hdf(dir + 'data/newTeps.h5', key=f"case{idxCase}", mode='a')
+    #     aiLogger.info("Finish saving data to h5 file ...")
 
-        aiLogger.info("Finish saving data to h5 file ...")
+
+    # ===================================
+    # This function is used to save the 
+    # file into H5 File
+    # -----------------------------------
+    def save2H5Format(self, rawData         =   [None],
+                            name            =   "turbofanEngines",
+                            dir             =   "data/",
+                            keys            =   ["defaultName1"],
+                        ):
+        '''
+        rawData:    it should be a list of the pandas data or numpy
+        name:       the name of the one wanting to save
+        dir:        directory to save
+        key:        if many cases in a same file, use key to denote the difference
+        '''
+        if rawData[0] is None:
+            raise KeyError("The value of rawData should not be None, please put valid values into a list")
+
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+
+        for idx, data in enumerate(rawData):
+            aiLogger.info("Saving data to h5 file ...")
+            writingMode = 'w' if idx==0 else 'a'
+            data.to_hdf(dir + name + ".h5", key=keys[idx], mode= writingMode)
+            
+            aiLogger.info(f"Finish saving data {keys[idx]} to h5 file ...")
 
 
     # ===================================
@@ -1009,10 +1077,12 @@ if __name__ == '__main__':
 
     with open('utility/modelConfig.json', 'r') as configFile:
         config = json.load(configFile)
-    myConfig   = config["tep"]
+    myConfig   = config["turbofan"]
 
     preData     = PreProcessData(config=myConfig)
-    testData = preData.getTrainData()
+    data        = preData.createSystemData()
+    print(data)
+    # testData = preData.getTrainData()
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=
     # HANDLE THE DATA WITH ALL CASE
