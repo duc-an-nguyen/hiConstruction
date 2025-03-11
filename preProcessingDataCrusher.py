@@ -1525,7 +1525,6 @@ class PreProcessData(object):
     def cleanDataTest(self,data,headline=None):
         data.dropna(subset=headline, inplace=True)
         data.drop_duplicates(subset='tiempo', inplace=True)
-
         return data
 
     def cleanData(self, data, headline = None):

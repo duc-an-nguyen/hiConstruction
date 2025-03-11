@@ -38,8 +38,6 @@ class PreProcessData(object):
         self.trajectoryPerCase  = self.config["trajectoryPerCase"]
 
     
-        
-        
         self.allHeadline             = ['id', 'cycle', 'setting1', 'setting2', 'setting3', 's1', 's2', 's3',
                                         's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
                                         's15', 's16', 's17', 's18', 's19', 's20', 's21']     #"rul"
@@ -47,76 +45,13 @@ class PreProcessData(object):
         
         self.allWithoutLabel         = ['s2', 's3', 's4', 's7', 's8', 's9', 's11', 's12', 's13', 's14', 's15', 's17', 's20', 's21']     #"rul"
             
-        
         # --------------------------
         # The sensor for each machine
         # --------------------------
         self.headline                = {}
-        self.otherFactor             = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         
-                                        'Recycle',                  'Purge',                    'Steam',                    'Condenser Coolant',    
-                                        'Agitator',                 'msv A Feed',               'msv D Feed',               'msv E Feed',                   # 12 manipulated variables
-                                        'msv A and C Feed',         'Recycle Flow',             'Reactor Feed Rate',        'Purge Rate',                   # 41 measured variables
-                                        'Compressor Work',          'Component A to Reactor',   'Component B to Reactor',   'Component C to Reactor',
-                                        'Component D to Reactor',   'Component E to Reactor',   'Component F to Reactor',   'Component A to Purge',
-                                        'Component B to Purge',     'Component C to Purge',     'Component D to Purge',     'Component E to Purge',
-                                        'Component F to Purge',     'Component G to Purge',     'Component H to Purge',     'Component D to Product',
-                                        'Component E to Product',   'Component F to Product',   'Component G to Product',   'Component H to Product',]
-
-                
-    
-        # --------------------------------
-        # Stable
-        self.reactorHeadline = ["Stripper",               'Reactor Coolant',      "Reactor Coolant Temp", 'Stripper Underflow', 
-                                'Component F to Reactor', 'Component F to Purge', "Component E to Product",]
-                                
-
-        self.separatorHeadline  = ['Reactor Pressure', 'Product Sep Temp', 'Product Sep Pressure']
-
-        # self.stripperHeadline  = ["E Feed", "msv E Feed", "Stripper",               'Reactor Coolant',      "Reactor Coolant Temp", 'Stripper Underflow', 
-        #                           'Component F to Reactor', 'Component F to Purge', "Component E to Product",]
-
-
-        self.stripperHeadline    = [ "E Feed",   "A Feed",     "Purge",     "Separator", 
-                                    "Purge Rate", "Product Sep Underflow",
-                                      "Stripper Pressure",   "Component B to Reactor", 
-                                     ]                        #stable                  
-        
-        # --------------------------------
-        # Testing
-        self.reactorHeadline = ['Reactor Coolant',      'Reactor Feed Rate', 'Reactor Pressure', 'Reactor Temperature', 
-                                "Reactor Coolant Temp"]    
-
-        self.separatorHeadline  = ['Separator', 'Product Sep Temp', 'Product Sep Underflow', "Separator Coolant Temp", "Compressor Work"]
-
-
-        self.stripperHeadline   = [ "Stripper",     "Stripper Temp",  "Component G to Purge", "Component E to Product", "A and C Feed"              
-                                    ]    
-
-
-        # self.reactorHeadline    = ['Reactor Coolant']
-        # self.separatorHeadline  = ['Product Sep Temp']
-        # self.stripperHeadline   = ["Stripper"]  
-        
-
-        self.headline["reactor"]                = self.reactorHeadline
-        self.headline["separator"]              = self.separatorHeadline
-        self.headline["stripper"]               = self.stripperHeadline
-        
         self.headline["all"]                    = self.allHeadline
         self.headline["allWithoutLabel"]        = self.allWithoutLabel
-        self.headline["allWithoutLabelNoBias"]  = self.allWithoutLabelNoBias
-        
-        # self.reactorHeadline    = [ "Reactor Coolant",          'Reactor Pressure',         'Reactor Temperature'       'Reactor Coolant Temp'
-        #                             ]
-                                                                    
-        # self.separatorHeadline  = [ "Separator",                'Product Sep Temp',         'Product Sep Pressure',     "Product Sep Underflow",   
-        #                             "Separator Coolant Temp",      ]
-                                
-                                                                    
-    
-        self.degraLiq           = ['Reactor Level','Product Sep Level','Stripper Level']
-        self.degraInput         = ['Liquid Input Stripper',    'Liquid Input Separator',   'Liquid Input Reactor']
-        
+       
         
     # ====================================
     # This function is used to generate 
@@ -128,79 +63,85 @@ class PreProcessData(object):
         outputDir           = os.path.expanduser(self.config["dataDir"])
         rawData             = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
         
-        # withoutInitRawData  = self.removeInitState(inData= withRULData)
+        # withoutInitRawData  = self.removeInitState(inData = withRULData)
         # ---------------------------
         # For data
         cleanData           = self.cleanData(   rawSignal           =   rawData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
                                                 flipToDown          =   False)
+        cleanData['cycle_norm'] = cleanData['cycle'].copy()
 
         norData             = self.normalizeDataEachModes(  rawData    =   cleanData,
-                                                            headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
+                                                            headline   =   self.headline["allWithoutLabel"] + ["cycle_norm"])   # Normalize the data
         aiLogger.info(norData.keys())
+        withRULData         = self.addRULAndEnvironment(norData)
+        
+        max_batch           = withRULData['id'].value_counts().max()
+        train_cols          = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ['cycle_norm', 'rul']
+        X                   = self.engine(withRULData, train_cols, max_batch)
+        
+        rawTrainData        = self.createSystemData(data = X, numberOfTrajectories = 200)
 
-        withRULData         = self.addRULAndEnvironment(rawData)
-        rawTrainData        = self.createSystemData(numberOfTrajectories = 300)
-        # ---------------------------
-        # Extract the data in each Case
-        allSeqXAllSensorTrain   = []
-        allSeqXRulTrain         = []
-        allSeqXTrainEnv         = []
-        allSeqTime              = []
-        for idxCase in self.config["case"]:
-            data                = norData[idxCase]
-            trajectID           = data["Id"]
-            allSensor           = data[self.headline["allWithoutLabelNoBias"]]
-            rul                 = data["rul"]
-            timeTraj            = data["Time"]
-            env                 = data["environmentID"]
-
-            # ---------------------------
-            # For training
-            seqXAllSensorTrain,     \
-            seqXRulTrain,           \
-            seqXTrainEnv,seqTime        = self.getTensorData(dataList    = [allSensor,rul,env,timeTraj],
-                                                                trajectId   = trajectID,  
-                                                                shuffle     = True,      
-                                                                seqLength   = self.config["seqLength"],
-                                                                overlap     = self.config["overLap"]         
-                                                                )
-            allSeqXAllSensorTrain.append(seqXAllSensorTrain)  
-            allSeqXRulTrain.append(seqXRulTrain)  
-            allSeqXTrainEnv.append(seqXTrainEnv) 
-            allSeqTime.append(seqTime) 
-
-        allSeqXAllSensorTrain   = np.concatenate(allSeqXAllSensorTrain, axis=0)
-        allSeqXRulTrain         = np.concatenate(allSeqXRulTrain, axis=0)
-        allSeqXTrainEnv         = np.concatenate(allSeqXTrainEnv, axis=0)
-        allSeqTime              = np.concatenate(allSeqTime, axis=0)
-        # comp                    = np.ones_like(allSeqXTrainEnv[:,-1,:]) * self.indexComponent[self.config["component"]]
         xTrain              = [allSeqXAllSensorTrain, allSeqTime[:,-1,:],allSeqXTrainEnv[:,-1,:]]
         yTrain              = [allSeqXRulTrain[:,-1,:]]
-        print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
-        return xTrain, yTrain
+        # print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
+        return True
+
+
+            
+    def sequence(self,df, max_seq, mask=0):
+        return np.pad(df.values, ((0, max_seq- df.values.shape[0]), (0,0)),  "constant", constant_values=mask)
+  
+    def engine(self,df, cols, max_batch, mask=0):
+        return np.array([self.sequence(df[df['id'] == batch_id][cols], max_batch, mask=mask) for batch_id in df['id'].unique()])
+  
 
     # ===================================
     # This function is used to create the 
     # data from turbofan engine 
     # -----------------------------------
-    def createSystemData(self, numberOfTrajectories = 400):
-        outputDir       = os.path.expanduser(self.config["dataDir"])
-        rawData         = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
-        grouped_data    = {k: v for k, v in rawData.groupby("id")}                                                          # Pre-group `rawData` by 'id' for O(1) lookup
+    def createSystemData(self, data = None, numberOfTrajectories = 400):
+        # --------------------------
+        # Read data if none type
+        # --------------------------
+        if data is None: 
+            outputDir       = os.path.expanduser(self.config["dataDir"])
+            rawData         = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
+        else:
+            rawData         = data
+        # --------------------------
+        # Group the data into ID and
+        # initiate the values
+        # --------------------------
+        # grouped_data    = {k: v for k, v in rawData.groupby("id")}                                                          # Pre-group `rawData` by 'id' for O(1) lookup
         data            = {}                                                                                                # Initialize dictionary for cases
-        # print("the group data", grouped_data)
-        for idxCase in range(3):
-            case            = idxCase + 1
+        mode            = ["min", "max", "linear"]
+        # --------------------------
+        # Create system data
+        # --------------------------
+        for idxCase, curMode in enumerate(mode):
+            env             = idxCase + 1
             selected_ids    = np.array([np.random.choice(np.arange(1, 101), size=3, replace=False) for _ in range(numberOfTrajectories)])     # Generate 400 sets of 3 unique trajectory IDs per iteration
-            # print(f"ID selection at the Idx case {idxCase}")
-            # print(selected_ids)
+            
+            comp1           = rawData[selected_ids[:, 0]]
+            comp2           = rawData[selected_ids[:, 1]]
+            comp3           = rawData[selected_ids[:, 2]]
+
+            
             comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
             comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
             comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
 
-            data[case] = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
+            # if curMode == "min":
+            #     rul = min(comp1_df["rul"],comp2_df["rul"], comp3_df["rul"])
+            # elif curMode == "max":
+            #     rul = max(comp1_df["rul"],comp2_df["rul"], comp3_df["rul"])
+            # else:
+            #     rul = min(max(comp1_df["rul"],comp2_df["rul"]), comp3_df["rul"])
+
+
+            data[case]      = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
         return data
 
     # ===================================
@@ -317,8 +258,6 @@ class PreProcessData(object):
         aiLogger.info(f"Finish loading data from H5 files at case {case}...")
         return self.rawData
 
-
-
     # =====================================
     # This function is used to load data
     # from the txt files
@@ -368,16 +307,15 @@ class PreProcessData(object):
         # Insert the environment
         # variable
         # -------------------
-        for key in inData.keys():
-            inData[key].insert(2,"environmentID",key)                     # Insert the case = idx + 1
+        # for key in inData.keys():
+        #     inData[key].insert(2,"environmentID",key)                     # Insert the case = idx + 1
    
-
         withRulData = inData.copy()
         # -------------------
         # Run for each case
         # -------------------
-        for caseKey,values in inData.items():       
-            withRulData[caseKey]["rul"]   = values.groupby('Id',sort=False)['Time'].transform(lambda x: x.max() - x)
+        # for caseKey,values in inData.items():       
+        withRulData["rul"]   = inData.groupby('id',sort=False)['cycle'].transform(lambda x: x.max() - x)
             
         aiLogger.info("Adding rul successfully...")
         return withRulData
@@ -712,17 +650,17 @@ class PreProcessData(object):
         # Convert all to float 64
         # for consistence
         # ----------------------
-        for caseKey in rawData.keys():
-            rawData[caseKey] = rawData[caseKey].astype('float64')
+        # for caseKey in rawData.keys():
+        #     rawData[caseKey] = rawData[caseKey].astype('float64')
 
         # maxEachCase = pd.DataFrame(columns=rawData.keys())          # Create an empty pandas with different key from cases
         # minEachCase = pd.DataFrame(columns=rawData.keys())          # Create an empty pandas with different key from cases
-        for caseKey,value in rawData.items():                       # Run for loop in each case to get the max and min from pandas
-            maxEachCase = value.max(axis = 0)
-            minEachCase = value.min(axis = 0)
-   
-            # rawData[caseKey].iloc[:,3:-1]  = (rawData[caseKey].iloc[:,3:-1] - minEachCase[3:-1].T) / (maxEachCase[3:-1].T - minEachCase[3:-1].T)
-            rawData[caseKey][headline]  = (rawData[caseKey][headline] - minEachCase[headline].T) / (maxEachCase[headline].T - minEachCase[headline].T)
+        # for caseKey,value in rawData.items():                       # Run for loop in each case to get the max and min from pandas
+        maxEachCase = rawData.max(axis = 0)
+        minEachCase = rawData.min(axis = 0)
+
+        # rawData[caseKey].iloc[:,3:-1]  = (rawData[caseKey].iloc[:,3:-1] - minEachCase[3:-1].T) / (maxEachCase[3:-1].T - minEachCase[3:-1].T)
+        rawData[headline]  = (rawData[headline] - minEachCase[headline].T) / (maxEachCase[headline].T - minEachCase[headline].T)
         return rawData
 
     
@@ -996,9 +934,9 @@ if __name__ == '__main__':
     myConfig   = config["turbofan"]
 
     preData     = PreProcessData(config=myConfig)
-    data        = preData.createSystemData()
-    print(data)
-    # testData = preData.getTrainData()
+    # data        = preData.createSystemData()
+    # print(data)
+    testData = preData.getTrainData()
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=
     # HANDLE THE DATA WITH ALL CASE
