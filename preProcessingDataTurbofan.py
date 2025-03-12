@@ -76,25 +76,61 @@ class PreProcessData(object):
                                                             headline   =   self.headline["allWithoutLabel"] + ["cycle_norm"])   # Normalize the data
         aiLogger.info(norData.keys())
         withRULData         = self.addRULAndEnvironment(norData)
+
+        padData             = self.padDataForTheSameTrajectoryLength(withRULData)
+
+        trajectID           = padData["id"]
+        allSensor           = padData[self.headline["allWithoutLabel"]]
+        rul                 = padData["rul"] 
+        timeTraj            = padData["cycle_norm"]    
+
+        seqXAllSensorTrain,     \
+        seqXRulTrain,           \
+        seqTime             = self.getTensorData(   dataList    = [allSensor,rul,timeTraj],
+                                                    trajectId   = trajectID,  
+                                                    shuffle     = False,      
+                                                    seqLength   = self.config["seqLength"],
+                                                    overlap     = self.config["overLap"]         
+                                                    )
+
+        if self.config["compEnv"] is not list:
+            fixedEnv            = np.ones_like(seqTime)*2
         
-        max_batch           = withRULData['id'].value_counts().max()
-        train_cols          = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ['cycle_norm', 'rul']
-        X                   = self.engine(withRULData, train_cols, max_batch)
+        # aiLogger.debug(f"The shape of input data is {fixedEnv[:,-1,:].shape}")
+        xTrain              = [seqXAllSensorTrain, seqTime[:,-1,:],fixedEnv[:,-1,:]]
+        yTrain              = [seqXRulTrain[:,-1,:]]
+        print(f"The size of the train data: xTrain {seqXAllSensorTrain.shape} Time {seqTime[:,-1,:].shape} Environment {fixedEnv[:,-1,:].shape} RUL {seqXRulTrain[:,-1,:].shape}")
+        return xTrain, yTrain
+
+
+    # ===================================
+    # This function is used to pad to
+    # get the same length trajectory
+    # -----------------------------------
+    def padDataForTheSameTrajectoryLength(self,data):
+        # -----------------------
+        # The function to pad trajectory
+        # -----------------------
+        max_length = data['id'].value_counts().max()
+        def pad_trajectory(group):
+            """Pads each group's trajectory to match max_length with 0s."""
+            pad_size = max_length - len(group)
+            pad_values = np.pad(group.values, ((0, pad_size), (0, 0)), mode='constant', constant_values=0)
+            return pd.DataFrame(pad_values, columns=group.columns)
         
-        rawTrainData        = self.createSystemData(data = X, numberOfTrajectories = 200)
+        padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["cycle_norm", "rul"]
+        padded_values   = data.groupby('id', group_keys=False)[padCols].apply(pad_trajectory).reset_index(drop=True)
 
-        xTrain              = [allSeqXAllSensorTrain, allSeqTime[:,-1,:],allSeqXTrainEnv[:,-1,:]]
-        yTrain              = [allSeqXRulTrain[:,-1,:]]
-        # print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
-        return True
-
-
+        # -------------------------
+        # Attach the id to make sure
+        # the same length
+        # -------------------------
+        padded_ids      = data.groupby('id')['id'].apply(lambda g: g.iloc[0]).repeat(max_length).reset_index(drop=True)
+        padded_data     = pd.concat([padded_ids, padded_values], axis=1)
+        # padded_data.to_excel("output.xlsx")
+        return padded_data
             
-    def sequence(self,df, max_seq, mask=0):
-        return np.pad(df.values, ((0, max_seq- df.values.shape[0]), (0,0)),  "constant", constant_values=mask)
   
-    def engine(self,df, cols, max_batch, mask=0):
-        return np.array([self.sequence(df[df['id'] == batch_id][cols], max_batch, mask=mask) for batch_id in df['id'].unique()])
   
 
     # ===================================
@@ -129,9 +165,9 @@ class PreProcessData(object):
             comp3           = rawData[selected_ids[:, 2]]
 
             
-            comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
-            comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
-            comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
+            # comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
+            # comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
+            # comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
 
             # if curMode == "min":
             #     rul = min(comp1_df["rul"],comp2_df["rul"], comp3_df["rul"])
@@ -141,7 +177,7 @@ class PreProcessData(object):
             #     rul = min(max(comp1_df["rul"],comp2_df["rul"]), comp3_df["rul"])
 
 
-            data[case]      = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
+            # data[case]      = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
         return data
 
     # ===================================

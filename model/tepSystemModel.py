@@ -407,7 +407,6 @@ class SensorSelection(tf.keras.Model):
         return binary_mask, probs
 
 
-
 # ==================================================
 #                   SYSTEM MODEL
 # ==================================================

@@ -291,7 +291,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputRUL1 = Input(shape=(8, 5))
+        inputRUL1 = Input(shape=(1, 5))
         # inputRUL2 = Input(shape=(8, 5))
         # inputRUL3 = Input(shape=(8, 5))
 
@@ -359,8 +359,7 @@ class SensorSelection(tf.keras.Model):
         # ------------------------
         # print("-------------------------------", env.shape)
         env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
-        # # modeIndex           = (env -1)* self.numComponents + comp
-        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
+        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors) each sequence (after split) will have a different env, so env should be a batch (include differnt env to access to the mask)                    
     
         probs               = tf.sigmoid(env_mask_logits)
         random_uniform      = tf.random.uniform(tf.shape(probs))
@@ -369,7 +368,14 @@ class SensorSelection(tf.keras.Model):
         # mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
         # mask                = tf.expand_dims(mask, axis=0)
         # maskedData      = rawData * mask
+        print("-------------------------------")
+        print(self.mask_logits.shape)
+        print(env_mask_logits.shape)
+        print(rawData.shape)
+
         maskedData          = rawData * probs
+        print(maskedData.shape)
+        print("-------------------------------")
         return maskedData, probs, binary_mask
     
     def getMask(self,):
@@ -396,7 +402,8 @@ class mainModel(tf.keras.Model):
                                                         config              = config
                                                         )
         
-        self.mask           = SensorSelection(inFeature= config["in" + config["component"]])
+        self.mask           = SensorSelection(inFeature = config["in" + config["component"]], 
+                                              numEnvs   = config["compEnv"])
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoder        = vae.get_encoder(kernelSize = 3, stride = 2)
@@ -418,8 +425,6 @@ class mainModel(tf.keras.Model):
         self.bestLoss                       = tf.Variable(float('inf'), trainable=False)
         self.indexComponent                 = {"Reac": 0, "Sep": 1, "Strip": 2}
         
-
-
     # ==========================================
     # Call function
     # ------------------------------------------
@@ -429,13 +434,14 @@ class mainModel(tf.keras.Model):
         # Encoder and Decoder for 3 components
         # ------------------------------------
         # print("Encoder ")
-        # print(input.shape)
+        # print("The input data",input.shape)
         data, seqCycle, env             = input
-
+        print("The shape of real data",data.shape)
         binaryMask = None
         probs      = None
         if self.config["useMask"]:
             encIn, probs, binaryMask    = self.mask(data,env)
+            print(encIn.shape)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             rul                         = self.hiSystemAndRul(sysHILayerCr1)
         else:
@@ -535,9 +541,9 @@ class mainModel(tf.keras.Model):
             # ------------------------------------
             # Add the constrain to the latent space
             # ------------------------------------
-            if self.config["latentConstrains"] :
-                # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", alpha=10)
+            if self.config["latentConstrains"]:
+                zReacLoss,_     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+                # zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -714,14 +720,13 @@ class mainModel(tf.keras.Model):
             self.add_update(self.bestLoss.assign(loss))         # Update lastLoss if std is valid 
             # loss = tf.abs(1/loss)                               # Making positive values and increase
 
-
+            hiTarget = None
 
             # std_x = tf.math.sqrt(tf.reduce_sum(tf.square(x - x_mu)))
             # std_t = tf.math.sqrt(tf.reduce_sum(tf.square(t - t_mu)))
             # loss    = cov / (std_x * std_t)
             # Loss: 1 - abs(correlation) to ensure the loss is bounded between 0 and 1
             # loss = 1 - tf.abs(correlation)
-
 
         elif type == "reliability":
             # A       = 0.012
