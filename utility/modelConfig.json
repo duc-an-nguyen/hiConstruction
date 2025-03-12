@@ -72,7 +72,7 @@
     "splitTrainTest"    : false,   
     "useMask"           : true,
     "compEnv"           : 1,
-    "useRUL"            : false,
+    "useRUL"            : true,
     "latentConstrains"  : true,
     "unchangeFeatures"  : 0,
     "learningRate":     0.01, 
@@ -91,12 +91,12 @@
     "inComp1"           : 14,
     "inComp2"           : 14,
     "inComp3"           : 14,
-    "component"         : "Comp1",
+    "component"         : "Sys",
     "_componentName"    : ["Comp","Sys"],
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,
     "numOfCases"        : 1,
-    "frezeComponents"   : false,
+    "frezeComponents"   : true,
     "hiSelection"       : true
 },
 

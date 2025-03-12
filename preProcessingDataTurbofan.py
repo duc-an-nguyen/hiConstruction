@@ -96,9 +96,12 @@ class PreProcessData(object):
         if self.config["compEnv"] is not list:
             fixedEnv            = np.ones_like(seqTime)*2
         
-        # aiLogger.debug(f"The shape of input data is {fixedEnv[:,-1,:].shape}")
-        xTrain              = [seqXAllSensorTrain, seqTime[:,-1,:],fixedEnv[:,-1,:]]
-        yTrain              = [seqXRulTrain[:,-1,:]]
+        if self.config["component"] == "Sys":
+            xTrain              = [seqXAllSensorTrain, seqTime[:,-1,:],fixedEnv[:,-1,:]]
+            yTrain              = [seqXRulTrain[:,-1,:]]
+        else:
+            xTrain              = [seqXAllSensorTrain, seqTime[:,-1,:],fixedEnv[:,-1,:]]
+            yTrain              = [seqXRulTrain[:,-1,:]]
         print(f"The size of the train data: xTrain {seqXAllSensorTrain.shape} Time {seqTime[:,-1,:].shape} Environment {fixedEnv[:,-1,:].shape} RUL {seqXRulTrain[:,-1,:].shape}")
         return xTrain, yTrain
 
