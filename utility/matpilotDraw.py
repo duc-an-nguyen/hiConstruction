@@ -3,6 +3,7 @@ import os
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from utility.logger import aiLogger
+import numpy as np
 class MatPlot(object):
     def __init__(self):
         pass
@@ -19,6 +20,69 @@ class MatPlot(object):
         plt.grid(True)
         plt.show()
 
+    def draw2DWithEvent(self, xCoor=[0, 10],
+           yCoor=[0, 10],
+           yLabel="Y Value",
+           xLabel="Time Unit",
+           title="XYAxis",
+           saveFig=False,
+           direction="checkpoint/",
+           events=None,
+           savedName="default", 
+           figsize  = (10,5)):
+    
+        plt.figure(figsize=figsize)
+        
+        # Define a list of colors for different trajectories
+        colors = ['blue', 'green', 'orange', 'purple', 'brown', 'pink', 'cyan', 'magenta']
+        
+        if events is not None and len(events) > 0:
+            # Ensure events are sorted
+            events = sorted(events)
+            
+            # Start the first segment before the first event
+            start_idx = 0
+            
+            for i, event in enumerate(events):
+                # Find the index where the event occurs in xCoor
+                event_idx = np.searchsorted(xCoor, event)
+                
+                # Plot the trajectory segment with a different color
+                plt.plot(xCoor[start_idx:event_idx], yCoor[start_idx:event_idx], color=colors[i % len(colors)], label=f'Trajectory {i+1}')
+                
+                # Draw the event line
+                plt.axvline(x=event, color='red', linestyle='--')
+                
+                # Update the start index for the next trajectory
+                start_idx = event_idx
+            
+            # Plot the last segment after the last event
+            plt.plot(xCoor[start_idx:], yCoor[start_idx:], color=colors[len(events) % len(colors)], label=f'Trajectory {len(events) + 1}')
+        
+        else:
+            # If no events, plot the whole line as a single trajectory
+            plt.plot(xCoor, yCoor, color='blue', label='Trajectory 1')
+
+        plt.title(title)
+        plt.xlabel(xLabel)
+        plt.ylabel(yLabel)
+        plt.grid(True)
+        plt.legend(loc='upper left')
+
+
+        # plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+        # plt.tight_layout(rect=[0, 0, 0.85, 1])
+
+
+        if saveFig:
+            if not os.path.exists(direction):
+                os.makedirs(direction)
+            plt.savefig(os.path.join(direction, savedName + '.png'))
+            plt.close()
+        else:
+            plt.show()
+
+
     def draw2D(self,xCoor       = [0,10],
                     yCoor       = [0,10],
                     yLabel      = "Y Value",
@@ -26,14 +90,23 @@ class MatPlot(object):
                     title       = "XYAxis",
                     saveFig     = False,
                     direction   = "checkpoint/",
-                    savedName   = "default"):
-        plt.figure()
+                    events       = None,
+                    savedName   = "default",
+                    figsize  = (10,5)):
+    
+        plt.figure(figsize=figsize) 
         plt.plot(xCoor, yCoor)
 
         plt.title(title)
         plt.xlabel(xLabel)
         plt.ylabel(yLabel)
         plt.grid(True)
+
+        if events is not None: 
+            for event in events:
+                plt.axvline(x=event, color='red', linestyle='--', label='Event')
+
+
         if saveFig:
             
             if not os.path.exists(direction):
@@ -42,6 +115,7 @@ class MatPlot(object):
             plt.close()
         else:
             plt.show()
+        
 
     def draw2DMultipleY(self,
                         xCoor  = [0,10],
