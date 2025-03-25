@@ -85,8 +85,14 @@ class PreProcessData(object):
         # ---------------------------
         # Create the system data
         if self.config["component"] == "Sys":
-            xTrain              = [seqXAllSensorTrain, seqTime[:,-1,:],fixedEnv[:,-1,:]]
-            yTrain              = [seqXRulTrain[:,-1,:]]
+            data            = self.createSystemData(data = padData, numberOfTrajectories=300)
+            case            = [2,3,4]
+
+            for idxMode in case:
+
+
+
+
         else:
 
             trajectID           = padData["id"]

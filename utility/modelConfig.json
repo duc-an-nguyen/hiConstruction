@@ -66,6 +66,7 @@
 "turbofan": {
     "name"             : "turbofan",
     "cuda"              : 0,
+    "case"              : [2,3,4],
     "allComp"           : ["Reac", "Sep", "Strip"],
     "useInputAsHISelection" : false,
     "validation"        : true,
