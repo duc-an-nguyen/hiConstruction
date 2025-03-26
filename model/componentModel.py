@@ -403,7 +403,7 @@ class mainModel(tf.keras.Model):
                                                         )
         
         self.mask           = SensorSelection(inFeature = config["in" + config["component"]], 
-                                              numEnvs   = config["compEnv"])
+                                              numEnvs   = config["numRealCompEnv"])
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoder        = vae.get_encoder(kernelSize = 3, stride = 2)

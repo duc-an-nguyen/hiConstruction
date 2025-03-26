@@ -8,7 +8,7 @@ from preProcessingDataTurbofan          import PreProcessData
 # from model.systemModel                  import SystemModel
 # from model.systemModel               import SubclassModelCheckpoint
 from model.componentModel               import mainModel
-from model.tepSystemModel               import SystemModel
+from model.turbofanSystemModel          import SystemModel
 from model.componentModel               import SubclassModelCheckpoint
 
 # from model.componentModel_RULonly       import SystemModel
@@ -110,15 +110,18 @@ if __name__ == '__main__':
     # ====================================
     # Preprocessing, Model, Trainer
     # ------------------------------------
-    preData     = PreProcessData(config = myConfig)                                         # Preprocessing data
-                                                         # Model
+    preData     = PreProcessData(config = myConfig)                                         # Preprocessing data                                                        
     if myConfig["component"] == "Sys":
         model       = SystemModel(myConfig)  
-        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inReac"]), (None, 1, myConfig["inReac"]), (None, 1)])
+        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["inComp1"]), 
+                                 (None, myConfig["seqLength"], myConfig["inComp2"]),
+                                 (None, myConfig["seqLength"], myConfig["inComp3"]),
+                                 (None, 1), 
+                                 (None, 1)])
     else:
         model       = mainModel(myConfig)  
         # print([(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]), (None, myConfig["seqLength"], 1), (None, myConfig["seqLength"], 1)])
-        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]), (None, myConfig["seqLength"], 1), (None, 1)])
+        model.build(input_shape=[(None, myConfig["seqLength"], myConfig["in" + myConfig["component"]]), (None, 1), (None, 1)])
     model.summary()
 
     trainer     = TurbofanTrainerTester(model = model, config = myConfig)                    # Trainer
@@ -127,10 +130,3 @@ if __name__ == '__main__':
     seqXTrain,seqYTrain     = preData.getTrainData()
     history                 = trainer.train(seqXTrain   = seqXTrain, seqYTrain = seqYTrain)
                                                                    
-    
-# 41,30,31
-
-
-
-
-    

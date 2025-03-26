@@ -189,7 +189,7 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
                                 activation  = 'relu', 
                                 padding     = 'same',
                                 name        = 'extractedSysHiLayer')(x)
-        print("The shape of sysHILayer",sysHILayer.shape)
+        aiLogger.info(f"The shape of sysHILayer {sysHILayer.shape}")
         # --------------------
         # Flat and create latent
         # --------------------
@@ -293,22 +293,19 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputSensor = Input(shape=(128,45),    name = "SensorInputForHISelection")
-        inputRUL1   = Input(shape=(8, 5),     name = "lastLayerAEComponent1")
-        inputRUL2   = Input(shape=(8, 5),     name = "lastLayerAEComponent2")
-        inputRUL3   = Input(shape=(8, 5),     name = "lastLayerAEComponent3")
+        inputRUL1   = Input(shape=(1, 5),     name = "lastLayerAEComponent1")
+        inputRUL2   = Input(shape=(1, 5),     name = "lastLayerAEComponent2")
+        inputRUL3   = Input(shape=(1, 5),     name = "lastLayerAEComponent3")
 
         inputHI1    = Input(shape=(1,),     name = "compHI1")
         inputHI2    = Input(shape=(1,),     name = "compHI2")
         inputHI3    = Input(shape=(1,),     name = "compHI3")
 
-        if config["useInputAsHISelection"]:
-            hiSelectionInput = inputSensor
-        else:
-            flatInRUL1          = Flatten()(inputRUL1)  # Shape: (32, 40)
-            flatInRUL2          = Flatten()(inputRUL2)  # Shape: (32, 40)
-            flatInRUL3          = Flatten()(inputRUL3)  # Shape: (32, 40)
-            hiSelectionInput    = Concatenate(axis=-1)([flatInRUL1, flatInRUL2, flatInRUL3])
+    
+        flatInRUL1          = Flatten()(inputRUL1)  # Shape: (32, 40)
+        flatInRUL2          = Flatten()(inputRUL2)  # Shape: (32, 40)
+        flatInRUL3          = Flatten()(inputRUL3)  # Shape: (32, 40)
+        hiSelectionInput    = Concatenate(axis=-1)([flatInRUL1, flatInRUL2, flatInRUL3])
         
         aiLogger.debug(f"The shape of hiSelectionInput {hiSelectionInput.shape}")
         # ------------------------------
@@ -326,7 +323,8 @@ class HiSystemAndRul(tf.keras.Model):
         concatenatedHiInput = Concatenate(axis=-1)([inputHI1, inputHI2, inputHI3])
         minSysHi            = Minimum()([inputHI1, inputHI2, inputHI3])
         maxSysHi            = Maximum()([inputHI1, inputHI2, inputHI3]) 
-        linearSysHi         = Dense(1)(concatenatedHiInput)
+        linearSysHi         = Minimum()([Maximum()([inputHI1, inputHI2]), inputHI3])
+
 
         aiLogger.debug(f"The shape of min, max and linear HI {minSysHi.shape, maxSysHi.shape, linearSysHi.shape}")
         
@@ -351,7 +349,7 @@ class HiSystemAndRul(tf.keras.Model):
         rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
         
         # Create the model
-        self.model = Model(inputs=[inputSensor, inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
+        self.model = Model(inputs=[inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
 
 
     def call(self, inputs):
@@ -438,9 +436,9 @@ class SystemModel(tf.keras.Model):
                                                             )
         
 
-        self.maskCr1           = SensorSelection(inFeature= config["in" + config["allComp"][0]], )
-        self.maskCr2           = SensorSelection(inFeature= config["in" + config["allComp"][1]], )
-        self.maskCv2           = SensorSelection(inFeature= config["in" + config["allComp"][2]], )
+        self.maskCr1           = SensorSelection(inFeature= config["in" + config["allComp"][0]], numEnvs   = config["numRealCompEnv"])
+        self.maskCr2           = SensorSelection(inFeature= config["in" + config["allComp"][1]], numEnvs   = config["numRealCompEnv"])
+        self.maskCv2           = SensorSelection(inFeature= config["in" + config["allComp"][2]], numEnvs   = config["numRealCompEnv"])
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoderCr1        = vaeCr1.get_encoder(kernelSize = 3, stride = 2)
@@ -453,9 +451,9 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
         dataDir                = os.path.expanduser(config["dataDir"])
-        modelName1             = "bestModel34Reac"
-        modelName2             = "bestModel35Sep"
-        modelName3             = "bestModel36Strip"
+        modelName1             = "bestModel"
+        modelName2             = "bestModel"
+        modelName3             = "bestModel"
         if config["frezeComponents"]:
             self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/" + modelName1,
                                                  modelDirComp2= dataDir + "checkpoint/" + modelName2,
@@ -480,7 +478,7 @@ class SystemModel(tf.keras.Model):
     # ------------------------------------------
     def call(self,input):
 
-        seqData,seqCycle, env                   = input
+        comp1, comp2, comp3, seqCycle, env        = input
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
@@ -493,19 +491,19 @@ class SystemModel(tf.keras.Model):
         probsMaskCr2 = None
         probsMaskCv2 = None
         if self.config["useMask"]:
-            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
-            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
-            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(comp1, env)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(comp2, env)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(comp3, env)
 
             zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
             zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
         else:
-            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqData)
-            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
-            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(comp1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(comp2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(comp3)
         
-        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
      
         return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, sysHi, predictedRul
@@ -588,15 +586,15 @@ class SystemModel(tf.keras.Model):
             # ====================================
             #           MODEL FLOW
             # ------------------------------------
-            seqData,seqCycle, env                   = input[0]
+            comp1, comp2, comp3, seqCycle, env      = input[0]
             rulY                                    = input[1]
             # ------------------------------------
             # Encoder and Decoder for 3 components
             # ------------------------------------
             if self.config["useMask"]:
-                encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
-                encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
-                encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
+                encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(comp1, env)
+                encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(comp2, env)
+                encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(comp3, env)
 
 
                 zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
@@ -604,16 +602,16 @@ class SystemModel(tf.keras.Model):
                 zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
                 
             else:
-                encInCr1                                = seqData
-                encInCr2                                = seqData
-                encInCv2                                = seqData
+                encInCr1                                = comp1
+                encInCr2                                = comp2
+                encInCv2                                = comp3
 
                 zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
                 zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
                 zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
 
 
-            hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+            hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
 
             # ====================================
             #               LOSS

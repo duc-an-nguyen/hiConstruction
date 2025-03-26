@@ -76,22 +76,61 @@ class PreProcessData(object):
                                                             headline   =   self.headline["allWithoutLabel"] + ["cycle_norm"])   # Normalize the data
         aiLogger.info(norData.keys())
         withRULData         = self.addRULAndEnvironment(norData)
-
         padData             = self.padDataForTheSameTrajectoryLength(withRULData)
-
-        if self.config["compEnv"] is not list:
-            fixedEnv            = np.ones_like(seqTime)*2
-        
+        # aiLogger.debug(padData.head(5))
+                    
         # ---------------------------
         # Create the system data
         if self.config["component"] == "Sys":
-            data            = self.createSystemData(data = padData, numberOfTrajectories=300)
-            case            = [2,3,4]
+            sysData                 = self.createSystemData(inData = padData, numberOfTrajectories=200)
 
-            for idxMode in case:
+            allSeqComp1             = []
+            allSeqComp2             = []
+            allSeqComp3             = []
+            allSeqXRulTrain         = []
+            allSeqXTrainEnv         = []
+            allSeqTime              = []
+            for idxCase in self.config["case"]:
+                data                = sysData[idxCase]
 
+                comp1               = data["comp1"][self.headline["allWithoutLabel"]]
+                comp2               = data["comp2"][self.headline["allWithoutLabel"]]
+                comp3               = data["comp3"][self.headline["allWithoutLabel"]]
+                rul                 = data["sysRul"]
 
+                trajectID           = data["comp1"]["trajectoryID"]               # The Id, cycle, and others from 3 components are the same. 
+                timeTraj            = data["comp1"]["cycle_norm"]
+                env                 = data["comp1"]["environmentID"]
 
+                # # ---------------------------
+                # # For training
+                seqComp1,     \
+                seqComp2,     \
+                seqComp3,     \
+                seqXRulTrain,           \
+                seqXTrainEnv,seqTime        = self.getTensorData(   dataList    = [comp1, comp2, comp3, rul,env,timeTraj],
+                                                                    trajectId   = trajectID,  
+                                                                    shuffle     = False,      
+                                                                    seqLength   = self.config["seqLength"],
+                                                                    overlap     = self.config["overLap"]         
+                                                                    )
+                allSeqComp1.append(seqComp1)  
+                allSeqComp2.append(seqComp2)              
+                allSeqComp3.append(seqComp3)           
+                allSeqXRulTrain.append(seqXRulTrain)  
+                allSeqXTrainEnv.append(seqXTrainEnv) 
+                allSeqTime.append(seqTime) 
+
+            allSeqComp1             = np.concatenate(allSeqComp1, axis=0)
+            allSeqComp2             = np.concatenate(allSeqComp2, axis=0)
+            allSeqComp3             = np.concatenate(allSeqComp3, axis=0)
+            allSeqXRulTrain         = np.concatenate(allSeqXRulTrain, axis=0)
+            allSeqXTrainEnv         = np.concatenate(allSeqXTrainEnv, axis=0)
+            allSeqTime              = np.concatenate(allSeqTime, axis=0)
+
+            xTrain              = [allSeqComp1, allSeqComp2, allSeqComp3, allSeqTime[:,-1,:],allSeqXTrainEnv[:,-1,:]]
+            yTrain              = [allSeqXRulTrain[:,-1,:]]
+            print(f"The size of the train data: XComponent1 {allSeqComp1.shape} XComponent2 {allSeqComp2.shape} XComponent3 {allSeqComp3.shape} Time {seqTime[:,-1,:].shape} Environment {seqXTrainEnv[:,-1,:].shape} RUL {seqXRulTrain[:,-1,:].shape}")
 
         else:
 
@@ -108,10 +147,10 @@ class PreProcessData(object):
                                                         seqLength   = self.config["seqLength"],
                                                         overlap     = self.config["overLap"]         
                                                         )
-
+            fixedEnv            = np.ones_like(seqTime)*2
             xTrain              = [seqXAllSensorTrain, seqTime[:,-1,:],fixedEnv[:,-1,:]]
             yTrain              = [seqXRulTrain[:,-1,:]]
-        print(f"The size of the train data: xTrain {seqXAllSensorTrain.shape} Time {seqTime[:,-1,:].shape} Environment {fixedEnv[:,-1,:].shape} RUL {seqXRulTrain[:,-1,:].shape}")
+            print(f"The size of the train data: xTrain {seqXAllSensorTrain.shape} Time {seqTime[:,-1,:].shape} Environment {fixedEnv[:,-1,:].shape} RUL {seqXRulTrain[:,-1,:].shape}")
         return xTrain, yTrain
 
     # ===================================
@@ -141,55 +180,69 @@ class PreProcessData(object):
         # padded_data.to_excel("output.xlsx")
         return padded_data
             
-  
-  
 
     # ===================================
     # This function is used to create the 
     # data from turbofan engine 
     # -----------------------------------
-    def createSystemData(self, data = None, numberOfTrajectories = 400):
+    def createSystemData(self, inData = None, numberOfTrajectories = 400):
+        # aiLogger.debug(data)
         # --------------------------
         # Read data if none type
         # --------------------------
-        if data is None: 
+        if inData is None: 
             outputDir       = os.path.expanduser(self.config["dataDir"])
             rawData         = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
         else:
-            rawData         = data
+            rawData         = inData
         # --------------------------
         # Group the data into ID and
         # initiate the values
         # --------------------------
-        # grouped_data    = {k: v for k, v in rawData.groupby("id")}                                                          # Pre-group `rawData` by 'id' for O(1) lookup
-        data            = {}                                                                                                # Initialize dictionary for cases
+        grouped_data    = {k: v for k, v in rawData.groupby("id")}                                                          # Pre-group `rawData` by 'id' for O(1) lookup
+        createdData     = {}                                                                                                # Initialize dictionary for cases
         mode            = ["min", "max", "linear"]
         # --------------------------
         # Create system data
         # --------------------------
-        for idxCase, curMode in enumerate(mode):
-            env             = idxCase + 1
+        for idxCase, curMode in zip(self.config["case"], mode):
             selected_ids    = np.array([np.random.choice(np.arange(1, 101), size=3, replace=False) for _ in range(numberOfTrajectories)])     # Generate 400 sets of 3 unique trajectory IDs per iteration
             
-            comp1           = rawData[selected_ids[:, 0]]
-            comp2           = rawData[selected_ids[:, 1]]
-            comp3           = rawData[selected_ids[:, 2]]
+            comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1, environmentID = idxCase) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
+            comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1, environmentID = idxCase) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
+            comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1, environmentID = idxCase) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
 
-            
-            comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
-            comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
-            comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
-
-            if curMode == "min":
-                rul = min(comp1_df["rul"],comp2_df["rul"], comp3_df["rul"])
-            elif curMode == "max":
-                rul = max(comp1_df["rul"],comp2_df["rul"], comp3_df["rul"])
+            if curMode == 'min':
+                rul = pd.concat([comp1_df["rul"], comp2_df["rul"], comp3_df["rul"]], axis=1).min(axis=1)
+            elif curMode == 'max':
+                rul = pd.concat([comp1_df["rul"], comp2_df["rul"], comp3_df["rul"]], axis=1).max(axis=1)
             else:
-                rul = min(max(comp1_df["rul"],comp2_df["rul"]), comp3_df["rul"])
+                rul = comp1_df["rul"].combine(comp2_df["rul"], max).combine(comp3_df["rul"], min)
+               
+
+            createdData[idxCase]      = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df, 'sysRul':rul}
+        # aiLogger.debug(createdData)
+        return createdData
 
 
-            data[case]      = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
-        return data
+
+    # def createSystemData(self, numberOfTrajectories = 400):
+    #     outputDir       = os.path.expanduser(self.config["dataDir"])
+    #     rawData         = self.loadDataFromTxtFormat(dir = outputDir, name="data/df_train.txt", printHead=False)
+    #     grouped_data    = {k: v for k, v in rawData.groupby("id")}                                                          # Pre-group `rawData` by 'id' for O(1) lookup
+    #     data            = {}                                                                                                # Initialize dictionary for cases
+    #     # print("the group data", grouped_data)
+    #     for idxCase in range(3):
+    #         case            = idxCase + 1
+    #         selected_ids    = np.array([np.random.choice(np.arange(1, 101), size=3, replace=False) for _ in range(numberOfTrajectories)])     # Generate 400 sets of 3 unique trajectory IDs per iteration
+    #         # print(f"ID selection at the Idx case {idxCase}")
+    #         # print(selected_ids)
+    #         comp1_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 0])], ignore_index=True) 
+    #         comp2_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 1])], ignore_index=True) 
+    #         comp3_df        = pd.concat([grouped_data[i].assign(trajectoryID=trajectID + 1) for trajectID, i in enumerate(selected_ids[:, 2])], ignore_index=True)                    # Fetch data from grouped dictionary (guaranteed unique per iteration)
+
+    #         data[case] = {"comp1": comp1_df, "comp2": comp2_df, "comp3": comp3_df}
+    #     return data
 
     # ===================================
     # This function is used to load the 
@@ -817,7 +870,7 @@ class PreProcessData(object):
         # -------------------
         tensor =   np.stack(allSeq, axis=0)   
 
-        aiLogger.debug(f"The shape of the tensor is {tensor.shape}")
+        # aiLogger.debug(f"The shape of the tensor is {tensor.shape}")
         if shuffle:
             np.random.shuffle(tensor)
 
