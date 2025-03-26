@@ -68,8 +68,8 @@ class PreProcessData(object):
         # For data
         cleanData           = self.cleanData(   rawSignal           =   rawData,
                                                 columnName          =   self.allWithoutLabel,
-                                                getMovingAverage    =   False,
-                                                flipToDown          =   False)
+                                                getMovingAverage    =   True,
+                                                flipToDown          =   True)
         cleanData['cycle_norm'] = cleanData['cycle'].copy()
 
         norData             = self.normalizeDataEachModes(  rawData    =   cleanData,

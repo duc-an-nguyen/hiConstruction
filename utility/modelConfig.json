@@ -92,7 +92,7 @@
     "inComp1"           : 14,
     "inComp2"           : 14,
     "inComp3"           : 14,
-    "component"         : "Sys",
+    "component"         : "Comp",
     "_componentName"    : ["Comp","Sys"],
     "diffEnv"           : true,
     "trajectoryPerCase" : 100,

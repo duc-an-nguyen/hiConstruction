@@ -451,9 +451,9 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
         dataDir                = os.path.expanduser(config["dataDir"])
-        modelName1             = "bestModel"
-        modelName2             = "bestModel"
-        modelName3             = "bestModel"
+        modelName1             = "bestModel1"
+        modelName2             = "bestModel1"
+        modelName3             = "bestModel1"
         if config["frezeComponents"]:
             self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/" + modelName1,
                                                  modelDirComp2= dataDir + "checkpoint/" + modelName2,
@@ -512,7 +512,7 @@ class SystemModel(tf.keras.Model):
     # Get custom layer
     # ------------------------------------------
     def getHIandRUL(self,input):
-        seqData,seqCycle, env                   = input
+        comp1, comp2, comp3, seqCycle, env        = input
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
@@ -525,19 +525,20 @@ class SystemModel(tf.keras.Model):
         probsMaskCr2 = None
         probsMaskCv2 = None
         if self.config["useMask"]:
-            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
-            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
-            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(comp1, env)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(comp2, env)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(comp3, env)
+
 
             zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
             zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
         else:
-            zCr1,  sysHILayerCr1                    = self.encoderCr1(seqData)
-            zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
-            zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(comp1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(comp2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(comp3)
         
-        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         
         # hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
