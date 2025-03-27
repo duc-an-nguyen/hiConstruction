@@ -291,7 +291,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputRUL1 = Input(shape=(1, 5))
+        inputRUL1 = Input(shape=(4, 5))
         # inputRUL2 = Input(shape=(8, 5))
         # inputRUL3 = Input(shape=(8, 5))
 
