@@ -3,10 +3,13 @@ import numpy        as np
 import tensorflow   as tf
 import random
 import json
-import package
-import os
+import os, sys
 # import torch
 # from sklearn.linear_model import LinearRegression
+sys.path.append(os.path.abspath('..'))
+
+import package
+
 from utility.logger         import aiLogger
 from itertools      import accumulate
 
@@ -76,7 +79,7 @@ class PreProcessData(object):
                                                             headline   =   self.headline["allWithoutLabel"] + ["cycle_norm"])   # Normalize the data
         aiLogger.info(norData.keys())
         withRULData         = self.addRULAndEnvironment(norData)
-        padData             = self.padDataForTheSameTrajectoryLength(withRULData)
+        padData             = self.padDataForTheSameTrajectoryLength(withRULData.copy())
         # aiLogger.debug(padData.head(5))
                     
         # ---------------------------
@@ -134,10 +137,10 @@ class PreProcessData(object):
 
         else:
 
-            trajectID           = padData["id"]
-            allSensor           = padData[self.headline["allWithoutLabel"]]
-            rul                 = padData["rul"] 
-            timeTraj            = padData["cycle_norm"]    
+            trajectID           = withRULData["id"]
+            allSensor           = withRULData[self.headline["allWithoutLabel"]]
+            rul                 = withRULData["rul"] 
+            timeTraj            = withRULData["cycle_norm"]    
 
             seqXAllSensorTrain,     \
             seqXRulTrain,           \

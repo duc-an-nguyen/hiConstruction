@@ -1,7 +1,7 @@
 # ====================================
 #  IMPORT LIBRARIES
 # ====================================
-from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, Embedding, MultiHeadAttention
+from keras.layers                   import Conv1D,  Flatten, Dense, Conv1DTranspose, Reshape, Input, Layer, GRU, LSTM, Concatenate, ZeroPadding1D, UpSampling1D, MaxPooling1D,GlobalAveragePooling1D
 from keras                          import backend as K
 from keras.models                   import Model
 from keras.optimizers               import Adam
@@ -101,6 +101,45 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         self.encoder            = self.get_encoder()
         self.decoder            = self.get_decoder() 
         self.config             = config
+
+
+        # ================================
+    # Create module Encoder separately
+    # --------------------------------
+    def get_encoderWithMaxPooling(self, kernelSize = 3, stride = 2):
+        # --------------------
+        # Input
+        # --------------------
+        encoder_inputs  = Input(shape   = (self.seq_len, self.feat_dim), 
+                                name    = 'encoder_input')
+        x               = encoder_inputs
+
+        x           = Conv1D(32, 3, activation='relu', padding='same')(encoder_inputs)
+        x           = MaxPooling1D(2, padding='same')(x)
+        sysHILayer  = Conv1D(16, 3, activation='relu', padding='same')(x)
+        x           = MaxPooling1D(2, padding='same')(sysHILayer)
+        x           = GlobalAveragePooling1D()(x)
+        latent      = Dense(1, name='latent')(x)  # HI directly here
+
+        print("The shape of sysHILayer",sysHILayer.shape)
+        
+        encoder   = Model(encoder_inputs, [latent, sysHILayer], name="encoder")
+        return encoder
+
+    # =================================
+    # ---------------------------------
+    def get_decoderWithMaxPooling(self, kernelSize = 3, stride = 2):
+        decoder_inputs = Input(shape=(self.latent_dim,), name="decoder_input")
+        x                       = Dense((self.seq_len // 4) * 16, activation='relu')(decoder_inputs)  # (7 * 16)
+        x                       = Reshape((self.seq_len // 4, 16))(x)  # Shape: (7, 16)
+        x                       = UpSampling1D(2)(x)  # Shape: (14, 16)
+        x                       = Conv1D(32, 3, activation='relu', padding='same')(x)  # Shape: (14, 32)
+        x                       = UpSampling1D(2)(x)  # Shape: (28, 32)
+        x                       = ZeroPadding1D(padding=(1, 1))(x)  # Pad to get (30, 32)
+        self.decoder_outputs    = Conv1D(self.feat_dim, 3, activation='linear', padding='same')(x)  # Shape: (30, 14)
+
+        decoder  = Model(decoder_inputs, self.decoder_outputs, name="decoder")
+        return decoder
 
     # ================================
     # Full AE

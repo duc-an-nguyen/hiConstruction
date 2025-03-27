@@ -1,15 +1,15 @@
 # =============================================
 #                   IMPORT
 # =============================================
-from keras.optimizers                   import Adam
-from keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
-from turbofanEngines.preProcessingDataTurbofan          import PreProcessData
+from    keras.optimizers                   import Adam
+from    keras.callbacks                    import EarlyStopping, ReduceLROnPlateau
+from    preProcessingDataTurbofan          import PreProcessData
 # from preprocessingData2                 import PreProcessData
 # from model.systemModel                  import SystemModel
 # from model.systemModel               import SubclassModelCheckpoint
-from model.componentModel               import mainModel
-from turbofanEngines.model.turbofanSystemModel          import SystemModel
-from model.componentModel               import SubclassModelCheckpoint
+from    model.componentModel               import mainModel
+from    model.turbofanSystemModel          import SystemModel
+from    model.componentModel               import SubclassModelCheckpoint
 
 # from model.componentModel_RULonly       import SystemModel
 # from model.componentModel_RULonly       import SubclassModelCheckpoint
