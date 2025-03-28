@@ -160,7 +160,8 @@ class PreProcessData(object):
     # This function is used to pad to
     # get the same length trajectory
     # -----------------------------------
-    def padDataForTheSameTrajectoryLength(self,data):
+    @staticmethod
+    def padDataForTheSameTrajectoryLength(data):
         # -----------------------
         # The function to pad trajectory
         # -----------------------
@@ -171,7 +172,8 @@ class PreProcessData(object):
             pad_values  = np.pad(group.values, ((0, pad_size), (0, 0)), mode='constant', constant_values=0)
             return pd.DataFrame(pad_values, columns = group.columns)
         
-        padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["cycle_norm", "rul"]
+        # padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["cycle_norm", "rul"]
+        padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["cycle","rul"]
         padded_values   = data.groupby('id', group_keys=False)[padCols].apply(pad_trajectory).reset_index(drop=True)
 
         # -------------------------
