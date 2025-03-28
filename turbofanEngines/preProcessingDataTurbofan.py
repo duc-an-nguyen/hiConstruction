@@ -188,7 +188,7 @@ class PreProcessData(object):
     # This function is used to create the 
     # data from turbofan engine 
     # -----------------------------------
-    def createSystemData(self, inData = None, numberOfTrajectories = 400):
+    def createSystemData(self, inData = None, numberOfTrajectories = 300):
         # aiLogger.debug(data)
         # --------------------------
         # Read data if none type
