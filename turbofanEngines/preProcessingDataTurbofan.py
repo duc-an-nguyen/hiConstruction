@@ -165,17 +165,33 @@ class PreProcessData(object):
         # -----------------------
         # The function to pad trajectory
         # -----------------------
-        max_length = data['id'].value_counts().max()
-        def pad_trajectory(group):
+        numTrajectories = data['id'].nunique()
+        max_length      = data['id'].value_counts().max()
+        
+        max_id          = data['id'].value_counts().idxmax()                             # Get the ID with the longest trajectory
+        cycle_template  = data[data['id'] == max_id]['cycle'].reset_index(drop=True)     # Extract its cycle column as template
+    
+        def pad_trajectory(group, padCase = "ffill"):
             """Pads each group's trajectory to match max_length with 0s."""
             pad_size    = max_length - len(group)
-            pad_values  = np.pad(group.values, ((0, pad_size), (0, 0)), mode='constant', constant_values=0)
+            if padCase == "zero":
+                pad_values  = np.pad(group.values, ((0, pad_size), (0, 0)), mode='constant', constant_values=0)
+            
+            else:  
+                last_row    = group.iloc[-1:].values                           # Padding with last row
+                pad_rows    = np.repeat(last_row, pad_size, axis=0)
+                pad_values  = np.vstack([group.values, pad_rows])
+
             return pd.DataFrame(pad_values, columns = group.columns)
         
         # padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["cycle_norm", "rul"]
-        padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["cycle","rul"]
+        padCols         = ['s' + str(i) for i in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]] + ["rul"]
         padded_values   = data.groupby('id', group_keys=False)[padCols].apply(pad_trajectory).reset_index(drop=True)
 
+
+        padded_values['cycle'] = cycle_template.tolist() * numTrajectories
+        # test            = cycle_template.tolist() * numTrajectories
+        # print("--------------------------",len(test), padded_values.shape)
         # -------------------------
         # Attach the id to make sure
         # the same length
