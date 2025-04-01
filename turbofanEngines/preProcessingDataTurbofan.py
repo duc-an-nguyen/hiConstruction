@@ -161,7 +161,7 @@ class PreProcessData(object):
     # get the same length trajectory
     # -----------------------------------
     @staticmethod
-    def padDataForTheSameTrajectoryLength(data):
+    def padDataForTheSameTrajectoryLength(data, mode='pad', padCase='ffill'):
         # -----------------------
         # The function to pad trajectory
         # -----------------------
@@ -171,7 +171,7 @@ class PreProcessData(object):
         max_id          = data['id'].value_counts().idxmax()                             # Get the ID with the longest trajectory
         cycle_template  = data[data['id'] == max_id]['cycle'].reset_index(drop=True)     # Extract its cycle column as template
     
-        def pad_trajectory(group, padCase = "ffill"):
+        def pad_trajectory(group):
             """Pads each group's trajectory to match max_length with 0s."""
             pad_size    = max_length - len(group)
             if padCase == "zero":
@@ -201,6 +201,22 @@ class PreProcessData(object):
         # padded_data.to_excel("output.xlsx")
         return padded_data
             
+    @staticmethod
+    def trimDataToMinTrajectoryLength(data):
+        """
+        Trim all trajectories to the minimum length by removing extra cycles.
+        """
+        value_counts = data['id'].value_counts()
+        min_length   = value_counts.min()
+
+        # Simply trim all columns — including 'cycle' — no need to treat it specially
+        trimmed_data = data.groupby('id', group_keys=False).apply(
+                                                                lambda group: group.iloc[:min_length].reset_index(drop=True)
+                                                                ).reset_index(drop=True)
+
+        return trimmed_data
+
+
 
     # ===================================
     # This function is used to create the 
