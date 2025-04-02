@@ -643,7 +643,98 @@ class PreProcessData(object):
 
         return outData
     
-    def normalizeHIInGeneral(self,inData = [None], indexToShutdown = 2, time = None, rul = None, multipliedMt = None, showRedundantShutdown = True):
+    # =====================================
+    # This function is used to normalize
+    # the health indicator based on the earlier
+    # shutdown factor
+    # -----------------------------------
+    @staticmethod
+    def normalizeHiByShutdown(df_hi, pad_to_max=False):
+        """
+        Normalize HI based on earliest shutdown engine (shortest), using its first minimum HI value
+        as a threshold. Aligns all trajectories by padding or truncating to same length.
+
+        Parameters:
+            df_hi (pd.DataFrame): Must contain ['id', 'cycle', 'HI']
+            pad_to_max (bool): If True, pad all to longest trajectory length.
+                            If False, truncate all to shortest.
+
+        Returns:
+            normalized_df (pd.DataFrame): Contains ['id', 'cycle', 'HI_normalized']
+            seq_len (int): Length of each sequence after padding/truncation
+        """
+        # ------------------------------
+        # 1. Identify the earliest shutdown
+        # engine (shortest trajectory)
+        # ------------------------------
+        engineLengths           = df_hi.groupby('id')['cycle'].max()            # Get the max value of cycle for each ID engine
+        minLen                  = engineLengths.min()
+        maxLen                  = engineLengths.max()
+        earliestShutdownId      = engineLengths.idxmin()
+
+        # ------------------------------
+        # 2. Find the first occurrence of 
+        # the minimum HI in that engine
+        # ------------------------------
+        earlyDf                     = df_hi[df_hi['id'] == earliestShutdownId].sort_values('cycle')     # Extract the engine with the earliest shutdown
+        minHiValue                  = earlyDf['HI'].min()
+        firstShutdownRow            = earlyDf[earlyDf['HI'] == minHiValue].head(1)
+        globalShutdownThr           = firstShutdownRow['HI'].values[0]
+
+        # Avoid divide-by-zero
+        if globalShutdownThr >= 1.0:
+            globalShutdownThr = 0.999
+        if globalShutdownThr <= 0.0:
+            globalShutdownThr = 1e-6
+        
+        # ------------------------------
+        # 3. Normalize HI to [1.0, 0.0] 
+        # based on that shutdown value
+        # ------------------------------
+        df_hi                   = df_hi.copy()
+        df_hi['HI_normalized']  = (df_hi['HI'] - globalShutdownThr) / (1.0 - globalShutdownThr)
+        df_hi['HI_normalized']  = df_hi['HI_normalized'].clip(0.0, 1.0)
+
+        # ------------------------------
+        # 4. Determine target sequence length
+        # ------------------------------
+        seqLen = maxLen if pad_to_max else minLen
+
+        # ------------------------------
+        # 5. Generate aligned records
+        # ------------------------------
+        records = []
+
+        for engId, group in df_hi.groupby('id'):
+            hi_seq = group.sort_values('cycle')['HI_normalized'].values
+            cycles = np.arange(1, len(hi_seq) + 1)
+
+            if pad_to_max:
+                padded_hi = np.zeros(seqLen)
+                padded_cycle = np.arange(1, seqLen + 1)
+                padded_hi[:len(hi_seq)] = hi_seq
+            else:
+                padded_hi = hi_seq[:seqLen]
+                padded_cycle = cycles[:seqLen]
+
+            for c, hi in zip(padded_cycle, padded_hi):
+                records.append({'id': engId, 'cycle': c, 'HI_normalized': hi})
+
+        normalized_df = pd.DataFrame(records)
+        return normalized_df, seqLen
+
+
+
+
+
+    # =====================================
+    # This function is used to normalize
+    # the health indicator from all components 
+    # at the same time based on a specific
+    # shutdown factor
+    # -----------------------------------
+    @staticmethod
+    def normalizeHIInGeneral(inData = [None], indexToShutdown = 2, time = None, rul = None, multipliedMt = None, showRedundantShutdown = True):
         
         max_values  = [tf.reduce_min(tensor).numpy() for tensor in inData[indexToShutdown]]
         # print(max_values)
