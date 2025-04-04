@@ -19,7 +19,12 @@ class PreProcessData(object):
                 ):
         np.random.seed(1)
         random.seed(1)
-        
+        if config is None: 
+            config = {}
+            config["seqLength"]            = 128
+            config["overLap"]              = 127
+            config["numOfCases"]           = 1
+            config["trajectoryPerCase"]    = 100
         # ------------------------------
         # Configure some variables
         # ------------------------------
@@ -564,6 +569,32 @@ class PreProcessData(object):
             # print("No adjustment needed.")
         
         return adjusted_time_series
+    
+    
+    def flip2DownPandasMultipleCol(self, df_group, colNames, flipOption = "average"):
+        df_copy = df_group.copy()
+
+        for col in colNames:
+            series = df_copy[col].values
+            time_points = np.arange(len(series))
+            coefficients = np.polyfit(time_points, series, 2)
+
+            if coefficients[0] >= 0:
+                if flipOption == "average":
+                    # Mirror around the mean to flip the trend but keep values realistic
+                    mean_val = series.mean()
+                    df_copy[col] = 2 * mean_val - series  # Flipped around mean
+                elif flipOption == "flipWithNegative":
+                    df_copy[col] = series * -1
+
+                elif flipOption == "maxmin":
+                    df_copy[col] = series.max() - (series - series.min())
+           
+        return df_copy[colNames]
+
+
+
+
     
     # ===================================
     # This function is used to move all
