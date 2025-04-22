@@ -571,7 +571,7 @@ class PreProcessData(object):
         return adjusted_time_series
     
     
-    def flip2DownPandasMultipleCol(self, df_group, colNames, flipOption = "average"):
+    def flip2DownPandasMultipleCol(self, df_group, colNames, flipOption = "maxmin"):
         df_copy = df_group.copy()
 
         for col in colNames:
