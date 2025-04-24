@@ -291,7 +291,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputRUL1 = Input(shape=(4, 5))
+        inputRUL1 = Input(shape=(8, 5))
         # inputRUL2 = Input(shape=(8, 5))
         # inputRUL3 = Input(shape=(8, 5))
 
@@ -542,8 +542,8 @@ class mainModel(tf.keras.Model):
             # Add the constrain to the latent space
             # ------------------------------------
             if self.config["latentConstrains"]:
-                zReacLoss,_     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
-                # zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", alpha=10)
+                # zReacLoss,_     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+                zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", alpha=10)
                 totalLoss    += zReacLoss
             else:
                 zReacLoss = 0
@@ -816,26 +816,29 @@ class mainModel(tf.keras.Model):
 
         elif type == "expertCurveWithEnv1":
             z, t, env = inputData  # Unpacking input data
-
+            k1 = 0.044
+            k21 = 0.079
+            k22 = 0.099  # 0.079
+            k3 = 0.197
             # Ensure t is float32
             t = tf.cast(t, tf.float32)
             if comp is None:
                 comp = self.config["component"]
 
             if comp == "Reac":
-                hiEnv1 = -tf.exp(0.044*(t - 30))
+                hiEnv1 = -tf.exp(k1*(t - 30))
                 hiEnv2 = -tf.zeros_like(t)  # Always 0
-                hiEnv3 = -tf.exp(0.044*(t - 30))
+                hiEnv3 = -tf.exp(k1*(t - 30))
 
             elif comp == "Sep":
                 hiEnv1 = -tf.zeros_like(t)  # Always 0
-                hiEnv2 = -tf.exp(0.044*(t - 30))
-                hiEnv3 = -tf.exp(0.079*(t - 60))
+                hiEnv2 = -tf.exp(k1*(t - 30))
+                hiEnv3 = -tf.exp(k21*(t - 60))
 
             elif comp == "Strip":
-                hiEnv1 = -tf.exp(0.079*(t - 60))
-                hiEnv2 = -tf.exp(0.079*(t - 60))
-                hiEnv3 = -tf.exp(0.197*(t - 90))
+                hiEnv1 = -tf.exp(k21*(t - 60))
+                hiEnv2 = -tf.exp(k22*(t - 60))
+                hiEnv3 = -tf.exp(k3*(t - 90))
             else:
                 raise KeyError("Check again the component names!!!")
             
@@ -843,12 +846,6 @@ class mainModel(tf.keras.Model):
             mask1 = tf.cast(tf.equal(env, 2), tf.float32)
             mask2 = tf.cast(tf.equal(env, 3), tf.float32) 
             mask3 = tf.cast(tf.equal(env, 4), tf.float32)
-
-            # mask_sum = mask1 + mask2 + mask3  # Normalize to sum up to 1
-            # mask1 /= mask_sum
-            # mask2 /= mask_sum
-            # mask3 /= mask_sum
-
 
             # Compute the target HI based on environment
             hiTarget = (mask1 * hiEnv1) + (mask2 * hiEnv2) + (mask3 * hiEnv3)

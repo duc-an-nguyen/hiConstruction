@@ -55,7 +55,7 @@ class TEPTrainerTester():
 
         earlyStopLoss       = 'totalLoss'
         self.earlyStop_Callback = EarlyStopping(monitor=earlyStopLoss, min_delta = 0.01, patience=15) # change to 5
-        self.reduceLR            = ReduceLROnPlateau(monitor='totalLoss', factor=0.1, patience=5)
+        self.reduceLR            = ReduceLROnPlateau(monitor='totalLoss', factor=0.5, patience=5)
 
     # ==============================
     # Train function
