@@ -17,8 +17,8 @@ from itertools      import accumulate
 class PreProcessData(object):
     def __init__(self,  config      = None
                 ):
-        np.random.seed(1)
-        random.seed(1)
+        np.random.seed(2)
+        random.seed(2)
         if config is None: 
             config = {}
             config["seqLength"]            = 128
