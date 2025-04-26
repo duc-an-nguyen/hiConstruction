@@ -87,6 +87,7 @@ class MatPlot(object):
                     yCoor       = [0,10],
                     yLabel      = "Y Value",
                     xLabel      = "Time Unit",
+                    color       = "blue",
                     title       = "XYAxis",
                     saveFig     = False,
                     direction   = "checkpoint/",
@@ -95,7 +96,7 @@ class MatPlot(object):
                     figsize  = (10,5)):
     
         plt.figure(figsize=figsize) 
-        plt.plot(xCoor, yCoor)
+        plt.plot(xCoor, yCoor, color=color)
 
         plt.title(title)
         plt.xlabel(xLabel)
@@ -115,6 +116,9 @@ class MatPlot(object):
             plt.close()
         else:
             plt.show()
+
+
+
         
 
     def draw2DMultipleY(self,
@@ -126,16 +130,23 @@ class MatPlot(object):
                         saveFig     = False,
                         direction   = "checkpoint/",
                         savedName   = "default",
-                        legend      = ["line1","line2"]):
+                        useLegend   = True,
+                        legend      = ["line1","line2"],
+                        color       = ["blue","green"],
+                        yLim       = [],):
         
         plt.figure()
-        for yValue in yCoor:
-            plt.plot(xCoor,yValue)
+        for idx,yValue in enumerate(yCoor):
+            plt.plot(xCoor,yValue, color=color[idx])
 
         plt.title(title)
         plt.xlabel(xLabel)
         plt.ylabel(yLabel)
-        plt.legend(legend, loc='upper left')
+
+        if len(yLim) != 0:
+            plt.ylim(yLim)
+        if useLegend:
+            plt.legend(legend, loc='upper left')
         plt.grid(True)
         if saveFig:
             
@@ -145,6 +156,7 @@ class MatPlot(object):
             plt.close()
         else:
             plt.show()
+
         
         
 
