@@ -45,8 +45,60 @@ class PreProcessData(object):
         self.scenario[5]        = "mode 1: reactor     -> stripper     -> separator"
         self.scenario[6]        = "mode 5: separator   -> stripper     -> separator"
         self.scenario[7]        = "mode 2: reactor     -> separator"
+        allow_mask = tf.constant([
+    [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 0, 1, 1, 0, 1],
+    [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 0, 1, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 0, 1, 1, 0, 0]
+], dtype=tf.float32)
         
-        
+        allow_mask1 = tf.constant([
+    [1, 1, 0, 1, 0, 1, 1, 1, 0, 1,
+     0, 0, 0, 1, 1, 1, 0, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+
+    [1, 1, 1, 1, 0, 1, 1, 1, 0, 1,
+     1, 0, 1, 1, 1, 1, 0, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+
+    [1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
+     1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+     1, 0, 1, 0, 1, 1, 1, 1, 1, 1,
+     1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+], dtype=np.float32)
+
+    # Stripper allow_mask2 (Mode 2, Mode 3, Mode 4)
+        allow_mask2 = tf.constant([
+        [1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
+        0, 0, 0, 1, 1, 1, 0, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+
+        [1, 1, 1, 1, 0, 1, 1, 1, 0, 1,
+        1, 0, 1, 1, 1, 1, 0, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+
+        [1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
+        1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 1, 0, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+    ], dtype=np.float32)
+
+    
         self.allHeadline             = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         'Recycle',              'Purge', 
                                         'Separator',                'Stripper',                 'Steam',                    'Reactor Coolant',      'Condenser Coolant',    'Agitator',                 # 12 manipulated variables
                                         'msv A Feed',               'msv D Feed',               'msv E Feed',               'msv A and C Feed',     'Recycle Flow',         'Reactor Feed Rate',        # 41 measured variables
@@ -189,13 +241,13 @@ class PreProcessData(object):
         cleanData           = self.cleanData(   rawSignal           =   withRULData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
-                                                flipToDown          =   False)
+                                                flipToDown          =   True)
         # ---------------------------
         # For label, flip only
         cleanData           = self.cleanData(rawSignal              =   cleanData,
                                                 columnName          =   self.degraLiq,
                                                 getMovingAverage    =   False,
-                                                flipToDown          =   False)
+                                                flipToDown          =   True)
         norData             = self.normalizeDataEachModes(  rawData    =   cleanData,
                                                             headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
         aiLogger.info(norData.keys())
@@ -311,7 +363,7 @@ class PreProcessData(object):
             for idxCase in range(self.numOfCases):
                 curCase                         = idxCase + 1                                           # index starts from 0, case starts from 1
                 curRawData                      = pd.read_hdf(dir+ name, key='case' + str(curCase))
-                self.rawData[curCase]           = curRawData[curRawData.index % 2 != 1] if reduceSampleRate else curRawData
+                self.rawData[curCase]           = curRawData[curRawData.index % 2 == 0] if reduceSampleRate else curRawData
 
                 if removeHigherThr:
                     aiLogger.info(f"Remove the exceeded amplitude at the case {curCase}")
@@ -471,9 +523,12 @@ class PreProcessData(object):
                     aiLogger.info(f"Getting average data at case {caseKey} and column {col} ...")
                     outSignal[caseKey][col]   = value.groupby('Id',sort=False)[col].transform(lambda x: self.getMovingAverage(x, windowSize))   
                 
-                if flipToDown:
-                    aiLogger.info(f"Flipping data at case {caseKey} and column {col} ...")
-                    outSignal[caseKey][col]   = value.groupby('Id',sort=False)[col].transform(lambda x: self.flip2Down(x))   
+            # if flipToDown:
+            #     aiLogger.info(f"Flipping data at case {caseKey} and column {col} ...")
+            #     outSignal[caseKey][col]   = value.groupby('Id',sort=False)[col].transform(lambda x: self.flip2Down(x))   
+            if flipToDown:
+                aiLogger.info(f"Flipping data at case {caseKey}")
+                outSignal[caseKey][columnName]      = value.groupby("Id", sort=False)[columnName].apply(lambda g: self.flip2DownPandasMultipleCol(g, g.columns))
 
         return outSignal
 
@@ -504,6 +559,28 @@ class PreProcessData(object):
         
         return adjusted_time_series
     
+
+    def flip2DownPandasMultipleCol(self, df_group, colNames, flipOption = "average"):
+        df_copy = df_group.copy()
+
+        for col in colNames:
+            series = df_copy[col].values
+            time_points = np.arange(len(series))
+            coefficients = np.polyfit(time_points, series, 2)
+
+            if coefficients[0] >= 0:
+                if flipOption == "average":
+                    # Mirror around the mean to flip the trend but keep values realistic
+                    mean_val = series.mean()
+                    df_copy[col] = 2 * mean_val - series  # Flipped around mean
+                elif flipOption == "flipWithNegative":
+                    df_copy[col] = series * -1
+
+                elif flipOption == "maxmin":
+                    df_copy[col] = series.max() - (series - series.min())
+           
+        return df_copy[colNames]
+
     # ===================================
     # This function is used to move all
     # all the data point to the peak at 
