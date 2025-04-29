@@ -335,7 +335,7 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, numEnvs = 3):
+    def __init__(self, inFeature = 45, numEnvs = 3, comp = "Reac"):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
@@ -345,6 +345,29 @@ class SensorSelection(tf.keras.Model):
         #                                    trainable    = True,
         #                                    name         = 'mask_logits')
         # self.numComponents  = numComponents
+
+        # Mode 2 matrices
+        self.physicMask = tf.Variable(tf.zeros((3, 45), dtype=tf.float32))
+        if comp == "Reac":
+            reac_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1])
+            reac_3 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0])
+            reac_4 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1])
+            self.physicMask = tf.constant(np.array([reac_2, reac_3, reac_4]), dtype=tf.float32)
+        elif comp == "Sep":
+            sep_2 = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0])
+            sep_3 = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0])
+            sep_4 = np.array([1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0])
+            self.physicMask = tf.constant(np.array([sep_2, sep_3, sep_4]), dtype=tf.float32)
+
+        else:
+            strip_2 = np.array([1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0])
+            strip_3 = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0])
+            strip_4 = np.array([1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+            self.physicMask = tf.constant(np.array([strip_2, strip_3, strip_4]), dtype=tf.float32)
+
+        # Mode 3 matrices
+
+        # Mode 4 matrices
         self.numModes       = numEnvs         # 3 modes in total
         self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
                                                 initializer =   "random_normal",
@@ -360,8 +383,10 @@ class SensorSelection(tf.keras.Model):
         # print("-------------------------------", env.shape)
         env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
         env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors) each sequence (after split) will have a different env, so env should be a batch (include differnt env to access to the mask)                    
-    
-        probs               = tf.sigmoid(env_mask_logits)
+        withPhysicMask      = tf.gather(self.physicMask, env, axis=0)
+        
+        integratedPhysicMsk = env_mask_logits*withPhysicMask
+        probs               = tf.sigmoid(integratedPhysicMsk)
         random_uniform      = tf.random.uniform(tf.shape(probs))
         binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
         # print("==================================",env_mask_logits.shape)
@@ -403,7 +428,8 @@ class mainModel(tf.keras.Model):
                                                         )
         
         self.mask           = SensorSelection(inFeature = config["in" + config["component"]], 
-                                              numEnvs   = config["numRealCompEnv"])
+                                              numEnvs   = config["numRealCompEnv"],
+                                              comp      = config["component"])
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoder        = vae.get_encoder(kernelSize = 3, stride = 2)

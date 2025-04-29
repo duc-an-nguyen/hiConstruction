@@ -45,60 +45,8 @@ class PreProcessData(object):
         self.scenario[5]        = "mode 1: reactor     -> stripper     -> separator"
         self.scenario[6]        = "mode 5: separator   -> stripper     -> separator"
         self.scenario[7]        = "mode 2: reactor     -> separator"
-        allow_mask = tf.constant([
-    [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 0, 1, 1, 0, 1],
-    [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 0, 1, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 0, 1, 1, 0, 0]
-], dtype=tf.float32)
         
-        allow_mask1 = tf.constant([
-    [1, 1, 0, 1, 0, 1, 1, 1, 0, 1,
-     0, 0, 0, 1, 1, 1, 0, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
 
-    [1, 1, 1, 1, 0, 1, 1, 1, 0, 1,
-     1, 0, 1, 1, 1, 1, 0, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
-
-    [1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-     1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-     1, 0, 1, 0, 1, 1, 1, 1, 1, 1,
-     1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
-], dtype=np.float32)
-
-    # Stripper allow_mask2 (Mode 2, Mode 3, Mode 4)
-        allow_mask2 = tf.constant([
-        [1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-        0, 0, 0, 1, 1, 1, 0, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
-
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 1,
-        1, 0, 1, 1, 1, 1, 0, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
-
-        [1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-        1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 0, 1, 0, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
-    ], dtype=np.float32)
-
-    
         self.allHeadline             = ['D feed',                   'E Feed',                   'A Feed',                   'A and C Feed',         'Recycle',              'Purge', 
                                         'Separator',                'Stripper',                 'Steam',                    'Reactor Coolant',      'Condenser Coolant',    'Agitator',                 # 12 manipulated variables
                                         'msv A Feed',               'msv D Feed',               'msv E Feed',               'msv A and C Feed',     'Recycle Flow',         'Reactor Feed Rate',        # 41 measured variables
@@ -138,8 +86,8 @@ class PreProcessData(object):
                                         'Component F to Purge',     'Component G to Purge',     'Component H to Purge',     'Component D to Product',
                                         'Component E to Product',   'Component F to Product',   'Component G to Product',   'Component H to Product',
                                         ]     #"rul"
-        
-        
+
+                                      
         
         # --------------------------
         # The sensor for each machine
