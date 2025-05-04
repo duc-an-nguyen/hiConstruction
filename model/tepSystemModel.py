@@ -363,7 +363,7 @@ class HiSystemAndRul(tf.keras.Model):
 #  The sensor selection block
 # ====================================
 class SensorSelection(tf.keras.Model):
-    def __init__(self, inFeature = 45, numEnvs = 3):
+    def __init__(self, inFeature = 45, numEnvs = 3, comp = "Reac"):
         '''
         The input size should be (batchSize, timeStep, featureDim)        
         '''
@@ -373,6 +373,29 @@ class SensorSelection(tf.keras.Model):
         #                                    trainable    = True,
         #                                    name         = 'mask_logits')
         # self.numComponents  = numComponents
+
+        # Mode 2 matrices
+        self.physicMask = tf.Variable(tf.zeros((3, 45), dtype=tf.float32))
+        if comp == "Reac":
+            reac_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1])
+            reac_3 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0])
+            reac_4 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1])
+            self.physicMask = tf.constant(np.array([reac_2, reac_3, reac_4]), dtype=tf.float32)
+        elif comp == "Sep":
+            sep_2 = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0])
+            sep_3 = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0])
+            sep_4 = np.array([1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0])
+            self.physicMask = tf.constant(np.array([sep_2, sep_3, sep_4]), dtype=tf.float32)
+
+        else:
+            strip_2 = np.array([1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0])
+            strip_3 = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0])
+            strip_4 = np.array([1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+            self.physicMask = tf.constant(np.array([strip_2, strip_3, strip_4]), dtype=tf.float32)
+
+        # Mode 3 matrices
+
+        # Mode 4 matrices
         self.numModes       = numEnvs         # 3 modes in total
         self.mask_logits    = self.add_weight(  shape       =   (self.numModes, inFeature),  # Each mode has different sensor probabilities
                                                 initializer =   "random_normal",
@@ -387,23 +410,30 @@ class SensorSelection(tf.keras.Model):
         # ------------------------
         # print("-------------------------------", env.shape)
         env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
-        # # modeIndex           = (env -1)* self.numComponents + comp
-        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors)                      
-    
-        probs               = tf.sigmoid(env_mask_logits)
+        env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors) each sequence (after split) will have a different env, so env should be a batch (include differnt env to access to the mask)                    
+        withPhysicMask      = tf.gather(self.physicMask, env, axis=0)
+        
+        probs               = tf.sigmoid(env_mask_logits) * withPhysicMask
         random_uniform      = tf.random.uniform(tf.shape(probs))
         binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
         # print("==================================",env_mask_logits.shape)
         # mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
         # mask                = tf.expand_dims(mask, axis=0)
         # maskedData      = rawData * mask
+        print("-------------------------------")
+        print(self.mask_logits.shape)
+        print(env_mask_logits.shape)
+        print(rawData.shape)
+
         maskedData          = rawData * probs
+        print(maskedData.shape)
+        print("-------------------------------")
         return maskedData, probs, binary_mask
     
     def getMask(self,):
         probs               = tf.sigmoid(self.mask_logits)   
-        random_uniform      = tf.random.uniform(tf.shape(probs))
-        binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32) 
+        # random_uniform      = tf.random.uniform(tf.shape(probs))
+        binary_mask         = tf.cast(tf.less(0.5, probs), tf.float32) 
         return binary_mask, probs
 
 
@@ -438,9 +468,9 @@ class SystemModel(tf.keras.Model):
                                                             )
         
 
-        self.maskCr1           = SensorSelection(inFeature= config["in" + config["allComp"][0]], )
-        self.maskCr2           = SensorSelection(inFeature= config["in" + config["allComp"][1]], )
-        self.maskCv2           = SensorSelection(inFeature= config["in" + config["allComp"][2]], )
+        self.maskCr1           = SensorSelection(inFeature= config["in" + config["allComp"][0]], comp= "Reac")
+        self.maskCr2           = SensorSelection(inFeature= config["in" + config["allComp"][1]], comp= "Sep")
+        self.maskCv2           = SensorSelection(inFeature= config["in" + config["allComp"][2]], comp= "Strip")
 
         # self.encoder        = vae.getAttentionEncoder(kernelSize = 3, stride = 2)
         self.encoderCr1        = vaeCr1.get_encoder(kernelSize = 3, stride = 2)
@@ -660,119 +690,70 @@ class SystemModel(tf.keras.Model):
     # -----------------------------
     def test_step(self, input): 
 
-        # with tf.GradientTape() as tape:
 
         # ====================================
         #           MODEL FLOW
         # ------------------------------------
-        seqXTrainEnv,seqXAllSensorTrain             = input[0]
-        reacSensorY,sepSensorY,stripSensorY,rulY    = input[1]
-
-        # ------------------------------------
-        # Sensor selection
-        # ------------------------------------
-        # allSensor   = Input(shape=(128,47))(seqXAllSensorTrain)
-        compIn          = self.sensorSelection(seqXAllSensorTrain)
-        
-        selectedReac    = compIn[:,:,:self.config["featureDim"]]
-        selectedSep     = compIn[:,:,self.config["featureDim"]:self.config["featureDim"]*2]
-        selectedStrip   = compIn[:,:,self.config["featureDim"]*2:self.config["featureDim"]*3]
-
-
-        # print(selectedReac.shape, selectedSep.shape, selectedStrip.shape)
-        
+        seqData,seqCycle, env                   = input[0]
+        rulY                                    = input[1]
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
-        # print("Encoder ")
-        zMeanReac,  zLogReac,   zReac    = self.encoderReac(selectedReac)
-        zMeanSep,   zLogSep,    zSep     = self.encoderSep(selectedSep)
-        zMeanStrip, zLogStrip,  zStrip   = self.encoderStrip(selectedStrip)
+        if self.config["useMask"]:
+            encInCr1, probsMaskCr1, binaryMaskCr1   = self.maskCr1(seqData, env)
+            encInCr2, probsMaskCr2, binaryMaskCr2   = self.maskCr2(seqData, env)
+            encInCv2, probsMaskCv2, binaryMaskCv2   = self.maskCv2(seqData, env)
 
-        # print("Latent size",z_mean.shape)
 
-        # print("decoder")
-        reconsReac  = self.decoderReac(zReac)
-        reconsSep   = self.decoderSep(zSep)
-        reconsStrip = self.decoderStrip(zStrip)
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
+            
+        else:
+            encInCr1                                = seqData
+            encInCr2                                = seqData
+            encInCv2                                = seqData
 
-        # ------------------------------------
-        # Create RUL and HI System
-        # ------------------------------------
+            zCr1,  sysHILayerCr1                    = self.encoderCr1(encInCr1)
+            zCr2,  sysHILayerCr2                    = self.encoderCr2(encInCr2)
+            zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
 
-        # print("HI and system rul")
-        hiSystem, predictedRul = self.hiSystemAndRul([zReac,zSep,zStrip])
 
-        # print("Loss funcion")
+        hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+
         # ====================================
         #               LOSS
         # ------------------------------------
-        # Loss function for sensor selection
-        # ------------------------------------
-        sensorReacLoss  = tf.keras.losses.mse(selectedReac, reacSensorY)
-        # sensorReacLoss *= self.config["latentDim"]
-        sensorReacLoss   = tf.reduce_mean(sensorReacLoss)
-
-        sensorSepLoss   = tf.keras.losses.mse(selectedSep,sepSensorY)
-        # sensorSepLoss *= self.config["latentDim"]
-        sensorSepLoss   = tf.reduce_mean(sensorSepLoss)
-
-        sensorStripLoss  = tf.keras.losses.mse(selectedStrip,stripSensorY)
-        # sensorStripLoss *= self.config["latentDim"]
-        sensorStripLoss  = tf.reduce_mean(sensorStripLoss)
-
-
-        # ------------------------------------
-        # Loss for reconstruction
-        # ------------------------------------
-
-        reconLossCr1   = tf.keras.losses.mse(reconsReac,   reacSensorY)
-        reconLossCr1   = tf.reduce_mean(reconLossCr1)
-        reconLossSep    = tf.keras.losses.mse(reconsSep,    sepSensorY)
-        reconLossSep    = tf.reduce_mean(reconLossSep)
-        reconLossStrip  = tf.keras.losses.mse(reconsStrip,  stripSensorY)
-        reconLossStrip  = tf.reduce_mean(reconLossStrip)
+        
         # ------------------------------------
         # Loss for RUL
         # ------------------------------------
-        rulLoss = tf.keras.losses.mse(predictedRul,rulY)
-        rulLoss = tf.reduce_mean(rulLoss)
+        rulLoss     = tf.keras.losses.mae(predictedRul,rulY)
+        rulLoss     = tf.reduce_mean(rulLoss)
+        totalLoss   = rulLoss
 
-        totalLoss = (sensorReacLoss + sensorSepLoss + sensorStripLoss) +            \
-                    (reconLossCr1 + reconLossSep + reconLossStrip) +               \
-                    2*rulLoss 
-            
+        if self.config["hiSelection"]:
+            hiSelectionLoss  = -tf.reduce_sum(hiMatrixOutput * tf.math.log(hiMatrixOutput + 1e-10), axis=-1)    #  Entropy-like loss to select only 1 value of 1
+            totalLoss       += hiSelectionLoss
+        else:
+            hiSelectionLoss = 0
+
+
+                        
+    
         # --------------------------------
         # Update losses
         # --------------------------------
         self.totalLossTracker.update_state(totalLoss)
         self.rulLossTracker.update_state(rulLoss)
+        self.hiSelectionLossTracker.update_state(hiSelectionLoss)
 
-        # Sensor loss
-        self.reacSensorTracker.update_state(sensorReacLoss)
-        self.sepSensorTracker.update_state(sensorSepLoss)
-        self.stripSensorTracker.update_state(sensorStripLoss)
 
-        # Construction loss 
-        self.reacConstructionTracker.update_state(reconLossCr1)
-        self.sepConstructionTracker.update_state(reconLossSep)
-        self.stripConstructionTracker.update_state(reconLossStrip)
-
-        # KL Loss
-        # self.reacKlLossTracker.update_state(klLossReac)
-        # self.sepKlLossTracker.update_state(klLossSep)
-        # self.stripKlLossTracker.update_state(klLossStrip)
-      
 
         return {
-            "totalLoss"             : self.totalLossTracker.result(),
-            "rulLoss"               : self.rulLossTracker.result(),
-            "ssReLoss"              : self.reacSensorTracker.result(),
-            "ssSeLoss"              : self.sepSensorTracker.result(),
-            "ssStLoss"              : self.stripSensorTracker.result(),
-            "cstrReLoss"            : self.reacConstructionTracker.result(),
-            "cstrSeLoss"            : self.sepConstructionTracker.result(),
-            "cstrStLoss"            : self.stripConstructionTracker.result(),
+            "totalLoss"                 : self.totalLossTracker.result(),
+            "rulLoss"                   : self.rulLossTracker.result(), 
+            "hiSelectionLoss"           : self.hiSelectionLossTracker.result()
         }
     
     # --------------------------------

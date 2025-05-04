@@ -167,7 +167,7 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir           = os.path.expanduser(self.config["dataDir"])
-        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case="all", reduceSampleRate = True)
+        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/newTeps.h5", case = "all", reduceSampleRate = True)
         # print(rawData.keys())
         # ----------------------------
         # Split train and test data
@@ -189,13 +189,13 @@ class PreProcessData(object):
         cleanData           = self.cleanData(   rawSignal           =   withRULData,
                                                 columnName          =   self.allWithoutLabel,
                                                 getMovingAverage    =   False,
-                                                flipToDown          =   True)
+                                                flipToDown          =   False)
         # ---------------------------
         # For label, flip only
         cleanData           = self.cleanData(rawSignal              =   cleanData,
                                                 columnName          =   self.degraLiq,
                                                 getMovingAverage    =   False,
-                                                flipToDown          =   True)
+                                                flipToDown          =   False)
         norData             = self.normalizeDataEachModes(  rawData    =   cleanData,
                                                             headline   =   self.headline["allWithoutLabelNoBias"])   # Normalize the data
         aiLogger.info(norData.keys())
@@ -203,8 +203,14 @@ class PreProcessData(object):
         # Extract the data in each Case
         allSeqXAllSensorTrain   = []
         allSeqXRulTrain         = []
-        allSeqXTrainEnv         = []
-        allSeqTime              = []
+        allSeqXEnvTrain         = []
+        allSeqTimeTrain         = []
+
+        allSeqXAllSensorVal     = []
+        allSeqXRulVal           = []
+        allSeqXEnvVal           = []
+        allSeqTimeVal           = []
+        nbOfTrainData           = 100
         for idxCase in self.config["case"]:
             data                = norData[idxCase]
             # print(data.head)
@@ -218,33 +224,79 @@ class PreProcessData(object):
             timeTraj            = data["Time"]
             env                 = data["environmentID"]
 
-            # # ---------------------------
-            # # For training
-            # seqXReacTrain,          \
-            # seqXSepTrain,           \
-            # seqXStripTrain,         \
+
+            trainTrajectID      = trajectID[trajectID <=nbOfTrainData]
+            valTrajectID        = trajectID[trajectID >nbOfTrainData]
+            
+            trainAllSensor      = allSensor[trajectID <=nbOfTrainData]
+            valAllSensor        = allSensor[trajectID > nbOfTrainData]
+        
+
+            trainRul            = rul[trajectID <=nbOfTrainData]
+            valRul              = rul[trajectID > nbOfTrainData]
+
+            trainEnv            = env[trajectID <=nbOfTrainData]
+            valEnv              = env[trajectID > nbOfTrainData]
+
+            trainTime           = timeTraj[trajectID <=nbOfTrainData]
+            valTime             = timeTraj[trajectID > nbOfTrainData]
+
+
+
+            # ---------------------------
+            # For training
             seqXAllSensorTrain,     \
             seqXRulTrain,           \
-            seqXTrainEnv,seqTime        = self.getTensorData(dataList    = [allSensor,rul,env,timeTraj],
-                                                                trajectId   = trajectID,  
+            seqXTrainEnv,seqTimeTrain        = self.getTensorData(dataList    = [trainAllSensor,trainRul,trainEnv,trainTime],
+                                                                trajectId   = trainTrajectID,  
                                                                 shuffle     = True,      
                                                                 seqLength   = self.config["seqLength"],
                                                                 overlap     = self.config["overLap"]         
                                                                 )
+            
+            # print(trajectID.shape)
+            # print(seqXAllSensorTrain.shape)
             allSeqXAllSensorTrain.append(seqXAllSensorTrain)  
             allSeqXRulTrain.append(seqXRulTrain)  
-            allSeqXTrainEnv.append(seqXTrainEnv) 
-            allSeqTime.append(seqTime) 
+            allSeqXEnvTrain.append(seqXTrainEnv) 
+            allSeqTimeTrain.append(seqTimeTrain) 
+
+            # ---------------------------
+            # For validation
+            seqXAllSensorVal,     \
+            seqXRulVal,           \
+            seqXEnvVal,seqTimeVal        = self.getTensorData(  dataList    = [valAllSensor,valRul,valEnv,valTime],
+                                                                trajectId   = valTrajectID,  
+                                                                shuffle     = True,      
+                                                                seqLength   = self.config["seqLength"],
+                                                                overlap     = self.config["overLap"]         
+                                                                )
+            
+            allSeqXAllSensorVal.append(seqXAllSensorVal)
+            allSeqXRulVal.append(seqXRulVal)
+            allSeqXEnvVal.append(seqXEnvVal)
+            allSeqTimeVal.append(seqTimeVal)
+
 
         allSeqXAllSensorTrain   = np.concatenate(allSeqXAllSensorTrain, axis=0)
         allSeqXRulTrain         = np.concatenate(allSeqXRulTrain, axis=0)
-        allSeqXTrainEnv         = np.concatenate(allSeqXTrainEnv, axis=0)
-        allSeqTime              = np.concatenate(allSeqTime, axis=0)
-        # comp                    = np.ones_like(allSeqXTrainEnv[:,-1,:]) * self.indexComponent[self.config["component"]]
-        xTrain              = [allSeqXAllSensorTrain, allSeqTime[:,-1,:],allSeqXTrainEnv[:,-1,:]]
+        allSeqXEnvTrain         = np.concatenate(allSeqXEnvTrain, axis=0)
+        allSeqTimeTrain         = np.concatenate(allSeqTimeTrain, axis=0)
+
+
+        allSeqXAllSensorVal   = np.concatenate(allSeqXAllSensorVal, axis=0)
+        allSeqXRulVal         = np.concatenate(allSeqXRulVal, axis=0)
+        allSeqXEnvVal         = np.concatenate(allSeqXEnvVal, axis=0)
+        allSeqTimeVal         = np.concatenate(allSeqTimeVal, axis=0)
+
+
+        xTrain              = [allSeqXAllSensorTrain, allSeqTimeTrain[:,-1,:],allSeqXEnvTrain[:,-1,:]]
+        xVal                = [allSeqXAllSensorVal, allSeqTimeVal[:,-1,:],allSeqXEnvVal[:,-1,:]]
         yTrain              = [allSeqXRulTrain[:,-1,:]]
-        print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTime[:,-1,:].shape} Environment {allSeqXTrainEnv[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
-        return xTrain, yTrain
+        yVal                = [allSeqXRulVal[:,-1,:]]
+        print(f"The size of the train data: xTrain {allSeqXAllSensorTrain.shape} Time {allSeqTimeTrain[:,-1,:].shape} Environment {allSeqXEnvTrain[:,-1,:].shape} RUL {allSeqXRulTrain[:,-1,:].shape}")
+        print(f"The size of the val data: xVal {allSeqXAllSensorVal.shape} Time {allSeqTimeVal[:,-1,:].shape} Environment {allSeqXEnvVal[:,-1,:].shape} RUL {allSeqXRulVal[:,-1,:].shape}")
+        return xTrain, yTrain, xVal, yVal
 
     # ===================================
     # This function is used to load the 
@@ -298,7 +350,7 @@ class PreProcessData(object):
     def loadDataFromH5Format(self,dir   = "./", 
                              name       = "data/teps.h5", 
                              case       = "all", 
-                             reduceSampleRate   = False, 
+                             reduceSampleRate   = True, 
                              removeHigherThr    = False, 
                              columnNames        = ["Product Sep Level", "Stripper Level","Stripper Level","Stripper Level", "Product Sep Level", "Product Sep Level"], 
                              trend              = ["up", "up", "up", "up", "up", "up"]):
@@ -311,7 +363,7 @@ class PreProcessData(object):
             for idxCase in range(self.numOfCases):
                 curCase                         = idxCase + 1                                           # index starts from 0, case starts from 1
                 curRawData                      = pd.read_hdf(dir+ name, key='case' + str(curCase))
-                self.rawData[curCase]           = curRawData[curRawData.index % 2 == 0] if reduceSampleRate else curRawData
+                self.rawData[curCase]           = curRawData[curRawData.index % 2 != 1] if reduceSampleRate else curRawData
 
                 if removeHigherThr:
                     aiLogger.info(f"Remove the exceeded amplitude at the case {curCase}")
@@ -871,7 +923,7 @@ class PreProcessData(object):
         # -------------------
         tensor =   np.stack(allSeq, axis=0)   
 
-        aiLogger.debug(f"The shape of the tensor is {tensor.shape}")
+        # aiLogger.debug(f"The shape of the tensor is {tensor.shape}")
         if shuffle:
             np.random.shuffle(tensor)
 

@@ -41,7 +41,7 @@ class TEPTrainerTester():
         self.saveCheckpoint  =   SubclassModelCheckpoint(   customSaveFunction      = self.model.save,  # Your custom save function
                                                             filepath                = self.outputDir + 'checkpoint/bestModel/',     # Where the model should be saved
                                                             config                  = config,
-                                                            monitor                 = "totalLoss",                          # Monitoring validation loss
+                                                            monitor                 = "val_totalLoss",                          # Monitoring validation loss
                                                             # monitor                 = "rulLoss",
                                                             mode                    = 'min',                                # 'min' because we want to minimize loss
                                                             save_best_only          = True,                                 # Only save the best version
@@ -53,9 +53,9 @@ class TEPTrainerTester():
         # --------------------------
         self.tensorboardCallback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-        earlyStopLoss       = 'totalLoss'
+        earlyStopLoss       = 'val_totalLoss'
         self.earlyStop_Callback = EarlyStopping(monitor=earlyStopLoss, min_delta = 0.01, patience=15) # change to 5
-        self.reduceLR            = ReduceLROnPlateau(monitor='totalLoss', factor=0.5, patience=5)
+        self.reduceLR            = ReduceLROnPlateau(monitor='val_totalLoss', factor=0.5, patience=5)
 
     # ==============================
     # Train function
@@ -73,7 +73,7 @@ class TEPTrainerTester():
                                     shuffle     = True,
                                     callbacks   = [self.earlyStop_Callback, self.reduceLR, self.saveCheckpoint, self.tensorboardCallback],
                                     verbose     = 1,
-                            # validation_data = (seqXReacVal,seqXReacVal)
+                                    validation_data = (seqXVal,seqYVal)
         )
     
         return history
@@ -123,8 +123,12 @@ if __name__ == '__main__':
     trainer     = TEPTrainerTester(model = model, config = myConfig)                    # Trainer
     trainer.compileModel()
 
-    seqXTrain,seqYTrain     = preData.getTrainData()
-    history                 = trainer.train(seqXTrain   = seqXTrain, seqYTrain = seqYTrain)
+    seqXTrain,seqYTrain, seqXVal, seqYVal   = preData.getTrainData()
+    history                                 = trainer.train(seqXTrain   = seqXTrain, 
+                                                            seqYTrain = seqYTrain, 
+                                                            seqXVal   = seqXVal,
+                                                            seqYVal   = seqYVal
+                                                            )
                                                                    
     
 # 41,30,31

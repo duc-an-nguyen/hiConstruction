@@ -385,8 +385,7 @@ class SensorSelection(tf.keras.Model):
         env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors) each sequence (after split) will have a different env, so env should be a batch (include differnt env to access to the mask)                    
         withPhysicMask      = tf.gather(self.physicMask, env, axis=0)
         
-        integratedPhysicMsk = env_mask_logits*withPhysicMask
-        probs               = tf.sigmoid(integratedPhysicMsk)
+        probs               = tf.sigmoid(env_mask_logits)
         random_uniform      = tf.random.uniform(tf.shape(probs))
         binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
         # print("==================================",env_mask_logits.shape)
@@ -542,7 +541,7 @@ class mainModel(tf.keras.Model):
             # Loss for reconstruction
             # ------------------------------------
             reconLossCr1    = tf.keras.losses.mae(encIn,decOut)
-            reconLossCr1    = tf.reduce_mean(reconLossCr1)
+            reconLossCr1    = 100*tf.reduce_mean(reconLossCr1)
 
             totalLoss       = reconLossCr1
             # ------------------------------------
@@ -617,62 +616,62 @@ class mainModel(tf.keras.Model):
         # ====================================
         #           MODEL FLOW
         # ------------------------------------
-        seqEff,seqCycle             = input[0]
-        rulY                        = input[1]
+        seqEff, seqCycle, env           = input[0]
+        rulY                            = input[1]
+        
         # ------------------------------------
         # Encoder and Decoder for 3 components
         # ------------------------------------
         if self.config["useMask"]:
-            encIn, probsMask, binaryMask= self.mask(seqEff)
-
+            encIn, probsMask, binaryMask= self.mask(seqEff, env)
             zCr1,  sysHILayerCr1        = self.encoder(encIn)
             reconsCr1                   = self.decoder(zCr1)
-
-            decOut,_,_                  = self.mask(reconsCr1)
+            decOut,_,_                  = self.mask(reconsCr1, env)
         else:
             encIn                       = seqEff
-            zCr1,  sysHILayerCr1        = self.encoder(seqEff)
+            zCr1,  sysHILayerCr1        = self.encoder(encIn)
             decOut                      = self.decoder(zCr1)
 
         # reconsCr1                   = self.decoder([zCr1,seqMani])
         # ------------------------------------
         # Create RUL and HI System
         # ------------------------------------
-        # tf.print("Sum of binary mask:", tf.reduce_sum(binaryMask))
-        # tf.print("Mask values:", binaryMask)
-        # print("HI and system rul")
-        predictedRul = self.hiSystemAndRul(sysHILayerCr1)
-
-        # print("Loss funcion")
+        
         # ====================================
         #               LOSS
         # ------------------------------------
-        # L1 regularization to promote sparsity
-        # l1_reg = tf.reduce_sum(probs)
-        # Binarization regularization
-        maskLoss = 10* tf.reduce_sum(probsMask * (1 - probsMask))
-        # maskLoss = l1_reg + binary_reg
         # ------------------------------------
         # Loss for reconstruction
         # ------------------------------------
-        # reconLossCr1   = self._get_reconstruction_loss(seqEff, reconsCr1)
-        # print(encIn.shape, decOut.shape)
         reconLossCr1    = tf.keras.losses.mae(encIn,decOut)
-        reconLossCr1    = tf.reduce_mean(reconLossCr1)
+        reconLossCr1    = 100*tf.reduce_mean(reconLossCr1)
+
+        totalLoss       = reconLossCr1
         # ------------------------------------
         # Loss for RUL
         # ------------------------------------
-        rulLoss = tf.keras.losses.mae(predictedRul,rulY)
-        rulLoss = tf.reduce_mean(rulLoss)
+        if self.config["useRUL"]:
+            predictedRul    = self.hiSystemAndRul(sysHILayerCr1)
+            rulLoss         = tf.keras.losses.mae(predictedRul,rulY)
+            rulLoss         = tf.reduce_mean(rulLoss)
+            totalLoss       += rulLoss
+        else:
+            rulLoss = 0
+        
+        if self.config["useMask"] :
+            maskLoss                    = 10*tf.reduce_sum(probsMask * (1 - probsMask))
+            enforceUnchangedFeatureLoss = 10*tf.reduce_sum((1 - probsMask[:self.config["unchangeFeatures"]]) ** 2) if self.config["unchangeFeatures"] != 0 else 0
 
-        totalLoss = reconLossCr1   +  rulLoss + maskLoss
-                    
+            totalLoss += (maskLoss + enforceUnchangedFeatureLoss)
+        else:
+            maskLoss = 0
+
         # ------------------------------------
         # Add the constrain to the latent space
         # ------------------------------------
-        if self.config["latentConstrains"] :
-            zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "expertCurveWithEnv1", alpha=10)
-            # zReacLoss     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "reliability", alpha=1)
+        if self.config["latentConstrains"]:
+            # zReacLoss,_     = self._getConstrain(inputData = [zCr1,    seqCycle], type = "trendability", alpha=10)
+            zReacLoss,_   = self._getConstrain(inputData = [zCr1, seqCycle, env], type = "expertCurveWithEnv1", alpha=10)
             totalLoss    += zReacLoss
         else:
             zReacLoss = 0
@@ -682,22 +681,28 @@ class mainModel(tf.keras.Model):
         # Update losses
         # --------------------------------
         self.totalLossTracker.update_state(totalLoss)
-        self.rulLossTracker.update_state(rulLoss)
 
         # Construction loss 
         self.cr1ConstructionTracker.update_state(reconLossCr1)
-        
+
+        # RUL loss
+        if self.config["useRUL"]:
+            self.rulLossTracker.update_state(rulLoss)
+
         # Latent loss
         if self.config["latentConstrains"] :
             self.cr1ZLossTracker.update_state(zReacLoss)
-        self.maskLossTracker.update_state(maskLoss)
+
+        # Mask loss
+        if self.config["useMask"] :
+            self.maskLossTracker.update_state(maskLoss)
        
 
         return {
             "totalLoss"             : self.totalLossTracker.result(),
             "rulLoss"               : self.rulLossTracker.result(),        
-            "cstrLoss"            : self.cr1ConstructionTracker.result(),
-            "zLoss"               : self.cr1ZLossTracker.result(),
+            "cstrLoss"              : self.cr1ConstructionTracker.result(),
+            "zLoss"                 : self.cr1ZLossTracker.result(),
             "maskLoss"              : self.maskLossTracker.result()
         }
     
@@ -863,7 +868,7 @@ class mainModel(tf.keras.Model):
 
             elif comp == "Strip":
                 hiEnv1 = -tf.exp(k21*(t - 60))
-                hiEnv2 = -tf.exp(k22*(t - 60))
+                hiEnv2 = -tf.exp(k21*(t - 60))
                 hiEnv3 = -tf.exp(k3*(t - 90))
             else:
                 raise KeyError("Check again the component names!!!")
