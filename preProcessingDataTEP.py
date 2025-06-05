@@ -350,7 +350,7 @@ class PreProcessData(object):
     def loadDataFromH5Format(self,dir   = "./", 
                              name       = "data/teps.h5", 
                              case       = "all", 
-                             reduceSampleRate   = True, 
+                             reduceSampleRate   = False, 
                              removeHigherThr    = False, 
                              columnNames        = ["Product Sep Level", "Stripper Level","Stripper Level","Stripper Level", "Product Sep Level", "Product Sep Level"], 
                              trend              = ["up", "up", "up", "up", "up", "up"]):

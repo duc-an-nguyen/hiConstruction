@@ -35,7 +35,7 @@
     "splitTrainTest"    : true,   
     "useMask"           : true,
     "numRealCompEnv"    : 3,
-    "useRUL"            : false,
+    "useRUL"            : true,
     "latentConstrains"  : true,
     "unchangeFeatures"  : 0,
     "learningRate":     0.01, 
@@ -58,7 +58,7 @@
     "_componentName"    : ["Reac", "Sep", "Strip", "Sys"],
     "diffEnv"           : true,
     "trajectoryPerCase" : 80,
-    "numOfCases"        : 3,
+    "numOfCases"        : 6,
     "frezeComponents"   : true,
     "hiSelection"       : true
 },

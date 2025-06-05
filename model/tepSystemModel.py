@@ -411,9 +411,9 @@ class SensorSelection(tf.keras.Model):
         # print("-------------------------------", env.shape)
         env                 = tf.cast(env-2, tf.int32)                                # Ensure integer type for indexing, and env from 1 to three, so we need index from 0 to 2
         env_mask_logits     = tf.gather(self.mask_logits, env, axis=0)              # (batch_size, num_sensors) each sequence (after split) will have a different env, so env should be a batch (include differnt env to access to the mask)                    
-        withPhysicMask      = tf.gather(self.physicMask, env, axis=0)
+        # withPhysicMask      = tf.gather(self.physicMask, env, axis=0)
         
-        probs               = tf.sigmoid(env_mask_logits) * withPhysicMask
+        probs               = tf.sigmoid(env_mask_logits)
         random_uniform      = tf.random.uniform(tf.shape(probs))
         binary_mask         = tf.cast(tf.less(random_uniform, probs), tf.float32)
         # print("==================================",env_mask_logits.shape)
