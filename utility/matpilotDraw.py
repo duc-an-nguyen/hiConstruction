@@ -275,6 +275,40 @@ class MatPlot(object):
         plt.tight_layout()
         plt.show()
 
+
+    # =============================
+    # Plot multiple image in subplot using plotly
+    # ------------------------------
+    def plot_HI_by_id(self,dfHI, hi_columns, num_rows=2, num_cols=2, colors=None, title="HI by Unit", y_lim=None):
+        unique_ids = dfHI["id"].unique()
+        num_plots = len(unique_ids)
+
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows))
+        axes = axes.flatten()
+
+        for i, unit_id in enumerate(unique_ids):
+            if i >= len(axes):
+                break  # avoid index error if more units than subplots
+
+            df_unit = dfHI[dfHI["id"] == unit_id]
+            x = df_unit["cycle"]
+
+            for j, hi in enumerate(hi_columns):
+                color = None if colors is None else colors[j]
+                axes[i].plot(x, df_unit[hi], label=hi, color=color)
+
+            axes[i].set_title(f"Unit {int(unit_id)}")
+            axes[i].set_xlabel("Cycle")
+            axes[i].set_ylabel("Health Index")
+            axes[i].grid(True)
+            if y_lim:
+                axes[i].set_ylim(y_lim)
+            axes[i].legend()
+
+        fig.suptitle(title)
+        plt.tight_layout()
+        plt.show()
+
     def subPlotMultiImgPlotly(self,
                         inX         = [],
                         inY         = [],
