@@ -275,6 +275,54 @@ class MatPlot(object):
         plt.tight_layout()
         plt.show()
 
+    # =============================
+    # Plot multiple image with pandas in subplot
+    # based on ids
+    def subPlotMultiImgPandas(self,
+                        inData      = None,
+                        inYLabel    = ["reacHI","sepHI", "stripHI", "sysHI"],
+                        subPlotName = "Name",
+                        numRow      = 2,
+                        numCol      = 2,
+                        color       = None,
+                        xLim        = [],
+                        yLim        = []
+                        ):
+        
+
+        inX         = inData["time"]
+        idxTraject  = int(inData["id"])
+        his         = inData[inYLabel]
+        # ------------------------
+        # The size of figure to 
+        # display
+        # ------------------------
+        subplotWidth    = 4  # inches
+        subplotHeight   = 4  # inches
+
+        figWidth    = numCol * subplotWidth
+        figHeight   = numRow * subplotHeight
+
+        # ------------------------
+        # Create subplot
+        # ------------------------
+        fig, axes = plt.subplots(numRow, numCol, figsize=(figWidth,figHeight), sharey=False)
+        # print("=====================", axes)
+        axes = axes.flatten()
+
+        for idxEachHi in range(max(idxTraject)):            # Run for each hi element inside each component
+            curTraject = his[idxTraject == idxEachHi]
+            for idxComp in range(len(inYLabel)):             # Run for each component
+            
+                axes[idxEachHi].plot(inX[idxTraject == idxEachHi], his[idxComp][idxTraject == idxEachHi],color=color[idxComp])
+
+            axes[idxEachHi].set_title("T" + str(idxEachHi+1))
+            axes[idxEachHi].grid(True)  # Add grid
+            if (len(yLim) != 0):
+                axes[idxEachHi].set_ylim(yLim) 
+        plt.tight_layout()
+        plt.show()
+
 
     # =============================
     # Plot multiple image in subplot using plotly

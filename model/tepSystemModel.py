@@ -420,14 +420,14 @@ class SensorSelection(tf.keras.Model):
         # mask                = binary_mask + probs - tf.stop_gradient(probs)         # Apply the mask using the reparameterization trick
         # mask                = tf.expand_dims(mask, axis=0)
         # maskedData      = rawData * mask
-        print("-------------------------------")
-        print(self.mask_logits.shape)
-        print(env_mask_logits.shape)
-        print(rawData.shape)
+        # print("-------------------------------")
+        # print(self.mask_logits.shape)
+        # print(env_mask_logits.shape)
+        # print(rawData.shape)
 
         maskedData          = rawData * probs
-        print(maskedData.shape)
-        print("-------------------------------")
+        # print(maskedData.shape)
+        # print("-------------------------------")
         return maskedData, probs, binary_mask
     
     def getMask(self,):

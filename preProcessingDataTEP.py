@@ -167,7 +167,7 @@ class PreProcessData(object):
     def getTrainData(self,):
         package.include()
         outputDir           = os.path.expanduser(self.config["dataDir"])
-        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/newTeps.h5", case = "all", reduceSampleRate = True)
+        rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case = "all", reduceSampleRate = True)
         # print(rawData.keys())
         # ----------------------------
         # Split train and test data
