@@ -811,6 +811,10 @@ class PreProcessData(object):
         for caseKey,value in rawData.items():                       # Run for loop in each case to get the max and min from pandas
             maxEachCase = value.max(axis = 0)
             minEachCase = value.min(axis = 0)
+
+            print("casekey", caseKey)
+            print(maxEachCase)
+            print(minEachCase)
    
             # rawData[caseKey].iloc[:,3:-1]  = (rawData[caseKey].iloc[:,3:-1] - minEachCase[3:-1].T) / (maxEachCase[3:-1].T - minEachCase[3:-1].T)
             rawData[caseKey][headline]  = (rawData[caseKey][headline] - minEachCase[headline].T) / (maxEachCase[headline].T - minEachCase[headline].T)
