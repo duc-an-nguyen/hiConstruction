@@ -790,7 +790,7 @@ class PreProcessData(object):
     # This function is used to normalize
     # the data from the input rawData
     # -----------------------------------
-    def normalizeDataEachModes(self,rawData,headline = None):
+    def normalizeDataEachModes(self,rawData,headline = None, returnMaxMin = False):
         '''
         rawData:    the dictionary of the data with the format of {case: value}, in which case is the case of the TEP,
                     while the value are trajectories identified through IDs. The size of the value is rowxcol (row: IDxrowInEachTrajectory, col: features)
@@ -808,17 +808,23 @@ class PreProcessData(object):
 
         # maxEachCase = pd.DataFrame(columns=rawData.keys())          # Create an empty pandas with different key from cases
         # minEachCase = pd.DataFrame(columns=rawData.keys())          # Create an empty pandas with different key from cases
+        maxEachCase = {}
+        minEachCase = {}
         for caseKey,value in rawData.items():                       # Run for loop in each case to get the max and min from pandas
-            maxEachCase = value.max(axis = 0)
-            minEachCase = value.min(axis = 0)
+            maxEachCase[caseKey] = value.max(axis = 0)
+            minEachCase[caseKey] = value.min(axis = 0)
 
-            print("casekey", caseKey)
-            print(maxEachCase)
-            print(minEachCase)
+            # print("casekey", caseKey)
+            # print(maxEachCase)
+            # print(minEachCase)
    
             # rawData[caseKey].iloc[:,3:-1]  = (rawData[caseKey].iloc[:,3:-1] - minEachCase[3:-1].T) / (maxEachCase[3:-1].T - minEachCase[3:-1].T)
-            rawData[caseKey][headline]  = (rawData[caseKey][headline] - minEachCase[headline].T) / (maxEachCase[headline].T - minEachCase[headline].T)
-        return rawData
+            rawData[caseKey][headline]  = (rawData[caseKey][headline] - minEachCase[caseKey][headline].T) / (maxEachCase[caseKey][headline].T - minEachCase[caseKey][headline].T)
+        
+        if returnMaxMin:
+            return maxEachCase,minEachCase
+        else:
+            return rawData
 
     
     # ===================================

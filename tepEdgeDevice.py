@@ -26,7 +26,7 @@ package.include()
 # ===========================
 # MODEL WITH CRUSHER
 # ===========================
-class TEPEdgeDevice():
+class AiProcessor():
     def __init__(self,model = None, config = None):
         self.config                 = config
         self.model                  = model
