@@ -38,8 +38,6 @@ with open('utility/modelConfig.json', 'r') as configFile:
     configData = json.load(configFile)
 config = configData["tep"]  
 
-
-
 outputDir               = os.path.expanduser(config["dataDir"])
 totalTraject            = 100
 normalizeHI             = True
@@ -54,19 +52,46 @@ class InputSignal2Ai():
         # ----------------------------
         # Handle the data
         # ----------------------------
+        environmentIdx      = 4
 
-        preData             = PreProcessData(config=config)
-        rawData             = preData.loadDataFromH5Format(dir              = outputDir, 
-                                                        name             = "data/teps.h5",
-                                                        case             = "all", 
-                                                        reduceSampleRate = True, 
-                                                        removeHigherThr  = False)
+        self.preData        = PreProcessData(config=config)
+        rawData             = self.preData.loadDataFromH5Format(dir              = outputDir, 
+                                                                name             = "data/teps.h5",
+                                                                case             = "all", 
+                                                                reduceSampleRate = True, 
+                                                                removeHigherThr  = False)
 
-        withRULData         = preData.addRULAndEnvironment(rawData)
+        withRULData         = self.preData.addRULAndEnvironment(rawData)
+        norData             = self.preData.normalizeDataEachModes(  rawData        = withRULData,
+                                                                    headline       = self.preData.headline["allWithoutLabelNoBias"] + ["rul"],
+                                                                    )    # Normalize the data
+        caseData            = norData[environmentIdx]
 
-        norData             = preData.normalizeDataEachModes(rawData    =  withRULData,
-                                                             headline   =   preData.headline["allWithoutLabelNoBias"] + ["rul"],
-                                                             returnMaxMin = True)    # Normalize the data
+
+        #-------------------------------
+        # Get the data for the 
+        #-------------------------------
+        getAtIdx = 80
+        print(f"Getting the HI at the idx {getAtIdx}")
+
+        
+        data                = norData[environmentIdx]
+        allSensor           = data[self.preData.headline["allWithoutLabelNoBias"]]
+
+
+        seqXAllSensorTrain,     \
+        seqXRulTrain,           \
+        seqXTrainEnv,seqTime                = self.preData.getTensorData(dataList    = [allSensor,rul,env,timeTraj],
+                                                                        trajectId   = trajectID,  
+                                                                        shuffle     = False,      
+                                                                        getAtIdx    = getAtIdx,
+                                                                        seqLength   = preData.config["seqLength"],
+                                                                        overlap     = preData.config["overLap"]         
+                                                                        )
+
+        seqTimeTrain        = seqTime[:,-1,:]
+        curEnv              = seqXTrainEnv[:,-1,:]
+        
         
 
         #----------------------------- 
@@ -83,20 +108,15 @@ class InputSignal2Ai():
         #----------------------------
         # Condition object
         #----------------------------
-        self.c_raw_fps_control          = None
-        self.c_processed_fps_control    = threading.Condition()
+        self.c_raw_fps_control                  = None
+        self.c_processed_input_signal_2ai       = threading.Condition()
         
         
         #----------------------------
         # Buffer
         #----------------------------
-        buffConfig                          = BufferConfig()
-        self.processed_fps_control_buffer   = buffConfig.processedBuffer
-        
-        self.raw_fps_control_buffer         = {}
-        for camera in self.cameras:
-            self.raw_fps_control_buffer[camera.id] = None
-            
+        buffConfig                              = BufferConfig()
+        self.processed_input_signal_2ai_buffer  = buffConfig.processedBuffer
         
         
     #==========================================
@@ -126,6 +146,11 @@ class InputSignal2Ai():
                 if self.c_raw_fps_control is not None:
                     with self.c_raw_fps_control:
                         self.c_raw_fps_control.wait()
+
+
+                
+
+
                 
                 #-------------------------------
                 # get the frame from buffers
