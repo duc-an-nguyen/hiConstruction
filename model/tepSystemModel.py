@@ -483,13 +483,13 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
         dataDir                = os.path.expanduser(config["dataDir"])
-        modelName1             = "bestModel34Reac"
-        modelName2             = "bestModel35Sep"
-        modelName3             = "bestModel36Strip"
+        modelName1             = "bestModelReac"
+        modelName2             = "bestModelSep"
+        modelName3             = "bestModelStrip"
         if config["frezeComponents"]:
-            self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/" + modelName1,
-                                                 modelDirComp2= dataDir + "checkpoint/" + modelName2,
-                                                 modelDirComp3= dataDir + "checkpoint/" + modelName3)
+            self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/bestModel_200epoch/" + modelName1,
+                                                 modelDirComp2= dataDir + "checkpoint/bestModel_200epoch/" + modelName2,
+                                                 modelDirComp3= dataDir + "checkpoint/bestModel_200epoch/" + modelName3)
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
