@@ -40,7 +40,7 @@
     "unchangeFeatures"  : 0,
     "learningRate":     0.01, 
     "batchSize":        256,
-    "nEpoch":           500,
+    "nEpoch":           5,
     "__component":      "allWithoutLabelNoBias",
     "allSensors":       45,
     "featureDim":       45,
@@ -57,7 +57,7 @@
     "component"         : "Sys",
     "_componentName"    : ["Reac", "Sep", "Strip", "Sys"],
     "diffEnv"           : true,
-    "trajectoryPerCase" : 80,
+    "trajectoryPerCase" : 90,
     "numOfCases"        : 6,
     "frezeComponents"   : true,
     "hiSelection"       : true

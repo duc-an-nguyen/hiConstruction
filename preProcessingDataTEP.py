@@ -210,7 +210,7 @@ class PreProcessData(object):
         allSeqXRulVal           = []
         allSeqXEnvVal           = []
         allSeqTimeVal           = []
-        nbOfTrainData           = 100
+        nbOfTrainData           = 80
         for idxCase in self.config["case"]:
             data                = norData[idxCase]
             # print(data.head)
@@ -263,6 +263,7 @@ class PreProcessData(object):
 
             # ---------------------------
             # For validation
+            
             seqXAllSensorVal,     \
             seqXRulVal,           \
             seqXEnvVal,seqTimeVal        = self.getTensorData(  dataList    = [valAllSensor,valRul,valEnv,valTime],

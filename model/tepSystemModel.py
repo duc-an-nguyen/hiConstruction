@@ -483,9 +483,9 @@ class SystemModel(tf.keras.Model):
         self.decoderCv2        = vaeCv2.decoderNoDense(kernelSize = 3, stride = 2)
 
         dataDir                = os.path.expanduser(config["dataDir"])
-        modelName1             = "bestModel34Reac"
-        modelName2             = "bestModel35Sep"
-        modelName3             = "bestModel36Strip"
+        modelName1             = "bestModel_5epoch/bestModelReac"
+        modelName2             = "bestModel_5epoch/bestModelSep"
+        modelName3             = "bestModel_5epoch/bestModelStrip"
         if config["frezeComponents"]:
             self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/" + modelName1,
                                                  modelDirComp2= dataDir + "checkpoint/" + modelName2,
