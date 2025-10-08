@@ -1,29 +1,4 @@
 {
-"crusher": {
-    "name":            "crusher",
-    "allComp"           : ["Cr1", "Cr2", "Cv2"],
-    "hiddenVAESize"     : [250,100,50],
-    "learningRate"      : 0.01,
-    "latentDim"         : 1,
-    "seqLength"         : 64,
-    "overlap"           : 63,
-    "inCr1"             : 44,
-    "inCr2"             : 34,
-    "inCv2"             : 35,
-    "batchSize"         : 256,
-    "nEpoch"            : 200,
-    "splitTrainTest"    : false,
-    "useMask"           : true,
-    "useRUL"            : false,
-    "latentConstrains"  : true,
-    "unchangeFeatures"  : 0,
-    "component"         : "Cr1",
-    "frezeComponents"   : false,
-    "saveHIResultsToXlsx": false,
-    "_component"        : "Cr1,Cr2,Cv2",
-    "dataDir"           : "~/Desktop/Dropbox/codeData/2ndRealDataJournalWithoutGit/"
-},
-
 
 "tep": {
     "name"             : "tep",
@@ -100,24 +75,5 @@
     "numOfCases"        : 1,
     "frezeComponents"   : true,
     "hiSelection"       : true
-},
-
-
-"kan": {
-    "_name":            "KAN",
-    "encLayer":         [40,20,10],       
-    "decLayer":         [10,20,40],
-    "reconstructionWt": 3,
-    "latentDim":        2,
-    "seqLength":        128,
-    "overlap":          127,
-    "inFeatureDim":     17,
-    "outFeatureDim":    17,
-
-    "batchSize":        256,
-    "nEpoch":           20,
-    "dir":              "ckpt/123/",
-    "component":        "reactor",
-    "case":             2
 }
 }

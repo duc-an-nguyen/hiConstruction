@@ -867,7 +867,7 @@ class PreProcessData(object):
                                                                                                                                 
         (*): obligation
         '''
-
+        
         aiLogger.info("Spliting data into sequences now ...")
 
         # -----------------------
@@ -925,7 +925,7 @@ class PreProcessData(object):
                                                             overlap             = overlap,
                                                             getLastElementOnly  = getLastOnly)           # Split the each trajectory into each seq
             
-            allSeq      = allSeq     + sequences                     # trajectories
+            allSeq      = allSeq  + sequences                     # trajectories
 
         # -------------------
         # Convert the list 

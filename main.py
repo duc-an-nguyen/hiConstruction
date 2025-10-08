@@ -5,7 +5,7 @@ import sys
 import os
 import time
 from multiprocessing import Process
-from tepEdgeDevice import AiProcessor
+from tepEdgeDevice import TepEdgeDevice
 
 
 #==========================================
@@ -17,13 +17,13 @@ def run_system():
     #----------------------------------
     # Init the ai system
     #----------------------------------
-    aiProcessor        = AiProcessor("./data","./ai_core/model/",isTensorrt=True)
+    aiProcessor        = TepEdgeDevice()
     
-    if aiProcessor.gpu_is_available:
-        aiProcessor.start()
+    # if aiProcessor.gpu_is_available:
+    aiProcessor.start()
 
-    else:
-        raiseExceptions("GPU is not available")
+    # else:
+    #     raiseExceptions("GPU is not available")
 
 
     

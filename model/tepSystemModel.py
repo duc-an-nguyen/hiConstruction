@@ -441,7 +441,7 @@ class SensorSelection(tf.keras.Model):
 #                   SYSTEM MODEL
 # ==================================================
 class SystemModel(tf.keras.Model):
-    def __init__(self,config = None):
+    def __init__(self,config = None, componentModelPath = ""):
         super(SystemModel, self).__init__()
         # ----------------------------
         # For model
@@ -487,9 +487,9 @@ class SystemModel(tf.keras.Model):
         modelName2             = "bestModelSep"
         modelName3             = "bestModelStrip"
         if config["frezeComponents"]:
-            self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + "checkpoint/bestModel_200epoch/" + modelName1,
-                                                 modelDirComp2= dataDir + "checkpoint/bestModel_200epoch/" + modelName2,
-                                                 modelDirComp3= dataDir + "checkpoint/bestModel_200epoch/" + modelName3)
+            self.loadWeightAndFreezePretrainedHI(modelDirComp1= dataDir + componentModelPath + modelName1,
+                                                 modelDirComp2= dataDir + componentModelPath + modelName2,
+                                                 modelDirComp3= dataDir + componentModelPath + modelName3)
 
         # self.encoder     = vae.get_encoder(kernelSize = 85, stride = 2)
         # self.decoder     = vae.getUnsymetricDecoder(kernelSize = 85, stride = 1)
