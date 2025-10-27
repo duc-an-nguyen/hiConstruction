@@ -3,3 +3,4 @@ RUN pip install --no-cache-dir paho-mqtt
 WORKDIR /app
 COPY mqttEdge.py .
 CMD [ "python", "mqttEdge.py"]
+
