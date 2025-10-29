@@ -24,7 +24,7 @@ class AiHandling():
         # Loading config file
         # ---------------------------
         buffConfig              = BufferConfig()
-        outputDir               = os.path.expanduser(config["dataDir"])
+        # outputDir               = os.path.expanduser(config["dataDir"])
         
         # ----------------------------
         # Declaring AI model
@@ -37,10 +37,15 @@ class AiHandling():
                                         (None, 1)])
         # vaeSys.summary()
 
-        modelDirComp1 = outputDir + componentModelPath + "bestModelReac"
-        modelDirComp2 = outputDir + componentModelPath + "bestModelSep"
-        modelDirComp3 = outputDir + componentModelPath + "bestModelStrip"
-        modelDirSys   = outputDir + componentModelPath + "bestModelSys"
+        # modelDirComp1 = outputDir + componentModelPath + "bestModelReac"
+        # modelDirComp2 = outputDir + componentModelPath + "bestModelSep"
+        # modelDirComp3 = outputDir + componentModelPath + "bestModelStrip"
+        # modelDirSys   = outputDir + componentModelPath + "bestModelSys"
+
+        modelDirComp1 =  componentModelPath + "bestModelReac"
+        modelDirComp2 =  componentModelPath + "bestModelSep"
+        modelDirComp3 =  componentModelPath + "bestModelStrip"
+        modelDirSys   =  componentModelPath + "bestModelSys"
         self.vaeSys.load_weights(modelDirComp1, modelDirComp2, modelDirComp3, modelDirSys)
 
         #----------------------------- 

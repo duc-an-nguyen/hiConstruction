@@ -22,14 +22,14 @@ class InputSignal2Ai():
         # ---------------------------
         # Loading config file
         # ---------------------------
-        outputDir               = os.path.expanduser(config["dataDir"])
+        # outputDir               = os.path.expanduser(config["dataDir"])
         
         # ----------------------------
         # Handle the data
         # ----------------------------
         environmentIdx      = 4
         self.preData        = PreProcessData(config=config)
-        rawData             = self.preData.loadDataFromH5Format(dir              = outputDir, 
+        rawData             = self.preData.loadDataFromH5Format(dir              = "./", 
                                                                 name             = "data/teps.h5",
                                                                 case             = "all", 
                                                                 reduceSampleRate = True, 
@@ -153,7 +153,7 @@ class InputSignal2Ai():
                             self.c_processed_signal2_ai.notify_all()   
 
 
-                    # time.sleep(0.2)
+                    time.sleep(0.2)
                     #-------------------------------
                     # get frame from full buffer and 
                     # notify
