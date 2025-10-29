@@ -34,7 +34,7 @@
     "diffEnv"           : true,
     "trajectoryPerCase" : 80,
     "numOfCases"        : 6,
-    "frezeComponents"   : true,
+    "frezeComponents"   : false,
     "hiSelection"       : true
 },
 

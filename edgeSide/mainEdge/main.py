@@ -17,7 +17,7 @@ def run_system():
     #----------------------------------
     # Init the ai system
     #----------------------------------
-    aiProcessor        = TepEdgeDevice()
+    aiProcessor   = TepEdgeDevice()
     
     # if aiProcessor.gpu_is_available:
     aiProcessor.start()

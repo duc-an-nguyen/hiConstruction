@@ -3,7 +3,7 @@ import numpy        as np
 import tensorflow   as tf
 import random
 import json
-import package
+# import package
 import os
 # import torch
 # from sklearn.linear_model import LinearRegression
@@ -165,8 +165,9 @@ class PreProcessData(object):
     # input of AI
     # ------------------------------------
     def getTrainData(self,):
-        package.include()
-        outputDir           = os.path.expanduser(self.config["dataDir"])
+        # package.include()
+        # outputDir           = os.path.expanduser(self.config["dataDir"])
+        outputDir = "./"
         rawData             = self.loadDataFromH5Format(dir = outputDir, name="data/teps.h5", case = "all", reduceSampleRate = True)
         # print(rawData.keys())
         # ----------------------------
@@ -362,7 +363,7 @@ class PreProcessData(object):
             self.rawData = {}
             for idxCase in range(self.numOfCases):
                 curCase                         = idxCase + 1                                           # index starts from 0, case starts from 1
-                curRawData                      = pd.read_hdf(dir+ name, key='case' + str(curCase))
+                curRawData                      = pd.read_hdf(name, key='case' + str(curCase))
                 self.rawData[curCase]           = curRawData[curRawData.index % 2 != 1] if reduceSampleRate else curRawData
 
                 if removeHigherThr:
@@ -379,7 +380,7 @@ class PreProcessData(object):
         # ---------------------
         # Reading 1 case only
         else:
-            self.rawData = pd.read_hdf(dir+ name, key='case' + str(case))
+            self.rawData = pd.read_hdf(name, key='case' + str(case))
         
         aiLogger.info(f"Finish loading data from H5 files at case {case}...")
         return self.rawData
