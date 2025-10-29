@@ -36,6 +36,8 @@ while True:
     time.sleep(3)  # send every 3 seconds
 
 
+# docker build -t edge-sender .
+
 # docker run --rm \
 #   -e MQTT_HOST=192.168.68.251 \
 #   -e MQTT_PORT=1883 \
