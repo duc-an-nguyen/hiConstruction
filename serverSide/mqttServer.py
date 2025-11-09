@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 # -------------------------------
 BROKER = os.getenv("MQTT_HOST", "mqtt-broker")
 PORT   = int(os.getenv("MQTT_PORT", "1883"))
-TOPIC  = os.getenv("MQTT_TOPIC", "sensors/#")
+TOPIC  = os.getenv("MQTT_TOPIC", "sensorsAndHealth/#")
 USER   = os.getenv("MQTT_USER")
 PW     = os.getenv("MQTT_PW")
 
@@ -46,12 +46,24 @@ client.connect(BROKER, PORT, 60)
 client.loop_forever()
 
 
-# docker run -it --rm --network myNetwork   
-# -e MQTT_HOST=mqtt-broker   
-# -e MQTT_PORT=1883   
-# -e MQTT_USER=server   
-# -e MQTT_PW=123456789   
-# -e MQTT_TOPIC='sensors/#'   
+
+# docker run -it --rm \
+#   --network myNetwork \
+#   -e MQTT_HOST=mqtt-broker \
+#   -e MQTT_PORT=1883 \
+#   -e MQTT_USER=server \
+#   -e MQTT_PW=123456789 \
+#   -e SENSOR_ID=edge1 \
+#   -e MQTT_TOPIC='sensors/#' \
+#   server-subscriber
+
+
+# docker run -it --rm --network myNetwork   \
+# -e MQTT_HOST=mqtt-broker   \
+# -e MQTT_PORT=1883   \
+# -e MQTT_USER=server  \ 
+# -e MQTT_PW=123456789  \ 
+# -e MQTT_TOPIC='sensors/#' \   
 # server-subscriber
 
 
