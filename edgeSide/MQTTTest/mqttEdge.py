@@ -4,25 +4,39 @@ import json
 import random
 import paho.mqtt.client as mqtt
 
+# ------------------------------------
 # Environment variables
-BROKER      = os.getenv("MQTT_HOST", "192.168.68.251")
+# ------------------------------------
+BROKER      = os.getenv("MQTT_HOST", "10.219.155.251")
 PORT        = int(os.getenv("MQTT_PORT", "1883"))
 TOPIC       = os.getenv("MQTT_TOPIC", "sensors/temperature")
 SENSOR_ID   = os.getenv("SENSOR_ID", "edge1")
-USER        = os.getenv("MQTT_USER")        # <-- new
-PW          = os.getenv("MQTT_PW")          # <-- new
+USER        = os.getenv("MQTT_USER", "server")       
+PW          = os.getenv("MQTT_PW", "123456789")         
 
+# ------------------------------------
 # Create client (v2 API recommended)
+# ------------------------------------
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
+
+# ------------------------------------
 # Set username/password if provided
+# ------------------------------------
 if USER and PW:
     client.username_pw_set(USER, PW)
 
+# ------------------------------------
+# Connect to the broker
+# ------------------------------------
 print(f"Connecting to MQTT broker at {BROKER}:{PORT} ...")
 client.connect(BROKER, PORT, 60)
 print("Connected ✅")
 
+
+# ------------------------------------
+# Send signal
+# ------------------------------------
 while True:
     # Simulated signal (temperature example)
     value = round(20 + random.uniform(-1, 1), 2)

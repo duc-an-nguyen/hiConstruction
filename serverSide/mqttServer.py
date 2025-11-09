@@ -2,6 +2,10 @@
 import os
 import paho.mqtt.client as mqtt
 
+
+# -------------------------------
+# Config environment variables
+# -------------------------------
 BROKER = os.getenv("MQTT_HOST", "mqtt-broker")
 PORT   = int(os.getenv("MQTT_PORT", "1883"))
 TOPIC  = os.getenv("MQTT_TOPIC", "sensors/#")
@@ -19,10 +23,22 @@ def on_connect(client, userdata, flags, reason_code, properties):
 def on_message(client, userdata, msg):
     print(f"{msg.topic} {msg.payload.decode()}")
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)  # fixes deprecation
+
+
+# -------------------------------
+# Create the client
+# -------------------------------
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2) 
+
+# -------------------------------
+# Create user and password
+# -------------------------------
 if USER and PW:
     client.username_pw_set(USER, PW)
 
+# -------------------------------
+# Connect and receive the messages
+# -------------------------------
 print(f"Connecting to {BROKER}:{PORT} ...")
 client.on_connect = on_connect
 client.on_message = on_message
