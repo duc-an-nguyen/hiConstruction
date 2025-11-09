@@ -137,4 +137,3 @@ while True:
 
 
 # docker run -it -v $PWD/mainEdge/data/:/app/data/  -e MQTT_HOST=10.219.155.251   -e MQTT_PORT=1883   -e MQTT_USER=server   -e MQTT_PW=123456789   -e SENSOR_ID=edge1   -e MQTT_TOPIC='sensors/temperature'   edge-sender-with_data
-

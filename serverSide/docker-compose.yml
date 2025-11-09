@@ -1,0 +1,58 @@
+services:
+  # =========================================
+  # MQTT BROKER
+  # =========================================
+  mqtt_broker:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./passwords:/mosquitto/config/passwords:ro   # password file directory
+    networks:
+      - myNetwork
+    restart: unless-stopped
+
+
+# =========================================
+# Python code to connect apps
+# =========================================
+  app:
+    build: .
+    container_name: mqtt_receiver_client
+    environment:
+      MQTT_HOST: "mqtt_broker"
+      MQTT_PORT: "1883"
+      MQTT_USER: "server"
+      MQTT_PW: "123456789"
+      MQTT_TOPIC: "sensors/#"
+    depends_on:
+      - mqtt_broker
+    networks:
+      - myNetwork
+    restart: unless-stopped
+  
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+
+networks:
+  myNetwork:
+    driver: bridge
+
+
+
+
+
+# docker run -it --rm \
+#   --network myNetwork \
+#   -e MQTT_HOST=mqtt-broker \
+#   -e MQTT_PORT=1883 \
+#   -e MQTT_USER=server \
+#   -e MQTT_PW=123456789 \
+#   -e SENSOR_ID=edge1 \
+#   -e MQTT_TOPIC='sensors/#' \
+#   server-subscriber

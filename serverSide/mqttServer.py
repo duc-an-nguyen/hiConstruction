@@ -47,6 +47,12 @@ client.loop_forever()
 
 
 
+
+
+
+
+
+# 
 # docker run -it --rm \
 #   --network myNetwork \
 #   -e MQTT_HOST=mqtt-broker \
