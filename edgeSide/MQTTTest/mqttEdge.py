@@ -99,8 +99,7 @@ idx = 0
 # Send signal
 # ------------------------------------
 while True:
-    idx+=1
-
+    
     # ----------------------
     # Convert sensor row to 
     # plain dict
@@ -120,6 +119,7 @@ while True:
     print(f"📤 Sent: {payload}")
     time.sleep(3)                           # send every 3 seconds
 
+    idx+=1
     if idx>= len(sentResults):
         idx = 0
 

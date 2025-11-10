@@ -17,6 +17,25 @@ services:
     restart: unless-stopped
 
 
+
+# =========================================
+# SQL
+# =========================================
+  postgresql:
+    image: postgres:17
+    container_name: sqlDatabase
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: "server"
+      POSTGRES_PASSWORD: "123456789"
+    ports:
+      - "5432:5432"         # optional, for psql from host
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - myNetwork
+    restart: unless-stopped
+
 # =========================================
 # Python code to connect apps
 # =========================================
@@ -24,11 +43,22 @@ services:
     build: .
     container_name: mqtt_receiver_client
     environment:
+      # --------------------
+      # MQTT Connection
       MQTT_HOST: "mqtt_broker"
       MQTT_PORT: "1883"
       MQTT_USER: "server"
       MQTT_PW: "123456789"
       MQTT_TOPIC: "sensors/#"
+
+      # --------------------
+      # PostgreSQL Connection
+      PGHOST: postgresql
+      PGPORT: "5432"
+      PGDATABASE: telemetry
+      PGUSER: server
+      PGPASSWORD: "123456789"
+
     depends_on:
       - mqtt_broker
     networks:
@@ -38,6 +68,7 @@ services:
 volumes:
   mosquitto_data:
   mosquitto_log:
+  dbdata:
 
 networks:
   myNetwork:
