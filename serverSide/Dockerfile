@@ -1,9 +1,18 @@
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir paho-mqtt
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libpq5 gcc python3-dev libpq-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir paho-mqtt psycopg2-binary
 
 WORKDIR /app
 
-COPY mqttServer.py .
+COPY mqttServer1.py .
 
-CMD ["python", "mqttServer.py"]
+CMD ["python", "mqttServer1.py"]
+
+
+
+

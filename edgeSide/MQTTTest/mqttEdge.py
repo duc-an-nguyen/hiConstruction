@@ -99,7 +99,6 @@ idx = 0
 # Send signal
 # ------------------------------------
 while True:
-    
     # ----------------------
     # Convert sensor row to 
     # plain dict
@@ -112,7 +111,6 @@ while True:
         "sysHI"  : sentResults["sysHI"][idx],
         "rul"    : 80.32,
         **sensor_row 
-        
     }
     # payload = pd.concat(payload,sentData.iloc[idx],axis = 1)
     client.publish(TOPIC, json.dumps(payload))

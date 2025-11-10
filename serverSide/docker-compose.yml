@@ -10,8 +10,8 @@ services:
     volumes:
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./passwords:/mosquitto/config/passwords:ro   # password file directory
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mqtt/passwords:/mosquitto/config/passwords:ro           # password file directory
     networks:
       - myNetwork
     restart: unless-stopped
@@ -34,6 +34,13 @@ services:
       - dbdata:/var/lib/postgresql/data
     networks:
       - myNetwork
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
     restart: unless-stopped
 
 # =========================================
@@ -60,9 +67,33 @@ services:
       PGPASSWORD: "123456789"
 
     depends_on:
-      - mqtt_broker
+      mqtt_broker:
+        condition: service_started
+      postgresql:
+        condition: service_healthy
     networks:
       - myNetwork
+    restart: unless-stopped
+
+
+# =========================================
+  # GRAFANA
+  # =========================================
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"         # open http://localhost:3000
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - myNetwork
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
     restart: unless-stopped
   
 volumes:

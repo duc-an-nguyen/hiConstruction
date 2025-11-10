@@ -1,0 +1,24 @@
+{
+  "title": "Telemetry",
+  "uid": "telemetry",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "system HI over time",
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__time(ts), sysHI FROM telemetry WHERE sysHI IS NOT NULL ORDER BY ts;",
+          "timeColumn": "ts"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table" }
+      },
+      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" }
+    }
+  ]
+}
