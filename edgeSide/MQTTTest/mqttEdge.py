@@ -49,7 +49,13 @@ rawData             = preData.loadDataFromH5Format(
                                                    case             = "all", 
                                                    reduceSampleRate = True, 
                                                    removeHigherThr  = False)
-caseData            = rawData[4]
+
+withRULData         = preData.addRULAndEnvironment(rawData)
+caseData            = withRULData[4]
+caseData["demoRUL"] = np.where( caseData['rul'] > 3,
+                                caseData['rul'] + np.random.uniform(-3, 3, size=len(caseData)),
+                                caseData['rul']  # keep original value if <= 3
+                            )
 
 hiResults           = df = pd.read_excel("data/allHIs.xlsx")
 
@@ -109,7 +115,7 @@ while True:
         "sepHI"  : sentResults["sepHI"][idx],
         "stripHI": sentResults["stripHI"][idx],
         "sysHI"  : sentResults["sysHI"][idx],
-        "rul"    : 80.32,
+        "rul"    : sentData["demoRUL"][idx],
         **sensor_row 
     }
     # payload = pd.concat(payload,sentData.iloc[idx],axis = 1)
@@ -134,4 +140,4 @@ while True:
 
 
 
-# docker run -it -v $PWD/mainEdge/data/:/app/data/  -e MQTT_HOST=10.219.155.251   -e MQTT_PORT=1883   -e MQTT_USER=server   -e MQTT_PW=123456789   -e SENSOR_ID=edge1   -e MQTT_TOPIC='sensors/temperature'   edge-sender-with_data
+# docker run -it -v $PWD/mainEdge/data/:/app/data/  -e MQTT_HOST=10.219.155.251   -e MQTT_PORT=1883   -e MQTT_USER=server   -e MQTT_PW=123456789   -e SENSOR_ID=edge1   -e MQTT_TOPIC='sensors'   edge-sender-with_data
