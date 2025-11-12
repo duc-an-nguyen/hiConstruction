@@ -101,16 +101,19 @@ client.connect(BROKER, PORT, 60)
 print("Connected ✅")
 
 idx = 0
+idxCount = 0
 # ------------------------------------
 # Send signal
 # ------------------------------------
 while True:
     # ----------------------
     # Convert sensor row to 
-    # plain dict
+    # plain dictionary
     sensor_row = sentData.iloc[idx].to_dict()
 
     payload = {
+        "seq"    : idxCount,                         # unique ID for message
+        "pub_ts": time.time(),
         "reacHI" : sentResults["reacHI"][idx],
         "sepHI"  : sentResults["sepHI"][idx],
         "stripHI": sentResults["stripHI"][idx],
@@ -118,12 +121,19 @@ while True:
         "rul"    : sentData["demoRUL"][idx],
         **sensor_row 
     }
+
+    json_payload = json.dumps(payload)
+    payload_size_bytes = len(json_payload.encode("utf-8"))  # actual MQTT payload size
+    payload_size_human = f"{payload_size_bytes/1024:.2f} KB"
+    print(f"The size of the sent package is {payload_size_human}")
+
     # payload = pd.concat(payload,sentData.iloc[idx],axis = 1)
-    client.publish(TOPIC, json.dumps(payload))
+    client.publish(TOPIC, json_payload,qos=0)
     print(f"📤 Sent: {payload}")
-    time.sleep(3)                           # send every 3 seconds
+    time.sleep(0.5)                           # send every 3 seconds
 
     idx+=1
+    idxCount+=1
     if idx>= len(sentResults):
         idx = 0
 

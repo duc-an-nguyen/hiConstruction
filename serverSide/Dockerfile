@@ -6,6 +6,10 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir paho-mqtt psycopg2-binary
+RUN pip install gputil
+RUN pip install --upgrade psutil
+RUN pip install setuptools
+
 
 WORKDIR /app
 
