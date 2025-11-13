@@ -1,7 +1,9 @@
 services:
   mqtt_client_edge:
     # image: edge_sender_with_data:latest
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile.edge
     container_name: mqtt_client_edge
     volumes:
       - ./mainEdge/data:/app/data

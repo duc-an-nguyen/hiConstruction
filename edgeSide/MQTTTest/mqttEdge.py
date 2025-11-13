@@ -125,7 +125,7 @@ while True:
 
     jsonPayload         = json.dumps(payload)
     payloadSizeBytes    = len(jsonPayload.encode("utf-8"))  # actual MQTT payload size
-    payloadSizeHuman  = f"{payloadSizeBytes/1024:.2f} KB"
+    payloadSizeHuman    = f"{payloadSizeBytes/1024:.2f} KB"
     print(f"The size of the sent package is {payloadSizeHuman}")
 
     # ----------------------------
