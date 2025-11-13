@@ -110,6 +110,7 @@ while True:
     # Convert sensor row to 
     # plain dictionary
     sensor_row = sentData.iloc[idx].to_dict()
+    time.sleep(0.15)                                   #for AI task               
     timePub    = time.time()
     payload = {
         "mesId"    : idxCount,                         # unique ID for message
@@ -131,8 +132,8 @@ while True:
     # Send the message
     client.publish(TOPIC, jsonPayload,qos=0)
     print(f"📤 Sent: {payload}")
-    time.sleep(0.5)                           # send every 3 seconds
-
+    
+    time.sleep(1)                                    # send every 3 seconds
     idx+=1
     idxCount+=1
     if idx>= len(sentResults):

@@ -49,13 +49,13 @@ class serverIoT():
         # -------------------------------------------
         # The variables to measure the system
         # -------------------------------------------
-        self.latencyTime        = 0
         self.seenMesId          = set()
         self.duplicatedCount    = 0
         self.recvCount          = 0
         self.totalPayloadBytes  = 0
-        self.latencyList        = []
+        self.sqlLatencyList     = []
         self.firstRecvTime      = None
+        self.sqlLatency         = 0
         
     # ===============================================
     # This function is used to connect
@@ -91,6 +91,13 @@ class serverIoT():
         # -------------------------------------------
         mesId                   = data.get("mesId")
         timePub                 = data.get("timePub")
+        timeRecv                = time.time()           # capture arrival ASAP
+        mqttLatencyMs           = None
+
+        if timePub is not None:
+            mqttLatencyMs           = (timeRecv - timePub) * 1000.0  # convert to ms
+            aiLogger.info(f"[MQTT LATENCY] messId={mesId} latency={mqttLatencyMs:.2f} ms")
+
         self.recvCount          += 1
         payloadBytes            = len(msg.payload)
         self.totalPayloadBytes  += payloadBytes
@@ -109,19 +116,18 @@ class serverIoT():
         # -------------------------------------------
         conn = userdata["pg_conn"]
         try:
-            self.insertRow(conn,msg.topic, data)
+            self.insertRow(conn, msg.topic, data, self.sqlLatency)  # Save the previous latency time of SQL
             aiLogger.info("Inserted into PostgreSQL.")
-            # aiLogger.info(f"The latency time is:{(time.time() - timePub)}")
+            if self.sqlLatency is not None:
+                aiLogger.info(f"Latency stored: {self.sqlLatency:.2f} ms")
         except Exception as e:
             aiLogger.error("DB insert error:", e)
 
-        # -------------------------------
-        # Measure latency 
-        timeRecv = time.time()
+
         if timePub is not None:
-            self.latencyTime = (timeRecv - timePub) * 1000.0  # convert to ms
-            self.latencyList.append(self.latencyTime)
-            aiLogger.info(f"[LATENCY] messId={mesId} latency={self.latencyTime:.2f} ms")
+            self.sqlLatency = (time.time() - timePub)*1000.0
+            self.sqlLatencyList.append(self.sqlLatency)
+            aiLogger.info(f"[MQTT LATENCY] messId={mesId} latency={self.sqlLatency:.2f} ms")
 
         # -------------------------------------------
         # For first message, set start time for 
@@ -190,7 +196,7 @@ class serverIoT():
     # This functions is used to insert
     # rows into SQL
     # ------------------------------------------------
-    def insertRow(self,pg_conn, topic: str, payload: dict):
+    def insertRow(self,pg_conn, topic: str, payload: dict, latency_ms):
         # known fields
         timestamp   = payload.get("time")
         rul         = payload.get("rul")
@@ -199,7 +205,7 @@ class serverIoT():
         stripHI     = payload.get("stripHI")
         sysHI       = payload.get("sysHI")
 
-        cpu         = psutil.cpu_percent(interval=1)
+        cpu         = psutil.cpu_percent(interval=None)
         mem         = psutil.virtual_memory().percent
         gpuLoad, gpuTemp = self.getGpuStats()
 
@@ -214,7 +220,7 @@ class serverIoT():
             cur.execute("""
                 INSERT INTO telemetry(latencyTime, time, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, sensors)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (self.latencyTime, timestamp, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, Json(sensors)))
+            """, (latency_ms, timestamp, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, Json(sensors)))
 
 
     # ===============================================
@@ -232,9 +238,9 @@ class serverIoT():
         aiLogger.info(f"Total duplicates: {self.duplicatedCount}")
         aiLogger.info(f"Delivery ratio: {deliveryRatio:.2f}%")
         aiLogger.info(f"Throughput: {throughput:.3f} msg/s")
-        if self.latencyList:
-            aiLogger.info(f"Average latency: {sum(self.latencyList)/len(self.latencyList):.2f} ms")
-            aiLogger.info(f"p95 latency: {sorted(self.latencyList)[int(0.95*len(self.latencyList))-1]:.2f} ms")
+        if self.sqlLatencyList:
+            aiLogger.info(f"Average latency: {sum(self.sqlLatencyList)/len(self.sqlLatencyList):.2f} ms")
+            aiLogger.info(f"p95 latency: {sorted(self.sqlLatencyList)[int(0.95*len(self.sqlLatencyList))-1]:.2f} ms")
         aiLogger.info(f"Goodput: {goodput:.4f} Mb/s")
         aiLogger.info("===================================")
 
