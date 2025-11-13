@@ -49,6 +49,7 @@ class serverIoT():
         # -------------------------------------------
         # The variables to measure the system
         # -------------------------------------------
+        self.latencyTime        = 0
         self.seenMesId          = set()
         self.duplicatedCount    = 0
         self.recvCount          = 0
@@ -61,7 +62,7 @@ class serverIoT():
     # the MQTT
     # ------------------------------------------------
     def mqttConnect(self,client, userdata, flags, reason_code, properties):
-        aiLogger.info("Connected rc:", reason_code)
+        aiLogger.info(f"Connected rc: {reason_code}")
         if reason_code == 0:
             client.subscribe(self.mqttTopic, qos=0)
             aiLogger.info(f"Subscribed to: {self.mqttTopic}")
@@ -73,7 +74,6 @@ class serverIoT():
     # once we have a new message from edge
     # ------------------------------------------------
     def mqttMessage(self, client, userdata, msg):
-        timeRecv = time.time()
 
         aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
         # -------------------------------------------
@@ -104,22 +104,24 @@ class serverIoT():
         else:
             self.seenMesId.add(mesId)
         
-        # -------------------------------
-        # Measure latency 
-        if timePub is not None:
-            latency = (timeRecv - timePub) * 1000.0  # convert to ms
-            self.latencyList.append(latency)
-            print(f"[LATENCY] messId={mesId} latency={latency:.2f} ms")
-
         # -------------------------------------------
         # Write into the database
         # -------------------------------------------
         conn = userdata["pg_conn"]
         try:
             self.insertRow(conn,msg.topic, data)
-            print("Inserted into PostgreSQL.")
+            aiLogger.info("Inserted into PostgreSQL.")
+            # aiLogger.info(f"The latency time is:{(time.time() - timePub)}")
         except Exception as e:
-            print("DB insert error:", e)
+            aiLogger.error("DB insert error:", e)
+
+        # -------------------------------
+        # Measure latency 
+        timeRecv = time.time()
+        if timePub is not None:
+            self.latencyTime = (timeRecv - timePub) * 1000.0  # convert to ms
+            self.latencyList.append(self.latencyTime)
+            aiLogger.info(f"[LATENCY] messId={mesId} latency={self.latencyTime:.2f} ms")
 
         # -------------------------------------------
         # For first message, set start time for 
@@ -128,8 +130,9 @@ class serverIoT():
             self.firstRecvTime = timeRecv
 
 
-        if mesId==20:
+        if mesId%100==0:
             self.printFinalResults()
+            self.firstRecvTime = timeRecv
 
 
     # ===============================================
@@ -146,20 +149,21 @@ class serverIoT():
         with conn.cursor() as cur:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS telemetry (
-                    id        BIGSERIAL PRIMARY KEY,
-                    ts        TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    topic     TEXT NOT NULL,
-                    time      DOUBLE PRECISION,
-                    rul       DOUBLE PRECISION,
-                    reacHI    DOUBLE PRECISION,
-                    sepHI     DOUBLE PRECISION,
-                    stripHI   DOUBLE PRECISION,
-                    sysHI     DOUBLE PRECISION,
-                    sensors   JSONB,
-                    cpu       DOUBLE PRECISION,
-                    mem       DOUBLE PRECISION,
-                    gpuLoad   DOUBLE PRECISION,
-                    gpuTemp   DOUBLE PRECISION
+                    id              BIGSERIAL PRIMARY KEY,
+                    ts              TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    topic           TEXT NOT NULL,
+                    time            DOUBLE PRECISION,
+                    rul             DOUBLE PRECISION,
+                    reacHI          DOUBLE PRECISION,
+                    sepHI           DOUBLE PRECISION,
+                    stripHI         DOUBLE PRECISION,
+                    sysHI           DOUBLE PRECISION,
+                    sensors         JSONB,
+                    cpu             DOUBLE PRECISION,
+                    mem             DOUBLE PRECISION,
+                    gpuLoad         DOUBLE PRECISION,
+                    gpuTemp         DOUBLE PRECISION,
+                    latencyTime     DOUBLE PRECISION
                 );
             """)
         return conn
@@ -168,7 +172,7 @@ class serverIoT():
     # This functions is used to get GPU
     # state
     # ------------------------------------------------
-    def get_gpu_stats(self,):
+    def getGpuStats(self,):
         try:
             gpus = GPUtil.getGPUs()
             if not gpus:
@@ -188,17 +192,16 @@ class serverIoT():
     # ------------------------------------------------
     def insertRow(self,pg_conn, topic: str, payload: dict):
         # known fields
-        time    = payload.get("time")
-        rul     = payload.get("rul")
-        reacHI  = payload.get("reacHI")
-        sepHI   = payload.get("sepHI")
-        stripHI = payload.get("stripHI")
-        sysHI   = payload.get("sysHI")
-        latencyTime = payload.get("latencyTime")
+        timestamp   = payload.get("time")
+        rul         = payload.get("rul")
+        reacHI      = payload.get("reacHI")
+        sepHI       = payload.get("sepHI")
+        stripHI     = payload.get("stripHI")
+        sysHI       = payload.get("sysHI")
 
-        cpu     = psutil.cpu_percent(interval=1)
-        mem     = psutil.virtual_memory().percent
-        gpuLoad, gpuTemp = self.get_gpu_stats()
+        cpu         = psutil.cpu_percent(interval=1)
+        mem         = psutil.virtual_memory().percent
+        gpuLoad, gpuTemp = self.getGpuStats()
 
 
         # keep everything else as sensors JSON (if not provided)
@@ -209,11 +212,9 @@ class serverIoT():
 
         with pg_conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO telemetry(time, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, sensors)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (time, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, Json(sensors)))
-
-        print(f"The latency time is:{(time.time() - latencyTime)*2}")
+                INSERT INTO telemetry(latencyTime, time, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, sensors)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (self.latencyTime, timestamp, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, Json(sensors)))
 
 
     # ===============================================
@@ -232,8 +233,8 @@ class serverIoT():
         aiLogger.info(f"Delivery ratio: {deliveryRatio:.2f}%")
         aiLogger.info(f"Throughput: {throughput:.3f} msg/s")
         if self.latencyList:
-            aiLogger.info(f"Average latency: {sum(self.latencyLis)/len(self.latencyLis):.2f} ms")
-            aiLogger.info(f"p95 latency: {sorted(self.latencyLis)[int(0.95*len(self.latencyLis))-1]:.2f} ms")
+            aiLogger.info(f"Average latency: {sum(self.latencyList)/len(self.latencyList):.2f} ms")
+            aiLogger.info(f"p95 latency: {sorted(self.latencyList)[int(0.95*len(self.latencyList))-1]:.2f} ms")
         aiLogger.info(f"Goodput: {goodput:.4f} Mb/s")
         aiLogger.info("===================================")
 
