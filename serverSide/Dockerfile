@@ -14,6 +14,7 @@ RUN pip install setuptools
 WORKDIR /app
 
 COPY mqttServer1.py .
+COPY utility/ /app/utility/
 
 CMD ["python", "mqttServer1.py"]
 

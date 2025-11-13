@@ -112,8 +112,8 @@ while True:
     sensor_row = sentData.iloc[idx].to_dict()
 
     payload = {
-        "seq"    : idxCount,                         # unique ID for message
-        "pub_ts": time.time(),
+        "mesId"    : idxCount,                         # unique ID for message
+        "timePub": time.time(),
         "reacHI" : sentResults["reacHI"][idx],
         "sepHI"  : sentResults["sepHI"][idx],
         "stripHI": sentResults["stripHI"][idx],
