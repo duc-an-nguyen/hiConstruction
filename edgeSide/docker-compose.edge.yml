@@ -1,0 +1,16 @@
+services:
+  mqtt_client_edge:
+    # image: edge_sender_with_data:latest
+    build: .
+    container_name: mqtt_client_edge
+    volumes:
+      - ./mainEdge/data:/app/data
+    environment:
+      MQTT_HOST: "10.219.155.251"
+      MQTT_PORT: "1883"
+      MQTT_USER: "server"
+      MQTT_PW: "123456789"
+      SENSOR_ID: "edge1"
+      MQTT_TOPIC: "sensors"
+    tty: true
+    stdin_open: true
