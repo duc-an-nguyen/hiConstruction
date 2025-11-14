@@ -76,6 +76,7 @@ class serverIoT():
     def mqttMessage(self, client, userdata, msg):
 
         aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
+        startServerTime = time.time()
         # -------------------------------------------
         # Extract the data from message
         # -------------------------------------------
@@ -124,6 +125,7 @@ class serverIoT():
             aiLogger.error("DB insert error:", e)
 
 
+        endServerTime = time.time()
         if timePub is not None:
             self.sqlLatency = (time.time() - timePub)*1000.0
             self.sqlLatencyList.append(self.sqlLatency)
@@ -232,10 +234,11 @@ class serverIoT():
         deliveryRatio  = 100 * len(self.seenMesId) / (max(self.seenMesId)+1)            # approximate total sent
         throughput     = len(self.seenMesId) / totalTime
         goodput        = (8 * self.totalPayloadBytes) / (totalTime * 1e6)  # Mb/s
+        retraRatio     = 100*self.duplicatedCount/self.recvCount
 
         aiLogger.info("\n========== FINAL RESULTS ==========")
         aiLogger.info(f"Total messages received: {self.recvCount}")
-        aiLogger.info(f"Total duplicates: {self.duplicatedCount}")
+        aiLogger.info(f"Total Retransmissions: {retraRatio}%")
         aiLogger.info(f"Delivery ratio: {deliveryRatio:.2f}%")
         aiLogger.info(f"Throughput: {throughput:.3f} msg/s")
         if self.sqlLatencyList:
