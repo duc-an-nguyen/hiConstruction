@@ -66,7 +66,7 @@ class serverIoT():
     def mqttConnect(self,client, userdata, flags, reason_code, properties):
         aiLogger.info(f"Connected rc: {reason_code}")
         if reason_code == 0:
-            client.subscribe(self.mqttTopic, qos=0)
+            client.subscribe(self.mqttTopic, qos=1)
             aiLogger.info(f"Subscribed to: {self.mqttTopic}")
         else:
             aiLogger.warning("Not authorized or other connect error")
@@ -283,5 +283,5 @@ if __name__ == '__main__':
     print(f"Connecting to {iotSys.mqttHostBroker}:{iotSys.mqttPort} ...")
     client.on_connect = iotSys.mqttConnect
     client.on_message = iotSys.mqttMessage
-    client.connect(iotSys.mqttHostBroker, iotSys.mqttPort, 60)
+    client.connect(iotSys.mqttHostBroker, iotSys.mqttPort, 120)
     client.loop_forever()
