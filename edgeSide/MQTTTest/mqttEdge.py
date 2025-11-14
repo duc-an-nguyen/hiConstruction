@@ -23,6 +23,35 @@ from preProcessingDataTEP   import PreProcessData
 # import matplotlib.pyplot    as plt
 
 
+
+
+
+def make_payload(mesId, edgeCpu, edgeMem, target_size_bytes):
+    base = {
+        "mesId": mesId,
+        "timePub": time.time(),
+        "edgeCpu": edgeCpu,
+        "edgeMem": edgeMem,
+        "data": ""   # will fill later
+    }
+
+    # Step 1: encode base structure to get current size
+    encoded = json.dumps(base)
+    current_size = len(encoded)
+
+    # Step 2: calculate how many bytes needed for padding
+    padding_size = target_size_bytes - current_size
+
+    if padding_size < 0:
+        raise ValueError("Base payload already larger than target size.")
+
+    # Step 3: fill padding
+    base["data"] = "x" * padding_size
+
+    return base
+
+# p64 = make_payload(mesId=1, edgeCpu=5.2, edgeMem=30.5, target_size_bytes=64)
+
 # ===============================================
 # LOAD THE DATA
 # ===============================================
@@ -134,7 +163,7 @@ while True:
 
     # ----------------------------
     # Send the message
-    client.publish(TOPIC, jsonPayload,qos=0)
+    client.publish(TOPIC, jsonPayload,qos=1)
     print(f"📤 Sent: {payload}")
     
     time.sleep(1)                                    # send every 3 seconds
