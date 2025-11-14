@@ -58,6 +58,7 @@ class serverIoT():
         self.sqlLatency         = 0
         self.edgeCpu            = []
         self.edgeRam            = []   
+        self.QoS                = 0
         
     # ===============================================
     # This function is used to connect
@@ -66,10 +67,28 @@ class serverIoT():
     def mqttConnect(self,client, userdata, flags, reason_code, properties):
         aiLogger.info(f"Connected rc: {reason_code}")
         if reason_code == 0:
-            client.subscribe(self.mqttTopic, qos=1)
+            client.subscribe(self.mqttTopic, qos=self.QoS)
             aiLogger.info(f"Subscribed to: {self.mqttTopic}")
         else:
             aiLogger.warning("Not authorized or other connect error")
+
+    # ===============================================
+    # This function is used to reconnect
+    # the MQTT
+    # ------------------------------------------------
+    def mqttDisconnect(self,client, userdata, rc):
+        aiLogger.info("Disconnected with result code", rc)
+        # rc == 0 means clean disconnect
+        if rc != 0:
+            print("Unexpected disconnect. Trying to reconnect...")
+            while True:
+                try:
+                    client.reconnect(self.mqttHostBroker, self.mqttPort,60)
+                    print("Reconnected!")
+                    break
+                except Exception as e:
+                    print("Reconnect failed:", e)
+                    time.sleep(5)  # wait then retry
     
     # ===============================================
     # This function is used to handle
@@ -102,7 +121,7 @@ class serverIoT():
 
         aiLogger.info(f"[CPU AND RAM] CPU={egdeCpu} RAM={edgeRam} of 7620MB")
         
-        
+        # -------------------------------
         mqttLatencyMs           = None
 
         if timePub is not None:
@@ -127,12 +146,13 @@ class serverIoT():
         # -------------------------------------------
         conn = userdata["pg_conn"]
         try:
-            self.insertRow(conn, msg.topic, data, self.sqlLatency)  # Save the previous latency time of SQL
+            self.insertRowDiffSize(conn, msg.topic, data, self.sqlLatency)  # Save the previous latency time of SQL
+            # self.insertRow(conn, msg.topic, data, self.sqlLatency)
             aiLogger.info("Inserted into PostgreSQL.")
             if self.sqlLatency is not None:
                 aiLogger.info(f"SQL Latency stored: {self.sqlLatency:.2f} ms")
         except Exception as e:
-            aiLogger.error("DB insert error:", e)
+            aiLogger.error(f"DB insert error:{e}")
 
 
         if timePub is not None:
@@ -147,7 +167,7 @@ class serverIoT():
             self.firstRecvTime = timeRecv
 
 
-        if mesId%500==0:
+        if mesId%249==0:
             self.printFinalResults()
             self.firstRecvTime = timeRecv
 
@@ -183,6 +203,30 @@ class serverIoT():
                     latencyTime     DOUBLE PRECISION
                 );
             """)
+        
+        return conn
+    
+    def postgreConnectDiffSize(self,):
+        conn = psycopg2.connect(host    = self.sqlHost, 
+                                port    = self.sqlPort,
+                                dbname  = self.sqlDbName, 
+                                user    = self.sqlUser, 
+                                password= self.sqlPasswd)
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS telemetry_simple (
+                    id              BIGSERIAL PRIMARY KEY,
+                    ts              TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    topic           TEXT NOT NULL,
+                    time            DOUBLE PRECISION,
+                    sensors         JSONB,
+                    edgeCpu         DOUBLE PRECISION,
+                    edgeMem         DOUBLE PRECISION,
+                    latencyTime     DOUBLE PRECISION
+                );
+            """)
+        
         return conn
     
     # ===============================================
@@ -233,6 +277,26 @@ class serverIoT():
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (latency_ms, timestamp, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, Json(sensors)))
 
+    # ===============================================
+    # This functions is used to insert
+    # rows into SQL
+    # ------------------------------------------------
+    def insertRowDiffSize(self, pg_conn, topic: str, payload: dict, latency_ms):
+        edgeCpu  = payload.get("edgeCpu")
+        edgeMem  = payload.get("edgeMem")
+        sensors  = payload.get("sensors")   # this is your padding string
+
+        # Store sensors as JSONB; wrap in dict for flexibility
+        sensors_json = {"sensors": sensors} if sensors is not None else None
+
+        with pg_conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO telemetry_simple(
+                    latencyTime, topic, edgeCpu, edgeMem, sensors
+                )
+                VALUES (%s, %s, %s, %s, %s)
+            """, (latency_ms, topic, edgeCpu, edgeMem, Json(sensors_json)))
+
 
     # ===============================================
     # This functions is used to print 
@@ -245,18 +309,18 @@ class serverIoT():
         goodput        = (8 * self.totalPayloadBytes) / (totalTime * 1e6)  # Mb/s
         retraRatio     = 100*self.duplicatedCount/self.recvCount
 
-        aiLogger.info("\n========== FINAL RESULTS ==========")
-        aiLogger.info(f"Total messages received: {self.recvCount}")
-        aiLogger.info(f"Total Retransmissions: {retraRatio}%")
-        aiLogger.info(f"Delivery ratio: {deliveryRatio:.2f}%")
-        aiLogger.info(f"Throughput: {throughput:.3f} msg/s")
+        aiLogger.warning("\n========== FINAL RESULTS ==========")
+        aiLogger.warning(f"Total messages received: {self.recvCount}")
+        aiLogger.warning(f"Total Retransmissions: {retraRatio}%")
+        aiLogger.warning(f"Delivery ratio: {deliveryRatio:.2f}%")
+        aiLogger.warning(f"Throughput: {throughput:.3f} msg/s")
         if self.sqlLatencyList:
-            aiLogger.info(f"Average latency: {sum(self.sqlLatencyList)/len(self.sqlLatencyList):.2f} ms")
-            aiLogger.info(f"p95 latency: {sorted(self.sqlLatencyList)[int(0.95*len(self.sqlLatencyList))-1]:.2f} ms")
-        aiLogger.info(f"Goodput: {goodput:.4f} Mb/s")
-        aiLogger.info(f"CPU Edge {sum(self.edgeCpu)/len(self.edgeCpu)}")
-        aiLogger.info(f"RAM Edge {sum(self.edgeRam)/len(self.edgeRam)}")
-        aiLogger.info("===================================")
+            aiLogger.warning(f"Average latency: {sum(self.sqlLatencyList)/len(self.sqlLatencyList):.2f} ms")
+            aiLogger.warning(f"p95 latency: {sorted(self.sqlLatencyList)[int(0.95*len(self.sqlLatencyList))-1]:.2f} ms")
+        aiLogger.warning(f"Goodput: {goodput:.4f} Mb/s")
+        aiLogger.warning(f"CPU Edge {sum(self.edgeCpu)/len(self.edgeCpu)}")
+        aiLogger.warning(f"RAM Edge {sum(self.edgeRam)/len(self.edgeRam)}")
+        aiLogger.warning("===================================")
 
 
 
@@ -268,7 +332,7 @@ if __name__ == '__main__':
     # -------------------------------
     # Create the client
     # -------------------------------
-    pgConnect   = iotSys.postgreConnect()
+    pgConnect   = iotSys.postgreConnectDiffSize()
     client      = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, userdata={"pg_conn": pgConnect}) 
     
     # -------------------------------
@@ -283,5 +347,6 @@ if __name__ == '__main__':
     print(f"Connecting to {iotSys.mqttHostBroker}:{iotSys.mqttPort} ...")
     client.on_connect = iotSys.mqttConnect
     client.on_message = iotSys.mqttMessage
-    client.connect(iotSys.mqttHostBroker, iotSys.mqttPort, 120)
+    client.on_disconnect = iotSys.mqttDisconnect
+    client.connect(iotSys.mqttHostBroker, iotSys.mqttPort, 30)
     client.loop_forever()
