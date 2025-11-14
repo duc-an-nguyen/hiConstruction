@@ -42,6 +42,8 @@ warnings.filterwarnings('ignore')
 np.random.seed(1)
 random.seed(1)
 
+qos = 1
+
 
 preData             = PreProcessData(config=config)
 rawData             = preData.loadDataFromH5Format(
@@ -134,7 +136,7 @@ while True:
 
     # ----------------------------
     # Send the message
-    client.publish(TOPIC, jsonPayload,qos=0)
+    client.publish(TOPIC, jsonPayload,qos=qos)
     print(f"📤 Sent: {payload}")
     
     time.sleep(1)                                    # send every 3 seconds
