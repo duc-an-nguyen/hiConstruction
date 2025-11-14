@@ -4,7 +4,7 @@
 import os
 import sys
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'mainEdge')))
-
+import psutil
 
 import time
 import json
@@ -109,6 +109,8 @@ while True:
     # ----------------------
     # Convert sensor row to 
     # plain dictionary
+    cpu         = psutil.cpu_percent(interval=None)
+    mem         = psutil.virtual_memory().percent
     sensor_row = sentData.iloc[idx].to_dict()
     timePub    = time.time()
     time.sleep(0.15)                                   #for AI task               
@@ -120,6 +122,8 @@ while True:
         "stripHI": sentResults["stripHI"][idx],
         "sysHI"  : sentResults["sysHI"][idx],
         "rul"    : sentData["demoRUL"][idx],
+        "edgeCpu": cpu,
+        "edgeMem" :mem,
         **sensor_row 
     }
 

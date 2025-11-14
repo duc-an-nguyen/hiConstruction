@@ -56,6 +56,8 @@ class serverIoT():
         self.sqlLatencyList     = []
         self.firstRecvTime      = None
         self.sqlLatency         = 0
+        self.edgeCpu            = []
+        self.edgeRam            = []   
         
     # ===============================================
     # This function is used to connect
@@ -92,6 +94,14 @@ class serverIoT():
         # -------------------------------------------
         mesId                   = data.get("mesId")
         timePub                 = data.get("timePub")
+
+        egdeCpu                 = data.get("edgeCpu")
+        edgeRam                 = data.get("edgeMem")
+        self.edgeCpu.append(egdeCpu)
+        self.edgeRam.append(edgeRam)
+
+        aiLogger.info(f"[CPU AND RAM] CPU={egdeCpu} RAM={edgeRam} of 7620MB")
+        
         
         mqttLatencyMs           = None
 
@@ -244,6 +254,8 @@ class serverIoT():
             aiLogger.info(f"Average latency: {sum(self.sqlLatencyList)/len(self.sqlLatencyList):.2f} ms")
             aiLogger.info(f"p95 latency: {sorted(self.sqlLatencyList)[int(0.95*len(self.sqlLatencyList))-1]:.2f} ms")
         aiLogger.info(f"Goodput: {goodput:.4f} Mb/s")
+        aiLogger.info(f"CPU Edge {sum(self.edgeCpu)/len(self.edgeCpu)}")
+        aiLogger.info(f"RAM Edge {sum(self.edgeRam)/len(self.edgeRam)}")
         aiLogger.info("===================================")
 
 
