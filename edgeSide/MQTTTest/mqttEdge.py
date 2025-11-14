@@ -111,7 +111,7 @@ while True:
     # plain dictionary
     sensor_row = sentData.iloc[idx].to_dict()
     timePub    = time.time()
-    time.sleep(0.15)                                   #for AI task               
+    time.sleep(0.3)                                   #for AI task               
     payload = {
         "mesId"    : idxCount,                         # unique ID for message
         "timePub": timePub,

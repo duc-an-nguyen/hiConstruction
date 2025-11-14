@@ -74,9 +74,9 @@ class serverIoT():
     # once we have a new message from edge
     # ------------------------------------------------
     def mqttMessage(self, client, userdata, msg):
-
+        timeRecv                = time.time()           # capture arrival ASAP
         aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
-        startServerTime = time.time()
+        
         # -------------------------------------------
         # Extract the data from message
         # -------------------------------------------
@@ -92,7 +92,7 @@ class serverIoT():
         # -------------------------------------------
         mesId                   = data.get("mesId")
         timePub                 = data.get("timePub")
-        timeRecv                = time.time()           # capture arrival ASAP
+        
         mqttLatencyMs           = None
 
         if timePub is not None:
@@ -120,16 +120,15 @@ class serverIoT():
             self.insertRow(conn, msg.topic, data, self.sqlLatency)  # Save the previous latency time of SQL
             aiLogger.info("Inserted into PostgreSQL.")
             if self.sqlLatency is not None:
-                aiLogger.info(f"Latency stored: {self.sqlLatency:.2f} ms")
+                aiLogger.info(f"SQL Latency stored: {self.sqlLatency:.2f} ms")
         except Exception as e:
             aiLogger.error("DB insert error:", e)
 
 
-        endServerTime = time.time()
         if timePub is not None:
             self.sqlLatency = (time.time() - timePub)*1000.0
             self.sqlLatencyList.append(self.sqlLatency)
-            aiLogger.info(f"[MQTT LATENCY] messId={mesId} latency={self.sqlLatency:.2f} ms")
+            aiLogger.info(f"[SQL LATENCY] messId={mesId} latency={self.sqlLatency:.2f} ms")
 
         # -------------------------------------------
         # For first message, set start time for 
