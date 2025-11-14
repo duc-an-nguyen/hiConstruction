@@ -138,7 +138,7 @@ class serverIoT():
             self.firstRecvTime = timeRecv
 
 
-        if mesId%100==0:
+        if mesId%500==0:
             self.printFinalResults()
             self.firstRecvTime = timeRecv
 
