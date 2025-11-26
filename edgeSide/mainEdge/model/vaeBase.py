@@ -10,7 +10,7 @@ import joblib
 from keras.models import Model 
 from keras.layers import Layer
 from keras.metrics import Mean
-from keras.backend import random_normal
+# from keras.backend import random_normal
  
 
 class Sampling(Layer):
@@ -20,7 +20,8 @@ class Sampling(Layer):
         batch = tf.shape(z_mean)[0]
         dim   = z_mean.shape[1]
         # dim = tf.shape(z_mean)[1]
-        epsilon = random_normal(shape=(batch, dim))
+        # epsilon = random_normal(shape=(batch, dim))
+        epsilon = tf.random.normal(shape=(batch, dim))
 
 
         # print("mean",dim)

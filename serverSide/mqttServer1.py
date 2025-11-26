@@ -58,7 +58,8 @@ class serverIoT():
         self.sqlLatency         = 0
         self.edgeCpu            = []
         self.edgeRam            = []   
-        self.QoS                = 0
+
+        self.QoS                = 1
         
     # ===============================================
     # This function is used to connect
@@ -96,7 +97,7 @@ class serverIoT():
     # ------------------------------------------------
     def mqttMessage(self, client, userdata, msg):
         timeRecv                = time.time()           # capture arrival ASAP
-        aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
+        # aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
         
         # -------------------------------------------
         # Extract the data from message
@@ -146,8 +147,8 @@ class serverIoT():
         # -------------------------------------------
         conn = userdata["pg_conn"]
         try:
-            self.insertRowDiffSize(conn, msg.topic, data, self.sqlLatency)  # Save the previous latency time of SQL
-            # self.insertRow(conn, msg.topic, data, self.sqlLatency)
+            # self.insertRowDiffSize(conn, msg.topic, data, self.sqlLatency)  # Save the previous latency time of SQL
+            self.insertRow(conn, msg.topic, data, self.sqlLatency)
             aiLogger.info("Inserted into PostgreSQL.")
             if self.sqlLatency is not None:
                 aiLogger.info(f"SQL Latency stored: {self.sqlLatency:.2f} ms")
@@ -332,7 +333,7 @@ if __name__ == '__main__':
     # -------------------------------
     # Create the client
     # -------------------------------
-    pgConnect   = iotSys.postgreConnectDiffSize()
+    pgConnect   = iotSys.postgreConnect()
     client      = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, userdata={"pg_conn": pgConnect}) 
     
     # -------------------------------

@@ -20,6 +20,8 @@ import  json
 class AiHandling():
     def __init__(self,config = None): 
         
+        aiLogger.warning(f"We are using the tesnorflow with the GPU of {tf.config.list_physical_devices('GPU')}")
+
         # ---------------------------
         # Loading config file
         # ---------------------------

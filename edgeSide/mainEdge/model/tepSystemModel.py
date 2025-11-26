@@ -17,6 +17,9 @@ import  os, warnings, sys
 import  joblib, random, json
 
 
+
+
+
 # -----------------------
 # Filter the level of 
 # debuging
@@ -194,8 +197,9 @@ class VAEConvInterpretable(BaseVariationalAutoencoder):
         # Flat and create latent
         # --------------------
         x                       = Flatten(name='enc_flatten')(x)
-        self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
-        
+        # self.encLastDenseDim    = x.get_shape()[-1]                                 # save the dimensionality of this last dense layer before the hidden state layer. We need it in the decoder.
+        self.encLastDenseDim    = x.shape[-1]
+        print(f"The shape of encLastDenseDim is {self.encLastDenseDim}")
         # ----------------------
         # For VAE
         # ----------------------

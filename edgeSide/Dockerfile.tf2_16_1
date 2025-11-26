@@ -1,0 +1,30 @@
+FROM tensorflow/tensorflow:2.16.1-gpu
+
+RUN pip install pandas==2.1.4
+RUN pip install scipy==1.10.1
+RUN pip install tables==3.9.2
+RUN pip install joblib
+
+WORKDIR /app
+# COPY main.py .
+# COPY tepEdgeDevice.py .
+# COPY preProcessingDataTEP.py .
+# COPY ai_handling.py .
+# COPY input_signal2_ai.py .
+# COPY model/ /app/model/
+# COPY utility/ /app/utility/
+
+
+CMD [ "python", "main.py"]
+
+
+# docker run --gpus all -it --rm \
+#   -v /home/ducan/my_project:/workspace \
+#   -w /workspace \
+#   my-tf
+
+
+# docker build -t tensorflow2.16.1:latest -f Dockerfile.tf2_16_1 . 
+
+# docker run --gpus all -it --rm -v $PWD/mainEdge:/app tensorflow2.16.1:latest 
+
