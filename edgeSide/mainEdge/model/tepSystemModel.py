@@ -297,7 +297,7 @@ class HiSystemAndRul(tf.keras.Model):
         # ------------------------------
         # Input from latent space
         # ------------------------------
-        inputSensor = Input(shape=(128,45),    name = "SensorInputForHISelection")
+        # inputSensor = Input(shape=(128,45),    name = "SensorInputForHISelection")
         inputRUL1   = Input(shape=(8, 5),     name = "lastLayerAEComponent1")
         inputRUL2   = Input(shape=(8, 5),     name = "lastLayerAEComponent2")
         inputRUL3   = Input(shape=(8, 5),     name = "lastLayerAEComponent3")
@@ -306,13 +306,13 @@ class HiSystemAndRul(tf.keras.Model):
         inputHI2    = Input(shape=(1,),     name = "compHI2")
         inputHI3    = Input(shape=(1,),     name = "compHI3")
 
-        if config["useInputAsHISelection"]:
-            hiSelectionInput = inputSensor
-        else:
-            flatInRUL1          = Flatten()(inputRUL1)  # Shape: (32, 40)
-            flatInRUL2          = Flatten()(inputRUL2)  # Shape: (32, 40)
-            flatInRUL3          = Flatten()(inputRUL3)  # Shape: (32, 40)
-            hiSelectionInput    = Concatenate(axis=-1)([flatInRUL1, flatInRUL2, flatInRUL3])
+        # if config["useInputAsHISelection"]:
+        #     hiSelectionInput = inputSensor
+        # else:
+        flatInRUL1          = Flatten()(inputRUL1)  # Shape: (32, 40)
+        flatInRUL2          = Flatten()(inputRUL2)  # Shape: (32, 40)
+        flatInRUL3          = Flatten()(inputRUL3)  # Shape: (32, 40)
+        hiSelectionInput    = Concatenate(axis=-1)([flatInRUL1, flatInRUL2, flatInRUL3])
         
         aiLogger.debug(f"The shape of hiSelectionInput {hiSelectionInput.shape}")
         # ------------------------------
@@ -355,7 +355,8 @@ class HiSystemAndRul(tf.keras.Model):
         rul         = tf.keras.layers.Dense(1, activation='linear')(rulLayer4)
         
         # Create the model
-        self.model = Model(inputs=[inputSensor, inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
+        # self.model = Model(inputs=[inputSensor, inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
+        self.model = Model(inputs=[inputRUL1, inputRUL2, inputRUL3, inputHI1,inputHI2,inputHI3], outputs=[hiMatrixOutput, sysHi,rul])
 
 
     def call(self, inputs):
@@ -573,7 +574,7 @@ class SystemModel(tf.keras.Model):
             zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
         
-        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         
         # hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData,sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
@@ -647,7 +648,8 @@ class SystemModel(tf.keras.Model):
                 zCv2,  sysHILayerCv2                    = self.encoderCv2(encInCv2)
 
 
-            hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+            # hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+            hiMatrixOutput, hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
 
             # ====================================
             #               LOSS

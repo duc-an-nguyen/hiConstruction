@@ -38,7 +38,6 @@ class EdgeClient():
         self.passwd     = PW
         self.topic      = TOPIC
 
-
         self.client     = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="edge_sender_jetson1")
         # -------------------------------
         # Assign function of connection
@@ -49,6 +48,9 @@ class EdgeClient():
 
         self.client.on_disconnect = self.mqttDisconnect
         self.client.on_connect    = self.mqttConnect
+
+        self.qos        = 1
+        self.targetSize = 128
 
         
     # =====================================================
@@ -105,27 +107,24 @@ class EdgeClient():
             timePub    = time.time()
             time.sleep(0.15)                                            # for AI task       
 
-            # startTime = time.time()        #0.00026
-            # payload = { "mesId"  : idxCount,                            # unique ID for message
-            #             "timePub": timePub,
-            #             "reacHI" : sentResults["reacHI"][idx],
-            #             "sepHI"  : sentResults["sepHI"][idx],
-            #             "stripHI": sentResults["stripHI"][idx],
-            #             "sysHI"  : sentResults["sysHI"][idx],
-            #             "rul"    : sentData["demoRUL"][idx],
-            #             "edgeCpu": cpu,
-            #             "edgeMem" :mem,
-            #             **sensor_row 
-            #         }
+            payload = { "mesId"  : idxCount,                            # unique ID for message
+                        "timePub": timePub,
+                        "reacHI" : sentResults["reacHI"][idx],
+                        "sepHI"  : sentResults["sepHI"][idx],
+                        "stripHI": sentResults["stripHI"][idx],
+                        "sysHI"  : sentResults["sysHI"][idx],
+                        "rul"    : sentData["demoRUL"][idx],
+                        "edgeCpu": cpu,
+                        "edgeMem" :mem,
+                        **sensor_row 
+                    }
 
-            # payloadTime1 = time.time()
-            payload =  self.make_payload(mesId           =   idxCount, 
-                                         timePub         =   timePub -0.00026,
-                                         edgeCpu         =   cpu,
-                                         edgeMem         =   mem,
-                                         targetSizeBytes =   128
-                                         )
-            # aiLogger.debug(f"The time of payload 1 is {(time.time()- payloadTime1) - (payloadTime1 - startTime)}")
+            # payload =  self.make_payload(mesId           =   idxCount, 
+            #                              timePub         =   timePub,
+            #                              edgeCpu         =   cpu,
+            #                              edgeMem         =   mem,
+            #                              targetSizeBytes =   self.targetSize
+            #                              )
 
             jsonPayload         = json.dumps(payload)
             payloadSizeBytes    = len(jsonPayload.encode("utf-8"))  # actual MQTT payload size
@@ -196,7 +195,6 @@ if __name__ == '__main__':
     warnings.filterwarnings('ignore') 
     np.random.seed(1)
     random.seed(1)
-    qos = 1
 
     preData             = PreProcessData(config=config)
     rawData             = preData.loadDataFromH5Format(
@@ -228,7 +226,7 @@ if __name__ == '__main__':
     # ===============================================
     edgeSevice = EdgeClient()
     edgeSevice.connect()
-    edgeSevice.run(sentData, sentResults, qos = 0)
+    edgeSevice.run(sentData, sentResults, qos = edgeSevice.qos)
 
 
 
