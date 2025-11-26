@@ -31,6 +31,10 @@ class AiHandling():
         # ----------------------------
         # Declaring AI model
         # ----------------------------
+        self.upperBound         = 0.1783
+        self.thrHI              = -214
+        self.checkHealthiedIdx  = 1
+
         componentModelPath      = "checkpoint/bestModel200Epoch/"
         config["component"]     = "Sys"
         self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
@@ -119,8 +123,16 @@ class AiHandling():
                     squeezedHiStrip                                = tf.squeeze(hiStrip, axis=-1)
                     squeezedHiSys                                  = tf.squeeze(hiSystem, axis=-1)
                     squeezedRUL                                    = tf.squeeze(predictedRul,axis=-1)
+
+
+                    reacHI, sepHI, stripHI, sysHI    = self.hiNormalization(squeezedHiReac,
+                                                                            squeezedHiSep,
+                                                                            squeezedHiStrip,
+                                                                            hiMatrixOutput)
+
+
                     aiLogger.info(f"The time of ai_handling is {time.time() - startTime}")
-                    aiLogger.debug(f"The value of HI is {squeezedHiReac}")
+                    aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
                 # -------------------------------
                 # get frame from full buffer and 
                 # notify
@@ -137,8 +149,22 @@ class AiHandling():
     
     
  
+    def hiNormalization(self, reacHI, sepHI, stripHI, hiMatrixOutput):
         
+        reacHI      = (reacHI - self.thrHI)/ (self.upperBound - self.thrHI)
+        sepHI       = (sepHI - self.thrHI)/ (self.upperBound - self.thrHI)
+        stripHI     = (stripHI - self.thrHI)/ (self.upperBound - self.thrHI)
 
+
+        selectedFunc = hiMatrixOutput[0]
+        if selectedFunc[0] > 0.5:
+            sysHI        = min(reacHI,sepHI,stripHI)
+        elif selectedFunc[1] > 0.5:
+            sysHI        = max(reacHI,sepHI,stripHI)
+        else:
+            sysHI        = 0.3* reacHI + 0.3* sepHI +0.3*stripHI
+
+        return reacHI, sepHI, stripHI, sysHI
 
         
         

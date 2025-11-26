@@ -451,7 +451,7 @@ class SystemModel(tf.keras.Model):
         # ----------------------------
         # For model
         # ----------------------------
-        self.config             = config
+        self.config                 = config
         
         vaeCr1                     = VAEConvInterpretable(  seq_len             = config["seqLength"],  
                                                             feat_dim            = config["in" + config["allComp"][0]], 
@@ -540,7 +540,9 @@ class SystemModel(tf.keras.Model):
             zCr2,  sysHILayerCr2                    = self.encoderCr2(seqData)
             zCv2,  sysHILayerCv2                    = self.encoderCv2(seqData)
         
-        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+        # hiMatrixOutput, sysHi, predictedRul = self.hiSystemAndRul([seqData, sysHILayerCr1, sysHILayerCr2, sysHILayerCv2, zCr1, zCr2, zCv2])
+
         # hiSystem, predictedRul = self.hiSystemAndRul([sysHILayerCr1, sysHILayerCr2, zCr1, zCr2])
      
         return zCr1, zCr2,  zCv2, binaryMaskCr1, binaryMaskCr2, binaryMaskCv2, probsMaskCr1, probsMaskCr2, probsMaskCv2, sysHi, predictedRul

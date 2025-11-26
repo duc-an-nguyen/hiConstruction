@@ -816,8 +816,8 @@ class PreProcessData(object):
             minEachCase[caseKey] = value.min(axis = 0)
 
             # print("casekey", caseKey)
-            # print(maxEachCase)
-            # print(minEachCase)
+            # print(f"The max value of case {caseKey} is {maxEachCase}")
+            # print(f"The min value of case {caseKey} is {minEachCase}")
    
             # rawData[caseKey].iloc[:,3:-1]  = (rawData[caseKey].iloc[:,3:-1] - minEachCase[3:-1].T) / (maxEachCase[3:-1].T - minEachCase[3:-1].T)
             rawData[caseKey][headline]  = (rawData[caseKey][headline] - minEachCase[caseKey][headline].T) / (maxEachCase[caseKey][headline].T - minEachCase[caseKey][headline].T)

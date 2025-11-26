@@ -24,7 +24,7 @@
     "seqLength":        128,
     "ckptPath":         "checkpoint/",
     "hiddenVAESize":    [200, 100, 50],
-    "dataDir"           : "~/Desktop/Dropbox/1.codeData/tepDataWithoutGit/",
+    "dataDir"           : "./",
     "preTrainedForSys"  : "checkpoint/sysBest_Trendability_SensorSelection/",
     "inReac"            : 45,
     "inSep"             : 45,
