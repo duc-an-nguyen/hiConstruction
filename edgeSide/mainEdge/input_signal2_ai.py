@@ -63,6 +63,7 @@ class InputSignal2Ai():
         self.__running                  = False
         
         self.base_info                  = {}
+        self.utility_info               = {}
 
         #----------------------------
         # Condition object
@@ -109,7 +110,6 @@ class InputSignal2Ai():
                 # -------------------------------
                 # Getting data in each trajectory 
                 # -------------------------------
-
                 aiLogger.info(f"Getting the HI at the idx {self.getAtIdx}")
             
                 seqXAllSensorTrain, \
@@ -132,21 +132,19 @@ class InputSignal2Ai():
                 # -------------------------------
                 for idxPoint in range(seqXAllSensorTrain.shape[0]):
                     # xPredict            = [seqXAllSensorTrain[idxPoint:idxPoint+1,:,:], seqTimeTrain[idxPoint:idxPoint+1], curEnv[idxPoint:idxPoint+1]]  
-               
+                    
+                    curTime                         = time.time()
+
                     self.base_info["signal"]        = seqXAllSensorTrain[idxPoint:idxPoint+1,:,:]
                     self.base_info["timestamp"]     = seqTimeTrain[idxPoint:idxPoint+1]
                     self.base_info["env"]           = curEnv[idxPoint:idxPoint+1]
+                    self.base_info["frameIdx"]      = idxPoint
+                    self.base_info["startFrameTime"]= curTime
 
 
-                    # print(self.base_info["signal"].shape)
-                    # print(self.base_info["timestamp"])
-                    # print(self.base_info["env"])
-                    # print("--------------------------------------")
 
-                    self.processed_signal2_ai_buffer.put((self.base_info.copy()))
-                    self.base_info['signal']        = []
-                    self.base_info['timestamp']     = []
-                    self.base_info['env']           = []
+                    self.processed_signal2_ai_buffer.put((self.base_info.copy(), self.utility_info.copy()))
+
                 
                     with self.c_processed_signal2_ai:
                         if (self.processed_signal2_ai_buffer.qsize() >= 1):

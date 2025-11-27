@@ -20,7 +20,7 @@ import  json
 class AiHandling():
     def __init__(self,config = None): 
         
-        aiLogger.warning(f"We are using the tesnorflow with the GPU of {tf.config.list_physical_devices('GPU')}")
+        aiLogger.warning(f"We are using the tensorflow with the GPU of {tf.config.list_physical_devices('GPU')}")
 
         # ---------------------------
         # Loading config file
@@ -60,8 +60,7 @@ class AiHandling():
         self.ai_handling            = threading.Thread(target=self.__ai_handling, daemon=False)
         
         self.__running              = False
-        self.base_info              = {}
-        self.utility_info           = {}
+
 
         #----------------------------
         # Condition object
@@ -97,25 +96,35 @@ class AiHandling():
     def __ai_handling(self):
         while True:
             try:
-                # -------------------------------
-                # wait till get new frame 
-                # -------------------------------
-                if self.c_raw_ai_handling is not None:
-                    with self.c_raw_ai_handling:
-                        self.c_raw_ai_handling.wait()
 
-                # -------------------------------
+                # ----------------------------------------
+                # wait till get new frame 
+                # ----------------------------------------
+                with self.c_raw_ai_handling:
+                    if self.raw_ai_handling_buffer.empty():
+                        self.c_raw_ai_handling.wait()
+        
+                        
+
+                # ----------------------------------------
                 # Get data from buffer
-                # -------------------------------
+                # ----------------------------------------
                 if not self.raw_ai_handling_buffer.empty():
                     startTime = time.time()
-                    base_info = self.raw_ai_handling_buffer.get()
 
-                    signal      = base_info["signal"]
-                    timestamp   = base_info["timestamp"]
-                    env         = base_info["env"]
-                    xPredict    = [signal, timestamp, env]  
+                    # ---------------------------------
+                    # Get data from previous thread
+                    base_info, utility_info = self.raw_ai_handling_buffer.get()
 
+                    curIdxHeath             = base_info["frameIdx"]
+                    signal                  = base_info["signal"]
+                    timestamp               = base_info["timestamp"]
+                    env                     = base_info["env"]
+                    xPredict                = [signal, timestamp, env]  
+
+
+                    # ---------------------------------
+                    # AI handling
                     hiReac, hiSep,  hiStrip, hiSystem, predictedRul, hiMatrixOutput    = self.vaeSys.getHIandRUL(input = xPredict)
                     
                     squeezedHiReac                                 = tf.squeeze(hiReac, axis=-1)
@@ -124,11 +133,34 @@ class AiHandling():
                     squeezedHiSys                                  = tf.squeeze(hiSystem, axis=-1)
                     squeezedRUL                                    = tf.squeeze(predictedRul,axis=-1)
 
+                    # -----------------------------------
+                    # When the healthy position of each HI 
+                    # is different, we move to make sure they 
+                    # are nearly to be 1
+                    # -----------------------------------
+                    if curIdxHeath == 0:
+                        shiftValues             = {}
+                        highestHI               = max(squeezedHiReac,squeezedHiSep,squeezedHiStrip)
+                        shiftValues["reacHI"]   = highestHI - squeezedHiReac
+                        shiftValues["sepHI"]    = highestHI - squeezedHiSep
+                        shiftValues["stripHI"]  = highestHI - squeezedHiStrip
 
                     reacHI, sepHI, stripHI, sysHI    = self.hiNormalization(squeezedHiReac,
                                                                             squeezedHiSep,
                                                                             squeezedHiStrip,
-                                                                            hiMatrixOutput)
+                                                                            hiMatrixOutput,
+                                                                            shiftValues)
+                    
+
+                    # ---------------------------------
+                    # Write to buffer to send
+                    utility_info["reacHI"]  = reacHI
+                    utility_info["sepHI"]   = sepHI
+                    utility_info["stripHI"] = stripHI
+                    utility_info["sysHI"]   = sysHI
+                    utility_info["rul"]     = squeezedRUL.numpy()
+                    
+                    self.processed_ai_handling_buffer.put((base_info, utility_info))
 
 
                     aiLogger.info(f"The time of ai_handling is {time.time() - startTime}")
@@ -148,12 +180,18 @@ class AiHandling():
                 aiLogger.exception("__input_signal2ai Exception" + str(e))
     
     
- 
-    def hiNormalization(self, reacHI, sepHI, stripHI, hiMatrixOutput):
+    #==========================================
+    # This funcion is used to normalize HI
+    # -----------------------------------------
+    def hiNormalization(self, reacHI, sepHI, stripHI, hiMatrixOutput, shiftValues):
         
-        reacHI      = (reacHI - self.thrHI)/ (self.upperBound - self.thrHI)
-        sepHI       = (sepHI - self.thrHI)/ (self.upperBound - self.thrHI)
-        stripHI     = (stripHI - self.thrHI)/ (self.upperBound - self.thrHI)
+        shiftedReac     = reacHI    + shiftValues["reacHI"]
+        shiftedSep      = sepHI     + shiftValues["sepHI"]
+        shiftedStrip    = stripHI   + shiftValues["stripHI"]
+
+        reacHI      = (shiftedReac  - self.thrHI)/ (self.upperBound - self.thrHI)
+        sepHI       = (shiftedSep   - self.thrHI)/ (self.upperBound - self.thrHI)
+        stripHI     = (shiftedStrip - self.thrHI)/ (self.upperBound - self.thrHI)
 
 
         selectedFunc = hiMatrixOutput[0]
@@ -164,7 +202,17 @@ class AiHandling():
         else:
             sysHI        = 0.3* reacHI + 0.3* sepHI +0.3*stripHI
 
-        return reacHI, sepHI, stripHI, sysHI
+        return reacHI.numpy(), sepHI.numpy(), stripHI.numpy(), sysHI.numpy()
+    
+
+    def updateFlWeight(self,reacWeight, sepWeight, stripWeight, sysWeight):
+        pass
+        # modelDirComp1 =  componentModelPath + "bestModelReac"
+        # modelDirComp2 =  componentModelPath + "bestModelSep"
+        # modelDirComp3 =  componentModelPath + "bestModelStrip"
+        # modelDirSys   =  componentModelPath + "bestModelSys"
+        # self.vaeSys.load_weights(modelDirComp1, modelDirComp2, modelDirComp3, modelDirSys)
+
 
         
         
