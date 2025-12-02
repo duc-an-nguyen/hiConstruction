@@ -1,0 +1,25 @@
+{
+  "variant_idx": 2,
+  "use_hi_updates": true,
+  "lora_config": {
+    "r": 32,
+    "alpha": 64.0,
+    "dropout": 0.15,
+    "target_regex": ".*"
+  },
+  "train_config": {
+    "global_rounds": 500,
+    "local_epochs": 2,
+    "lr": 0.0005,
+    "weight_decay": 0.0001,
+    "patience": 10,
+    "min_delta": 0.0,
+    "fedprox": true,
+    "fedprox_mu": 0.001,
+    "server_momentum": true,
+    "beta": 0.9,
+    "local_steps_per_epoch": 3
+  },
+  "val_loss_weighted": 245.93338012695312,
+  "timestamp": 1761560951
+}

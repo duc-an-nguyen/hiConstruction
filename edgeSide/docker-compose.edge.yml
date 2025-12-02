@@ -3,12 +3,12 @@ services:
     # image: edge_sender_with_data:latest
     build: 
       context: .
-      dockerfile: Dockerfile.edge
+      dockerfile: Dockerfile.edgeTest
     container_name: mqtt_client_edge
     volumes:
       - ./mainEdge/data:/app/data
     environment:
-      MQTT_HOST: "10.219.155.251"
+      MQTT_HOST: "10.103.22.251"
       MQTT_PORT: "1883"
       MQTT_USER: "server"
       MQTT_PW: "123456789"
