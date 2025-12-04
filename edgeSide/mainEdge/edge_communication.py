@@ -29,8 +29,8 @@ class EdgeCommunication():
         # ---------------------------
         # Loading config file
         # ---------------------------
-        buffConfig              = BufferConfig()
-        
+        buffConfig                  = BufferConfig()
+        self.preData                = PreProcessData(config=config)
         #----------------------------- 
         # Create thread and others
         #-----------------------------
@@ -84,7 +84,7 @@ class EdgeCommunication():
         self.targetSize = 128
         
 
-        self.connect()
+        # self.connect()
         
     #==========================================
     # This function is used to start the thread
@@ -134,7 +134,7 @@ class EdgeCommunication():
                     stripHI                 = utility_info["stripHI"]
                     sysHI                   = utility_info["sysHI"]
                     rul                     = utility_info["rul"]
-
+                    aiLogger.debug(f"The values of sensors is {sensors.shape}")
                     # ------------------------------------
                     # Pack the package to send
                     # ------------------------------------
@@ -142,7 +142,11 @@ class EdgeCommunication():
                     mem                     = psutil.virtual_memory().percent
                     # sensor_row              = sentData.iloc[idx].to_dict()
                     timePub                 = time.time()
-                     
+                    
+                    lastRowSensors          = sensors[0, -1, :]   # shape (45,)
+                    lastRowSensors          = pd.DataFrame([lastRowSensors], columns=self.preData.allWithoutLabelNoBias)
+
+
                     payload = { "mesId"  : idxFrame,                            # unique ID for message
                                 "timePub": timePub,
                                 "reacHI" : reacHI,
@@ -152,7 +156,7 @@ class EdgeCommunication():
                                 "rul"    : rul,
                                 "edgeCpu": cpu,
                                 "edgeMem" :mem,
-                                **sensors 
+                                **lastRowSensors 
                             }
 
                     jsonPayload         = json.dumps(payload)
@@ -160,10 +164,8 @@ class EdgeCommunication():
                     payloadSizeHuman    = f"{payloadSizeBytes/1024:.2f} KB"
                     aiLogger.info(f"The size of the sent package is {payloadSizeHuman}")
                     
-                    self.publish(self.topic, jsonPayload,qos = 1)                       # Send the message
+                    # self.publish(self.topic, jsonPayload,qos = 1)                       # Send the message
                     aiLogger.info(f"📤 Sent: {payload}")
-                    
- 
                     
                 
                 if not self.__running:

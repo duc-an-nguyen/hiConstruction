@@ -4,10 +4,10 @@
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
 bestResults/*
-
+# *pretrained_model_and_agents/*
 data/
 *.h5
-
+*.pkl
 ckpt/
 *.xlsx
 */checkpoint/bestModel*

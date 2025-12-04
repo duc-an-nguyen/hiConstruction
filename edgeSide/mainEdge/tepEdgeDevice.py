@@ -12,6 +12,7 @@ import json
 # --------------------------
 from input_signal2_ai                     import InputSignal2Ai
 from ai_handling                          import AiHandling
+from edge_communication                   import EdgeCommunication
 
 
 #=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=--=
@@ -52,6 +53,7 @@ class TepEdgeDevice:
         #----------------------------------
         self.__inputSignal2AiThread              = InputSignal2Ai(config)        
         self.__aiThread                          = AiHandling(config)
+        self.__comminicationMqttThread           = EdgeCommunication(config)
                                                                                                        
         #----------------------------------
         # Connect all block in the system
@@ -60,6 +62,7 @@ class TepEdgeDevice:
         #----------------------------------
         self.__all_connection(  self.__inputSignal2AiThread,
                                 self.__aiThread,
+                                self.__comminicationMqttThread
                                 )  
 
         # aiLogger.info("The ai model at the process {} was loaded successfully!!!".format(os.getpid()))   
@@ -71,6 +74,7 @@ class TepEdgeDevice:
     def __all_connection(   self,                            
                             inputFrame2AiThread,
                             aiThread,
+                            comminicationMqttThread
                             ):
         #--------------------------------
         # Connect InputSignal2Ai and 
@@ -82,9 +86,9 @@ class TepEdgeDevice:
         #--------------------------------
         # Connect BackboneThread and 
         # ExpandBackbone2Features 
-        # #--------------------------------
-        # backbone2FeaturesThread.raw_rl_bottleneck_buffer     = backboneThread.processed_backbone_buffer 
-        # backbone2FeaturesThread.c_raw_rl_bottleneck          = backboneThread.c_processed_backbone
+        #--------------------------------
+        comminicationMqttThread.c_raw_edge_communication        = aiThread.c_processed_ai_handling 
+        comminicationMqttThread.raw_edge_communication_buffer   = aiThread.processed_ai_handling_buffer
         
 
                  
@@ -102,6 +106,7 @@ class TepEdgeDevice:
             #----------------------------------
             self.__inputSignal2AiThread.start()
             self.__aiThread.start()  
+            self.__comminicationMqttThread.start()
             
             aiLogger.warning("Ai core was started successfully!!!")
             

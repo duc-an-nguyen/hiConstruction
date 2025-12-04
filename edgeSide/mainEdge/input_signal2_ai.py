@@ -106,7 +106,6 @@ class InputSignal2Ai():
                 # if self.c_raw_fps_control is not None:
                 #     with self.c_raw_fps_control:
                 #         self.c_raw_fps_control.wait()
-
                 # -------------------------------
                 # Getting data in each trajectory 
                 # -------------------------------
@@ -140,8 +139,6 @@ class InputSignal2Ai():
                     self.base_info["env"]           = curEnv[idxPoint:idxPoint+1]
                     self.base_info["frameIdx"]      = idxPoint
                     self.base_info["startFrameTime"]= curTime
-
-
 
                     self.processed_signal2_ai_buffer.put((self.base_info.copy(), self.utility_info.copy()))
 

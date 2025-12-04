@@ -154,6 +154,7 @@ class AiHandling():
 
                     # ---------------------------------
                     # Write to buffer to send
+                    # ---------------------------------
                     utility_info["reacHI"]  = reacHI
                     utility_info["sepHI"]   = sepHI
                     utility_info["stripHI"] = stripHI
@@ -161,7 +162,10 @@ class AiHandling():
                     utility_info["rul"]     = squeezedRUL.numpy()
                     
                     self.processed_ai_handling_buffer.put((base_info, utility_info))
-
+                    
+                    with self.c_processed_ai_handling:
+                        if (self.processed_ai_handling_buffer.qsize() >= 1):
+                            self.c_processed_ai_handling.notify_all()   
 
                     aiLogger.info(f"The time of ai_handling is {time.time() - startTime}")
                     aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
@@ -169,12 +173,12 @@ class AiHandling():
                 # get frame from full buffer and 
                 # notify
                 # -------------------------------
-                # if self.processed_fps_control_buffer.full():
-                #     self.processed_fps_control_buffer.get()  
+                    if self.processed_ai_handling_buffer.full():
+                        self.processed_ai_handling_buffer.get()  
+                        aiLogger.warning("The buffer <processed_ai_handling_buffer> is full, please check the size and time again to handle!!!")
                     
                 if not self.__running:
                     break  
-
 
             except Exception as e:
                 aiLogger.exception("__input_signal2ai Exception" + str(e))

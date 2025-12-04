@@ -175,43 +175,6 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisGridShow": true,
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "hue",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -219,13 +182,10 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
-          }
+          },
+          "unit": "HOURS"
         },
         "overrides": []
       },
@@ -237,17 +197,23 @@
       },
       "id": 9,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "11.2.0",
       "targets": [
         {
           "datasource": {
@@ -279,7 +245,8 @@
         }
       ],
       "title": "RUL",
-      "type": "timeseries"
+      "transparent": true,
+      "type": "stat"
     },
     {
       "datasource": {
@@ -290,9 +257,11 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "fixedColor": "blue",
+            "mode": "fixed"
           },
           "mappings": [],
+          "max": 5000,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -307,7 +276,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 6,
+        "w": 10,
         "x": 14,
         "y": 1
       },
@@ -318,7 +287,7 @@
         "minVizHeight": 16,
         "minVizWidth": 8,
         "namePlacement": "auto",
-        "orientation": "horizontal",
+        "orientation": "vertical",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -373,9 +342,11 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "fixedColor": "blue",
+            "mode": "fixed"
           },
           "mappings": [],
+          "max": 499,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -394,7 +365,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 6,
+        "w": 10,
         "x": 14,
         "y": 8
       },
@@ -405,7 +376,7 @@
         "minVizHeight": 16,
         "minVizWidth": 8,
         "namePlacement": "auto",
-        "orientation": "horizontal",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -607,7 +578,7 @@
           }
         }
       ],
-      "title": "Panel Title",
+      "title": "Component HIs",
       "type": "timeseries"
     },
     {
@@ -618,20 +589,6 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "continuous-GrYlRd"
-          },
-          "custom": {
-            "fillOpacity": 70,
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineWidth": 0,
-            "spanNulls": false
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -642,10 +599,11 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 1000
               }
             ]
-          }
+          },
+          "unit": "ms"
         },
         "overrides": []
       },
@@ -657,19 +615,21 @@
       },
       "id": 3,
       "options": {
-        "alignValue": "left",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "mergeValues": true,
-        "rowHeight": 0.9,
-        "showValue": "auto",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
       "pluginVersion": "11.2.0",
       "targets": [
@@ -681,7 +641,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  ts,\n  sysHI,\n  rul,\n  CASE WHEN sysHI < 0.7 THEN '⚠️ Warning' ELSE '✅ OK' END AS status\nFROM telemetry\nORDER BY ts DESC\nLIMIT 10;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  latencytime\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -703,7 +663,7 @@
         }
       ],
       "title": "Latency histogram",
-      "type": "state-timeline"
+      "type": "stat"
     },
     {
       "datasource": {
@@ -714,9 +674,11 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "fixedColor": "blue",
+            "mode": "fixed"
           },
           "mappings": [],
+          "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -735,7 +697,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 6,
+        "w": 10,
         "x": 14,
         "y": 15
       },
@@ -746,7 +708,7 @@
         "minVizHeight": 16,
         "minVizWidth": 8,
         "namePlacement": "auto",
-        "orientation": "horizontal",
+        "orientation": "vertical",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -1534,6 +1496,6 @@
   "timezone": "browser",
   "title": "Monitoring system health",
   "uid": "ff3qa6b1y5xq8f",
-  "version": 1,
+  "version": 4,
   "weekStart": ""
 }
