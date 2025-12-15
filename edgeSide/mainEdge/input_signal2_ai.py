@@ -148,7 +148,7 @@ class InputSignal2Ai():
                             self.c_processed_signal2_ai.notify_all()   
 
 
-                    time.sleep(0.2)
+                    time.sleep(0.5)
                     #-------------------------------
                     # get frame from full buffer and 
                     # notify

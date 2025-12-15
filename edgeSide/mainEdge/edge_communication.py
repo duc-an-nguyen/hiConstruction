@@ -134,7 +134,7 @@ class EdgeCommunication():
                     stripHI                 = utility_info["stripHI"]
                     sysHI                   = utility_info["sysHI"]
                     rul                     = utility_info["rul"]
-                    aiLogger.debug(f"The values of sensors is {sensors.shape}")
+                    
                     # ------------------------------------
                     # Pack the package to send
                     # ------------------------------------
@@ -144,16 +144,24 @@ class EdgeCommunication():
                     timePub                 = time.time()
                     
                     lastRowSensors          = sensors[0, -1, :]   # shape (45,)
-                    lastRowSensors          = pd.DataFrame([lastRowSensors], columns=self.preData.allWithoutLabelNoBias)
+                    # lastRowSensors          = pd.DataFrame([lastRowSensors], columns=self.preData.allWithoutLabelNoBias)
+                    lastRowSensors          = dict(zip(self.preData.allWithoutLabelNoBias, lastRowSensors))
+
+                    aiLogger.debug(f"The values of sensors is {lastRowSensors}")
+                    aiLogger.debug(f"The type of sensors is {type(lastRowSensors)}")
+
+                    aiLogger.debug(f"The value of HI is {reacHI.item()} type {type(reacHI.item())}")
+                    aiLogger.debug(f"The value of RUL is {rul.item()} type {type(rul.item())}")
+
 
 
                     payload = { "mesId"  : idxFrame,                            # unique ID for message
                                 "timePub": timePub,
-                                "reacHI" : reacHI,
-                                "sepHI"  : sepHI,
-                                "stripHI": stripHI,
-                                "sysHI"  : sysHI,
-                                "rul"    : rul,
+                                "reacHI" : reacHI.item(),
+                                "sepHI"  : sepHI.item(),
+                                "stripHI": stripHI.item(),
+                                "sysHI"  : sysHI.item(),
+                                "rul"    : rul.item(),
                                 "edgeCpu": cpu,
                                 "edgeMem" :mem,
                                 **lastRowSensors 
