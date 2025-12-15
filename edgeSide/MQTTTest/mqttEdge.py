@@ -104,6 +104,9 @@ class EdgeClient():
             cpu         = psutil.cpu_percent(interval=None)
             mem         = psutil.virtual_memory().percent
             sensor_row = sentData.iloc[idx].to_dict()
+
+            aiLogger.debug(f"The values of sensors is {sensor_row}")
+            print(type(sensor_row))
             timePub    = time.time()
             time.sleep(0.15)                                            # for AI task       
 
@@ -118,6 +121,9 @@ class EdgeClient():
                         "edgeMem" :mem,
                         **sensor_row 
                     }
+            
+
+            aiLogger.debug(f"============================= {sentResults["reacHI"][idx]}  type {type(sentResults["reacHI"][idx])}")
 
             # payload =  self.make_payload(mesId           =   idxCount, 
             #                              timePub         =   timePub,
