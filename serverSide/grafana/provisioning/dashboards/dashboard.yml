@@ -1,6 +1,6 @@
 apiVersion: 1
 providers:
-  - name: Telemetry
+  - name: systemMonitoring1
     orgId: 1
     type: file
     disableDeletion: false

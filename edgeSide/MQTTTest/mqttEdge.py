@@ -107,6 +107,9 @@ class EdgeClient():
             timePub    = time.time()
             time.sleep(0.15)                                            # for AI task       
 
+
+            aiLogger.debug(f'sensor rows is {sensor_row}')
+            
             payload = { "mesId"  : idxCount,                            # unique ID for message
                         "timePub": timePub,
                         "reacHI" : sentResults["reacHI"][idx],
@@ -125,6 +128,7 @@ class EdgeClient():
             #                              edgeMem         =   mem,
             #                              targetSizeBytes =   self.targetSize
             #                              )
+
 
             jsonPayload         = json.dumps(payload)
             payloadSizeBytes    = len(jsonPayload.encode("utf-8"))  # actual MQTT payload size

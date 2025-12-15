@@ -84,7 +84,7 @@ class EdgeCommunication():
         self.targetSize = 128
         
 
-        # self.connect()
+        self.connect()
         
     #==========================================
     # This function is used to start the thread
@@ -164,7 +164,7 @@ class EdgeCommunication():
                     payloadSizeHuman    = f"{payloadSizeBytes/1024:.2f} KB"
                     aiLogger.info(f"The size of the sent package is {payloadSizeHuman}")
                     
-                    self.publish(self.topic, jsonPayload,qos = 1)                       # Send the message
+                    self.client.publish(self.topic, jsonPayload,qos = 1)                       # Send the message
                     aiLogger.info(f"📤 Sent: {payload}")
                     
                 
