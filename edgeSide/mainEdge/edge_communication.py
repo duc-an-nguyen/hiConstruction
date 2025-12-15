@@ -56,7 +56,7 @@ class EdgeCommunication():
         # ----------------------------
         # MQTT CONFIG
         # ----------------------------
-        BROKER      = os.getenv("MQTT_HOST", "10.219.155.251")
+        BROKER      = os.getenv("MQTT_HOST", "10.103.22.251")
         PORT        = int(os.getenv("MQTT_PORT", "1883"))
         TOPIC       = os.getenv("MQTT_TOPIC", "sensors/")
         SENSOR_ID   = os.getenv("SENSOR_ID", "edge1")
@@ -164,7 +164,7 @@ class EdgeCommunication():
                     payloadSizeHuman    = f"{payloadSizeBytes/1024:.2f} KB"
                     aiLogger.info(f"The size of the sent package is {payloadSizeHuman}")
                     
-                    # self.publish(self.topic, jsonPayload,qos = 1)                       # Send the message
+                    self.publish(self.topic, jsonPayload,qos = 1)                       # Send the message
                     aiLogger.info(f"📤 Sent: {payload}")
                     
                 
