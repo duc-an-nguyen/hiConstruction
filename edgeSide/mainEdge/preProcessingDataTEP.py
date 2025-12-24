@@ -1,6 +1,6 @@
 import pandas       as pd
 import numpy        as np
-# import tensorflow   as tf
+import tensorflow   as tf
 import random
 import json
 # import package

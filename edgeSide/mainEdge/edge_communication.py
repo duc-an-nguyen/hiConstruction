@@ -84,7 +84,7 @@ class EdgeCommunication():
         self.targetSize = 128
         
 
-        self.connect()
+        # self.connect()
         
     #==========================================
     # This function is used to start the thread

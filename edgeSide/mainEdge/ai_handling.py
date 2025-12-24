@@ -12,6 +12,7 @@ from    utility.logger  import aiLogger
 from    threading       import Lock
 from    preProcessingDataTEP   import PreProcessData
 from    model.tepSystemModel   import SystemModel
+from    federated_learning_and_maintenance import FLAndMaintenance
 import  os, warnings
 import  random
 import  json
@@ -31,28 +32,35 @@ class AiHandling():
         # ----------------------------
         # Declaring AI model
         # ----------------------------
-        self.upperBound         = 0.1783
-        self.thrHI              = -214
-        self.checkHealthiedIdx  = 1
+        self.upperBound             = 0.1783
+        self.thrHI                  = -214
+        self.thrHI                  = -244
+        self.checkHealthiedIdx      = 1
 
-        componentModelPath      = "checkpoint/bestModel200Epoch/"
-        config["component"]     = "Sys"
-        self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
-        self.vaeSys.build(input_shape =[(None, config["seqLength"], config["inReac"]), 
-                                        (None, 1, config["inReac"]), 
-                                        (None, 1)])
-        # vaeSys.summary()
+        self.fl_and_maintenance     = FLAndMaintenance(config =config)
 
-        # modelDirComp1 = outputDir + componentModelPath + "bestModelReac"
-        # modelDirComp2 = outputDir + componentModelPath + "bestModelSep"
-        # modelDirComp3 = outputDir + componentModelPath + "bestModelStrip"
-        # modelDirSys   = outputDir + componentModelPath + "bestModelSys"
+        self.vaeSys                 = self.fl_and_maintenance.load_variant_model(   config           = config, 
+                                                                                    variant_idx      = 7,
+                                                                                    use_hi_updates   = True)
+        self.config                 = config
+        # componentModelPath      = "checkpoint/bestModel200Epoch/"
+        # config["component"]     = "Sys"
+        # self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
+        # self.vaeSys.build(input_shape =[(None, config["seqLength"], config["inReac"]), 
+        #                                 (None, 1, config["inReac"]), 
+        #                                 (None, 1)])
+        # # vaeSys.summary()
 
-        modelDirComp1 =  componentModelPath + "bestModelReac"
-        modelDirComp2 =  componentModelPath + "bestModelSep"
-        modelDirComp3 =  componentModelPath + "bestModelStrip"
-        modelDirSys   =  componentModelPath + "bestModelSys"
-        self.vaeSys.load_weights(modelDirComp1, modelDirComp2, modelDirComp3, modelDirSys)
+        # # modelDirComp1 = outputDir + componentModelPath + "bestModelReac"
+        # # modelDirComp2 = outputDir + componentModelPath + "bestModelSep"
+        # # modelDirComp3 = outputDir + componentModelPath + "bestModelStrip"
+        # # modelDirSys   = outputDir + componentModelPath + "bestModelSys"
+
+        # modelDirComp1 =  componentModelPath + "bestModelReac"
+        # modelDirComp2 =  componentModelPath + "bestModelSep"
+        # modelDirComp3 =  componentModelPath + "bestModelStrip"
+        # modelDirSys   =  componentModelPath + "bestModelSys"
+        # self.vaeSys.load_weights(modelDirComp1, modelDirComp2, modelDirComp3, modelDirSys)
 
         #----------------------------- 
         # Create thread and others
@@ -104,7 +112,7 @@ class AiHandling():
                     if self.raw_ai_handling_buffer.empty():
                         self.c_raw_ai_handling.wait()
         
-                        
+                
 
                 # ----------------------------------------
                 # Get data from buffer
@@ -169,13 +177,19 @@ class AiHandling():
 
                     aiLogger.info(f"The time of ai_handling is {time.time() - startTime}")
                     aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
+
+
+                    if curIdxHeath == 100:
+                        aiLogger.warning("Updating the new weight for edge device!!!")
+                        self.updateFlWeight()
+                        aiLogger.warning("Updating the new weight succesfully!!!")
                 # -------------------------------
                 # get frame from full buffer and 
                 # notify
                 # -------------------------------
                     if self.processed_ai_handling_buffer.full():
                         self.processed_ai_handling_buffer.get()  
-                        aiLogger.warning("The buffer <processed_ai_handling_buffer> is full, please check the size and time again to handle!!!")
+                        aiLogger.warning("The buffer <processed_ai_handling_buffer is full, please check the size and time again to handle!!!")
                     
                 if not self.__running:
                     break  
@@ -204,13 +218,14 @@ class AiHandling():
         elif selectedFunc[1] > 0.5:
             sysHI        = max(reacHI,sepHI,stripHI)
         else:
-            sysHI        = 0.3* reacHI + 0.3* sepHI +0.3*stripHI
+            sysHI        = -0.3* reacHI + 0.3* sepHI +0.3*stripHI
 
         return reacHI.numpy(), sepHI.numpy(), stripHI.numpy(), sysHI.numpy()
     
 
-    def updateFlWeight(self,reacWeight, sepWeight, stripWeight, sysWeight):
-        pass
+    def updateFlWeight(self,):
+        self.vaeSys            = self.fl_and_maintenance.load_global_best()
+                                                                        
         # modelDirComp1 =  componentModelPath + "bestModelReac"
         # modelDirComp2 =  componentModelPath + "bestModelSep"
         # modelDirComp3 =  componentModelPath + "bestModelStrip"
