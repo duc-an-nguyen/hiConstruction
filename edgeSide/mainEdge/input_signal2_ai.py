@@ -139,6 +139,7 @@ class InputSignal2Ai():
                     self.base_info["env"]           = curEnv[idxPoint:idxPoint+1]
                     self.base_info["frameIdx"]      = idxPoint
                     self.base_info["startFrameTime"]= curTime
+                    self.base_info["simTime"]       = seqTimeTrain[idxPoint:idxPoint+1]
 
                     self.processed_signal2_ai_buffer.put((self.base_info.copy(), self.utility_info.copy()))
 
@@ -148,7 +149,7 @@ class InputSignal2Ai():
                             self.c_processed_signal2_ai.notify_all()   
 
 
-                    time.sleep(0.5)
+                    time.sleep(0.2)
                     #-------------------------------
                     # get frame from full buffer and 
                     # notify
