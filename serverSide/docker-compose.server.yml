@@ -23,13 +23,13 @@ services:
     image: postgres:17
     container_name: sqlDatabase
     environment:
-      POSTGRES_DB: telemetry
+      POSTGRES_DB: healthIndicatorDatabase
       POSTGRES_USER: "server"
       POSTGRES_PASSWORD: "123456789"
     ports:
       - "5432:5432"         # optional, for psql from host
     volumes:
-      - dbdata:/var/lib/postgresql/data
+      - dbdata:/var/lib/postgresql/data0
     networks:
       - myNetwork
 
@@ -61,7 +61,7 @@ services:
       # PostgreSQL Connection
       PGHOST: postgresql
       PGPORT: "5432"
-      PGDATABASE: telemetry
+      PGDATABASE: healthIndicatorDatabase
       PGUSER: server
       PGPASSWORD: "123456789"
 

@@ -143,7 +143,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  sysHI\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  sysHI\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -223,7 +223,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  rul\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  rul\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -309,7 +309,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  (sensors->>'Reactor Coolant')::double precision AS \"Reactor Coolant\",\n  (sensors->>'Reactor Feed Rate')::double precision AS \"Reactor Feed Rate\",\n  (sensors->>'Reactor Pressure')::double precision AS \"Reactor Pressure\",\n  (sensors->>'Reactor Coolant Temp')::double precision AS \"Reactor Coolant Temp\",\n  (sensors->>'Component F to Reactor')::double precision AS \"Component F to Reactor\",\n  (sensors->>'Reactor Temperature')::double precision AS \"Reactor Temperature\"\n\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  (sensors->>'Reactor Coolant')::double precision AS \"Reactor Coolant\",\n  (sensors->>'Reactor Feed Rate')::double precision AS \"Reactor Feed Rate\",\n  (sensors->>'Reactor Pressure')::double precision AS \"Reactor Pressure\",\n  (sensors->>'Reactor Coolant Temp')::double precision AS \"Reactor Coolant Temp\",\n  (sensors->>'Component F to Reactor')::double precision AS \"Component F to Reactor\",\n  (sensors->>'Reactor Temperature')::double precision AS \"Reactor Temperature\"\n\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -398,7 +398,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  (sensors->>'Separator')::double precision AS \"Separator\",\n  (sensors->>'Product Sep Temp')::double precision AS \"Product Sep Temp\",\n  (sensors->>'Product Sep Underflow')::double precision AS \"Product Sep Underflow\",\n  (sensors->>'Separator Coolant Temp')::double precision AS \"Separator Coolant Temp\",\n  (sensors->>'Compressor Work')::double precision AS \"Compressor Work\"\n\n\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  (sensors->>'Separator')::double precision AS \"Separator\",\n  (sensors->>'Product Sep Temp')::double precision AS \"Product Sep Temp\",\n  (sensors->>'Product Sep Underflow')::double precision AS \"Product Sep Underflow\",\n  (sensors->>'Separator Coolant Temp')::double precision AS \"Separator Coolant Temp\",\n  (sensors->>'Compressor Work')::double precision AS \"Compressor Work\"\n\n\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -557,7 +557,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  reacHI,\n  sepHI,\n  stripHI\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  reacHI,\n  sepHI,\n  stripHI\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -641,7 +641,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  latencytime\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  latencytime\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -730,7 +730,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  (sensors->>'Stripper')::double precision AS \"Stripper\",\n  (sensors->>'Stripper Temp')::double precision AS \"Stripper Temp\",\n  (sensors->>'Component G to Purge')::double precision AS \"Component G to Purge\",\n  (sensors->>'Component E to Product')::double precision AS \"Component E to Product\",\n  (sensors->>'A and C Feed')::double precision AS \"A and C Feed\"\n\n\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  (sensors->>'Stripper')::double precision AS \"Stripper\",\n  (sensors->>'Stripper Temp')::double precision AS \"Stripper Temp\",\n  (sensors->>'Component G to Purge')::double precision AS \"Component G to Purge\",\n  (sensors->>'Component E to Product')::double precision AS \"Component E to Product\",\n  (sensors->>'A and C Feed')::double precision AS \"A and C Feed\"\n\n\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -820,7 +820,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  reacHI * 100.0               AS \"Reactor health(%)\"\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  reacHI * 100.0               AS \"Reactor health(%)\"\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -909,7 +909,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  sepHI * 100.0               AS \"Seperator health(%)\"\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  sepHI * 100.0               AS \"Seperator health(%)\"\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -995,7 +995,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  stripHI * 100.0               AS \"Stripper health(%)\"\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  stripHI * 100.0               AS \"Stripper health(%)\"\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1180,7 +1180,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  mem\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
+          "rawSql": "SELECT\n  $__time(ts),\n  mem\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1271,7 +1271,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  cpu\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;",
+          "rawSql": "SELECT\n  $__time(ts),\n  cpu\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1362,7 +1362,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  gpuLoad\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;",
+          "rawSql": "SELECT\n  $__time(ts),\n  gpuLoad\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1457,7 +1457,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__time(ts),\n  gputemp\nFROM telemetry\nWHERE $__timeFilter(ts)\nORDER BY ts;",
+          "rawSql": "SELECT\n  $__time(ts),\n  gputemp\nFROM healthIndicatorDatabase\nWHERE $__timeFilter(ts)\nORDER BY ts;",
           "refId": "A",
           "sql": {
             "columns": [

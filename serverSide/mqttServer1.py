@@ -36,7 +36,7 @@ class serverIoT():
         # -------------------------------------------
         PGHOST = os.getenv("PGHOST", "postgresql")
         PGPORT = int(os.getenv("PGPORT", "5432"))
-        PGDB   = os.getenv("PGDATABASE", "telemetry")
+        PGDB   = os.getenv("PGDATABASE", "healthIndicatorDatabase")
         PGUSER = os.getenv("PGUSER", "server")      
         PGPW   = os.getenv("PGPASSWORD", "123456789")  
 
@@ -60,6 +60,9 @@ class serverIoT():
         self.edgeRam            = []   
 
         self.QoS                = 1
+
+
+        self.testMQTTPerfomance = False
         
     # ===============================================
     # This function is used to connect
@@ -97,7 +100,7 @@ class serverIoT():
     # ------------------------------------------------
     def mqttMessage(self, client, userdata, msg):
         timeRecv                = time.time()           # capture arrival ASAP
-        # aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
+        aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
         
         # -------------------------------------------
         # Extract the data from message
@@ -120,27 +123,32 @@ class serverIoT():
         self.edgeCpu.append(egdeCpu)
         self.edgeRam.append(edgeRam)
 
+        # aiLogger.info(f"The ")
+
+
         aiLogger.info(f"[CPU AND RAM] CPU={egdeCpu} RAM={edgeRam} of 7620MB")
         
-        # -------------------------------
-        mqttLatencyMs           = None
 
-        if timePub is not None:
-            mqttLatencyMs           = (timeRecv - timePub) * 1000.0  # convert to ms
-            aiLogger.info(f"[MQTT LATENCY] messId={mesId} latency={mqttLatencyMs:.2f} ms")
+        # ---------------------------------------------
+        # Count and check duplication if self.testMQTTPerfomance
+        if self.testMQTTPerfomance:
+            mqttLatencyMs           = None
 
-        self.recvCount          += 1
-        payloadBytes            = len(msg.payload)
-        self.totalPayloadBytes  += payloadBytes
-
-        # -------------------------------
-        # Check duplicated items
-        if mesId in self.seenMesId:
-            self.duplicatedCount += 1
-            aiLogger.info(f"[DUPLICATE] seq={mesId}")
-            return
-        else:
-            self.seenMesId.add(mesId)
+            if timePub is not None:
+                mqttLatencyMs       = (timeRecv - timePub) * 1000.0  # convert to ms
+                aiLogger.info(f"[MQTT LATENCY] messId={mesId} latency={mqttLatencyMs:.2f} ms")
+        
+            self.recvCount          += 1
+            payloadBytes            = len(msg.payload)
+            self.totalPayloadBytes  += payloadBytes
+            # -------------------------------
+            # Check duplicated items
+            if mesId in self.seenMesId:
+                self.duplicatedCount += 1
+                aiLogger.info(f"[DUPLICATE] seq={mesId}")
+                return
+            else:
+                self.seenMesId.add(mesId)
         
         # -------------------------------------------
         # Write into the database
@@ -164,13 +172,13 @@ class serverIoT():
         # -------------------------------------------
         # For first message, set start time for 
         # throughput calc
-        if self.firstRecvTime is None:
-            self.firstRecvTime = timeRecv
-
-
-        if mesId%249==0:
-            self.printFinalResults()
-            self.firstRecvTime = timeRecv
+        if self.testMQTTPerfomance:
+            if self.firstRecvTime is None:
+                self.firstRecvTime = timeRecv
+        
+            if mesId%249==0:
+                self.printFinalResults()
+                self.firstRecvTime = timeRecv
 
 
     # ===============================================
@@ -186,26 +194,28 @@ class serverIoT():
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS telemetry (
-                    id              BIGSERIAL PRIMARY KEY,
-                    ts              TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    topic           TEXT NOT NULL,
-                    time            DOUBLE PRECISION,
-                    rul             DOUBLE PRECISION,
-                    reacHI          DOUBLE PRECISION,
-                    sepHI           DOUBLE PRECISION,
-                    stripHI         DOUBLE PRECISION,
-                    sysHI           DOUBLE PRECISION,
-                    sensors         JSONB,
-                    cpu             DOUBLE PRECISION,
-                    mem             DOUBLE PRECISION,
-                    gpuLoad         DOUBLE PRECISION,
-                    gpuTemp         DOUBLE PRECISION,
-                    latencyTime     DOUBLE PRECISION
+                CREATE TABLE IF NOT EXISTS healthIndicatorDatabase (
+                    id                      BIGSERIAL PRIMARY KEY,
+                    ts                      TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    topic                   TEXT NOT NULL,
+                    mesId                   DOUBLE PRECISION,
+                    simTime                 DOUBLE PRECISION,
+                    reacHI                  DOUBLE PRECISION,
+                    sepHI                   DOUBLE PRECISION,
+                    stripHI                 DOUBLE PRECISION,
+                    sysHI                   DOUBLE PRECISION,
+                    rul                     DOUBLE PRECISION,
+                    sensors                 JSONB,
+                    cpu                     DOUBLE PRECISION,
+                    mem                     DOUBLE PRECISION,
+                    gpuLoad                 DOUBLE PRECISION,
+                    gpuTemp                 DOUBLE PRECISION,
+                    latencyTime             DOUBLE PRECISION
                 );
             """)
         
         return conn
+    
     
     def postgreConnectDiffSize(self,):
         conn = psycopg2.connect(host    = self.sqlHost, 
@@ -216,7 +226,7 @@ class serverIoT():
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS telemetry_simple (
+                CREATE TABLE IF NOT EXISTS healthIndicatorDatabase_simple (
                     id              BIGSERIAL PRIMARY KEY,
                     ts              TIMESTAMPTZ NOT NULL DEFAULT now(),
                     topic           TEXT NOT NULL,
@@ -252,9 +262,11 @@ class serverIoT():
     # This functions is used to insert
     # rows into SQL
     # ------------------------------------------------
-    def insertRow(self,pg_conn, topic: str, payload: dict, latency_ms):
+    def insertRow(self,pg_conn, topic: str, payload: dict, latencyTime):
         # known fields
-        timestamp   = payload.get("time")
+
+        mesId       = payload.get("mesId")
+        simTime     = payload.get("simTime")
         rul         = payload.get("rul")
         reacHI      = payload.get("reacHI")
         sepHI       = payload.get("sepHI")
@@ -272,11 +284,18 @@ class serverIoT():
             core = {"Time", "rul","reacHI","sepHI","stripHI","sysHI","ts","schema","seq"}
             sensors = {k:v for k,v in payload.items() if k not in core}
 
-        with pg_conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO telemetry(latencyTime, time, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, sensors)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (latency_ms, timestamp, topic, rul, reacHI, sepHI, stripHI, sysHI, cpu, mem, gpuLoad, gpuTemp, Json(sensors)))
+        try:
+            with pg_conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO healthIndicatorDatabase(topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI,rul, sensors,  cpu, mem, gpuLoad, gpuTemp, latencyTime)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI, rul, Json(sensors), cpu, mem, gpuLoad, gpuTemp, latencyTime))
+                aiLogger.warning("Wrote into the databased successfully!")
+
+        except Exception as e:
+            aiLogger.error("PostgreSQL insert failed")
+            aiLogger.error(f"Error: {e}")
+            aiLogger.error(f"mesId={mesId}, topic={topic}")
 
     # ===============================================
     # This functions is used to insert
@@ -292,7 +311,7 @@ class serverIoT():
 
         with pg_conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO telemetry_simple(
+                INSERT INTO healthIndicatorDatabase_simple(
                     latencyTime, topic, edgeCpu, edgeMem, sensors
                 )
                 VALUES (%s, %s, %s, %s, %s)

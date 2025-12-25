@@ -1,6 +1,6 @@
 apiVersion: 1
 providers:
-  - name: systemMonitoring1
+  - name: systemMonitoring
     orgId: 1
     type: file
     disableDeletion: false
