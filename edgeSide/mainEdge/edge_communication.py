@@ -56,7 +56,7 @@ class EdgeCommunication():
         # ----------------------------
         # MQTT CONFIG
         # ----------------------------
-        BROKER      = os.getenv("MQTT_HOST", "10.103.22.251")
+        BROKER      = os.getenv("MQTT_HOST", "10.235.117.251")
         PORT        = int(os.getenv("MQTT_PORT", "1883"))
         TOPIC       = os.getenv("MQTT_TOPIC", "sensors/")
         SENSOR_ID   = os.getenv("SENSOR_ID", "edge1")
@@ -84,7 +84,7 @@ class EdgeCommunication():
         self.targetSize = 128
         
 
-        # self.connect()
+        self.connect()
         
     #==========================================
     # This function is used to start the thread
@@ -125,9 +125,11 @@ class EdgeCommunication():
                     # ------------------------------------
                     base_info, utility_info = self.raw_edge_communication_buffer.get()
 
+                    simTime                 = base_info["simTime"]
                     sensors                 = base_info["signal"]
                     dataCollectionTime      = base_info["startFrameTime"]
                     idxFrame                = base_info["frameIdx"]
+                    
 
                     reacHI                  = utility_info["reacHI"]
                     sepHI                   = utility_info["sepHI"]
@@ -153,17 +155,20 @@ class EdgeCommunication():
                     aiLogger.debug(f"The value of HI is {reacHI.item()} type {type(reacHI.item())}")
                     aiLogger.debug(f"The value of RUL is {rul.item()} type {type(rul.item())}")
 
+                    # print(f"-----------------------------------------------{simTime.shape}")
 
 
-                    payload = { "mesId"  : idxFrame,                            # unique ID for message
-                                "timePub": timePub,
-                                "reacHI" : reacHI.item(),
-                                "sepHI"  : sepHI.item(),
-                                "stripHI": stripHI.item(),
-                                "sysHI"  : sysHI.item(),
-                                "rul"    : rul.item(),
-                                "edgeCpu": cpu,
-                                "edgeMem" :mem,
+                    payload = { "mesId"                 : idxFrame,                            # unique ID for message
+                                "dataCollectionTime"    : dataCollectionTime,
+                                "timePub"               : timePub,
+                                "simTime"               : simTime.item(),
+                                "reacHI"                : reacHI.item(),
+                                "sepHI"                 : sepHI.item(),
+                                "stripHI"               : stripHI.item(),
+                                "sysHI"                 : sysHI.item(),
+                                "rul"                   : rul.item(),
+                                "edgeCpu"               : cpu,
+                                "edgeMem"               :mem,
                                 **lastRowSensors 
                             }
 

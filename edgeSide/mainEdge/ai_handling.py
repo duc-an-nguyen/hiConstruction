@@ -43,6 +43,8 @@ class AiHandling():
                                                                                     variant_idx      = 7,
                                                                                     use_hi_updates   = True)
         self.config                 = config
+
+        self.trigger                = 0
         # componentModelPath      = "checkpoint/bestModel200Epoch/"
         # config["component"]     = "Sys"
         # self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
@@ -176,10 +178,11 @@ class AiHandling():
                             self.c_processed_ai_handling.notify_all()   
 
                     aiLogger.info(f"The time of ai_handling is {time.time() - startTime}")
-                    aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
+                    # aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
 
-
-                    if curIdxHeath == 100:
+                    
+                    if curIdxHeath == 700 and self.trigger == 0:
+                        self.trigger = 1
                         aiLogger.warning("Updating the new weight for edge device!!!")
                         self.updateFlWeight()
                         aiLogger.warning("Updating the new weight succesfully!!!")
