@@ -7,6 +7,7 @@ import time
 import  paho.mqtt.client    as      mqtt
 from    psycopg2.extras     import  Json
 from    utility.logger      import  aiLogger
+from    maintenance_activity import MaintenanceActivity
 
 # =====================================
 # This class is used to handle MQTT, SQL
@@ -63,6 +64,18 @@ class serverIoT():
 
 
         self.testMQTTPerfomance = False
+        self.maintenanceThr     = 0.98
+
+
+        # -------------------------------------------
+        # AI for the server
+        # -------------------------------------------
+        
+        self.maintenance = MaintenanceActivity()
+        self.hi_repo,        \
+        self.env_cfg,        \
+        self.process_model,  \
+        self.agent       = self.maintenance.preRunMaintenancePrediction()
         
     # ===============================================
     # This function is used to connect
@@ -80,14 +93,15 @@ class serverIoT():
     # This function is used to reconnect
     # the MQTT
     # ------------------------------------------------
-    def mqttDisconnect(self,client, userdata, rc):
-        aiLogger.info("Disconnected with result code", rc)
+    def mqttDisconnect(self,client, userdata, rc, *args, **kwargs):
+        aiLogger.info(f"Disconnected with result code {rc}")
         # rc == 0 means clean disconnect
         if rc != 0:
             print("Unexpected disconnect. Trying to reconnect...")
             while True:
                 try:
-                    client.reconnect(self.mqttHostBroker, self.mqttPort,60)
+                    client.reconnect()
+                    # client.reconnect(self.mqttHostBroker, self.mqttPort,60)
                     print("Reconnected!")
                     break
                 except Exception as e:
@@ -95,13 +109,99 @@ class serverIoT():
                     time.sleep(5)  # wait then retry
     
     # ===============================================
-    # This function is used to handle
+    # This function is used to handle purely
     # once we have a new message from edge
     # ------------------------------------------------
     def mqttMessage(self, client, userdata, msg):
+
+        aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
+
+        # -------------------------------------------
+        # Extract the data from message
+        # -------------------------------------------
+        try:
+            data = json.loads(msg.payload.decode())
+        except Exception as e:
+            aiLogger.error("Bad JSON:", e)
+            return
+
+        # -------------------------------------------
+        # Extract publish timestamp and 
+        # message Id
+        # -------------------------------------------
+        mesId                   = data.get("mesId")
+        timePub                 = data.get("timePub")
+
+        egdeCpu                 = data.get("edgeCpu")
+        edgeRam                 = data.get("edgeMem")
+        self.edgeCpu.append(egdeCpu)
+        self.edgeRam.append(edgeRam)
+
+        # print(type(data), print(data.keys()))
+
+        # -------------------------------------------
+        # Check if we need maintenance or not, and 
+        # insert into the data before writting into
+        # SQL
+        # -------------------------------------------
+        if data.get("stripHI") < self.maintenanceThr:
+            data["maintenanceComponent"]  = "Stripper"
+
+        elif data.get("sepHI") < self.maintenanceThr:
+            data["maintenanceComponent"]  = "Separator"
+
+        elif data.get("reacHI") < self.maintenanceThr:
+            data["maintenanceComponent"]  = "Reactor"
+        else:
+            data["maintenanceComponent"]  = None
+
+        if data["maintenanceComponent"] is not None:
+            mainResults = self.maintenance.runMaintenancePrediction(    hi_repo            = self.hi_repo, 
+                                                                        env_cfg             = self.env_cfg, 
+                                                                        process_model       = self.process_model, 
+                                                                        agent               = self.agent, 
+                                                                        vaeSys_global_best  = self.maintenance.preBuiltAi.vaeSys_global_best, 
+                                                                        env_id              = 4, 
+                                                                        splitData           = "train",
+                                                                        trajectIdx          = 1,
+                                                                        atSimulationTime    = 200,
+                                                                        businessProfile     = "balanced",
+                                                                        predictionSteps     = 60) 
+
+        # print(mainResults)
+
+        aiLogger.info(f"[CPU AND RAM] CPU={egdeCpu} RAM={edgeRam} of 7620MB")
+        
+    
+        # -------------------------------------------
+        # Write into the database
+        # -------------------------------------------
+        conn = userdata["pg_conn"]
+        try:
+            self.insertRow(conn, msg.topic, data, self.sqlLatency)
+            aiLogger.info("Inserted into PostgreSQL.")
+        
+        except Exception as e:
+            aiLogger.error(f"DB insert error:{e}")
+
+
+        if timePub is not None:
+            self.sqlLatency = (time.time() - timePub)*1000.0
+            self.sqlLatencyList.append(self.sqlLatency)
+            aiLogger.info(f"[SQL LATENCY] messId={mesId} latency={self.sqlLatency:.2f} ms")
+
+        
+
+
+    # ===============================================
+    # This function is used to handle
+    # once we have a new message from edge and measure
+    # MQTT perfomance
+    # ------------------------------------------------
+    def mqttMessageWithMQTTMeasurement(self, client, userdata, msg):
         timeRecv                = time.time()           # capture arrival ASAP
         aiLogger.info(f"The new message is: {msg.topic} {msg.payload.decode()}")
-        
+
         # -------------------------------------------
         # Extract the data from message
         # -------------------------------------------
@@ -125,10 +225,8 @@ class serverIoT():
 
         # aiLogger.info(f"The ")
 
-
         aiLogger.info(f"[CPU AND RAM] CPU={egdeCpu} RAM={edgeRam} of 7620MB")
         
-
         # ---------------------------------------------
         # Count and check duplication if self.testMQTTPerfomance
         if self.testMQTTPerfomance:
@@ -181,6 +279,8 @@ class serverIoT():
                 self.firstRecvTime = timeRecv
 
 
+
+
     # ===============================================
     # This function is used to connect
     # with PostgreSQL
@@ -205,6 +305,7 @@ class serverIoT():
                     stripHI                 DOUBLE PRECISION,
                     sysHI                   DOUBLE PRECISION,
                     rul                     DOUBLE PRECISION,
+                    mainComp                TEXT,
                     sensors                 JSONB,
                     cpu                     DOUBLE PRECISION,
                     mem                     DOUBLE PRECISION,
@@ -263,8 +364,8 @@ class serverIoT():
     # rows into SQL
     # ------------------------------------------------
     def insertRow(self,pg_conn, topic: str, payload: dict, latencyTime):
+        
         # known fields
-
         mesId       = payload.get("mesId")
         simTime     = payload.get("simTime")
         rul         = payload.get("rul")
@@ -272,6 +373,8 @@ class serverIoT():
         sepHI       = payload.get("sepHI")
         stripHI     = payload.get("stripHI")
         sysHI       = payload.get("sysHI")
+        mainComp    = payload.get("maintenanceComponent")
+
 
         cpu         = psutil.cpu_percent(interval=None)
         mem         = psutil.virtual_memory().percent
@@ -281,15 +384,15 @@ class serverIoT():
         # keep everything else as sensors JSON (if not provided)
         sensors = payload.get("sensors")
         if sensors is None:
-            core = {"Time", "rul","reacHI","sepHI","stripHI","sysHI","ts","schema","seq"}
+            core = {"Time", "rul","reacHI","sepHI","stripHI","sysHI","ts","schema","seq", "maintenanceComponent"}
             sensors = {k:v for k,v in payload.items() if k not in core}
 
         try:
             with pg_conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO healthIndicatorDatabase(topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI,rul, sensors,  cpu, mem, gpuLoad, gpuTemp, latencyTime)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI, rul, Json(sensors), cpu, mem, gpuLoad, gpuTemp, latencyTime))
+                    INSERT INTO healthIndicatorDatabase(topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI,rul, mainComp, sensors,  cpu, mem, gpuLoad, gpuTemp, latencyTime )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI, rul, mainComp,Json(sensors), cpu, mem, gpuLoad, gpuTemp, latencyTime))
                 aiLogger.warning("Wrote into the databased successfully!")
 
         except Exception as e:
@@ -352,7 +455,7 @@ if __name__ == '__main__':
     # -------------------------------
     # Create the client
     # -------------------------------
-    pgConnect   = iotSys.postgreConnect()
+    pgConnect   = iotSys.postgreConnect()           # postgreSQL connection
     client      = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, userdata={"pg_conn": pgConnect}) 
     
     # -------------------------------

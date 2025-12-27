@@ -1,0 +1,26 @@
+services:
+  tensorflow2_16_1:
+    # image: edge_sender_with_data:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile.tf2_16_1_server
+    image: tensorflow2.16.1:latest
+    container_name: tf2_16_1_server
+    volumes:
+      - ./aiModel:/app
+    working_dir: /app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # runtime: nvidia
+    tty: true
+    stdin_open: true
+
+
+
+# docker run --gpus all -it --rm -v $PWD/mainEdge:/app tensorflow2.16.1:latest

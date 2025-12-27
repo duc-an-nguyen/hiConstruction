@@ -1,0 +1,141 @@
+services:
+  # =========================================
+  # MQTT BROKER
+  # =========================================
+  mqtt_broker:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mqtt/passwords:/mosquitto/config/passwords:ro           # password file directory
+    networks:
+      - myNetwork
+    restart: unless-stopped
+
+# =========================================
+# SQL
+# =========================================
+  postgresql:
+    image: postgres:17
+    container_name: sqlDatabase
+    environment:
+      POSTGRES_DB: healthIndicatorDatabase
+      POSTGRES_USER: "server"
+      POSTGRES_PASSWORD: "123456789"
+    ports:
+      - "5432:5432"         # optional, for psql from host
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - myNetwork
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped
+
+# =========================================
+# Python code to connect apps
+# =========================================
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    gpus: all
+    image: service_connection
+    container_name: service_connection
+    # -------------------
+    # Volumes and working 
+    # direction
+    volumes:
+      - ./aiModel:/app
+    working_dir: /app
+    # ------------------
+    # For GPU
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    environment:
+      # --------------------
+      # MQTT Connection
+      MQTT_HOST: "mqtt_broker"
+      MQTT_PORT: "1883"
+      MQTT_USER: "server"
+      MQTT_PW: "123456789"
+      MQTT_TOPIC: "sensors/#"
+
+      # --------------------
+      # PostgreSQL Connection
+      PGHOST: postgresql
+      PGPORT: "5432"
+      PGDATABASE: healthIndicatorDatabase
+      PGUSER: server
+      PGPASSWORD: "123456789"
+
+      # NVIDIA (optional but helpful)
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+
+    depends_on:
+      mqtt_broker:
+        condition: service_started
+      postgresql:
+        condition: service_healthy
+    networks:
+      - myNetwork
+    restart: unless-stopped
+
+# =========================================
+  # GRAFANA
+  # =========================================
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"         # open http://localhost:3000
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - myNetwork
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    restart: unless-stopped
+  
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  dbdata:
+
+networks:
+  myNetwork:
+    driver: bridge
+
+
+
+
+
+# docker run -it --rm \
+#   --network myNetwork \
+#   -e MQTT_HOST=mqtt-broker \
+#   -e MQTT_PORT=1883 \
+#   -e MQTT_USER=server \
+#   -e MQTT_PW=123456789 \
+#   -e SENSOR_ID=edge1 \
+#   -e MQTT_TOPIC='sensors/#' \
+#   server-subscriber
