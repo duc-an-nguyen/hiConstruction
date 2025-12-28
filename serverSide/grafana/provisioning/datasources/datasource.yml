@@ -5,7 +5,7 @@ datasources:
     access: proxy
     isDefault: true
     url: postgresql:5432
-    database: healthIndicatorDatabase
+    database: hi_database
     user: server
     secureJsonData:
       password: "123456789"

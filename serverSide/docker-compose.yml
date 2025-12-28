@@ -23,7 +23,7 @@ services:
     image: postgres:17
     container_name: sqlDatabase
     environment:
-      POSTGRES_DB: healthIndicatorDatabase
+      POSTGRES_DB: hi_database
       POSTGRES_USER: "server"
       POSTGRES_PASSWORD: "123456789"
     ports:
@@ -80,7 +80,7 @@ services:
       # PostgreSQL Connection
       PGHOST: postgresql
       PGPORT: "5432"
-      PGDATABASE: healthIndicatorDatabase
+      PGDATABASE: hi_database
       PGUSER: server
       PGPASSWORD: "123456789"
 

@@ -3050,10 +3050,10 @@ class MaintenanceActivity():
         hi_traj = hi_list[traj_idx]
         sys_hi_traj = sys_hi_list[traj_idx]
         T_hist = hi_traj.shape[0]
-        print(
-            f"[INFO] Using env={env_id}, split='{split_name}' trajectory {traj_idx}, "
-            f"HI sequence length T = {T_hist}"
-        )
+        # print(
+        #     f"[INFO] Using env={env_id}, split='{split_name}' trajectory {traj_idx}, "
+        #     f"HI sequence length T = {T_hist}"
+        # )
 
         env_cfg_local = copy.deepcopy(env_cfg)
         env_cfg_local["business_profile"] = business_profile
@@ -3068,10 +3068,10 @@ class MaintenanceActivity():
                 request_threshold=req_thr,
                 failure_threshold=fail_thr,
             )
-            print(f"[INFO] Auto-selected trigger_step = {trigger_step_final}")
+            # print(f"[INFO] Auto-selected trigger_step = {trigger_step_final}")
         else:
             trigger_step_final = int(trigger_step)
-            print(f"[INFO] Using externally specified trigger_step = {trigger_step_final}")
+            # print(f"[INFO] Using externally specified trigger_step = {trigger_step_final}")
 
         # At this trigger step, use DQN to see first action
         env_eval = PlantMaintenanceEnvV3(
@@ -3090,10 +3090,10 @@ class MaintenanceActivity():
         comp_idx, level_name = env_eval._decode_action(dqn_action_at_trigger)
         comp_name = env_eval.comp_names[comp_idx] if comp_idx is not None else "none"
 
-        print(
-            f"\n[DQN] First maintenance action at trigger_step={trigger_step_final}: "
-            f"action={dqn_action_at_trigger}, component={comp_name}, level={level_name}"
-        )
+        # print(
+        #     f"\n[DQN] First maintenance action at trigger_step={trigger_step_final}: "
+        #     f"action={dqn_action_at_trigger}, component={comp_name}, level={level_name}"
+        # )
 
         # Planner local single-step evaluation
         planner = MaintenancePlanner(
@@ -3108,9 +3108,9 @@ class MaintenanceActivity():
             trigger_step=trigger_step_final,
             seed=42,
         )
-        print("\n" + "=" * 80)
-        print("[MaintenancePlanner Single-Step Maintenance Evaluation Report]")
-        print(text_report)
+        # print("\n" + "=" * 80)
+        # print("[MaintenancePlanner Single-Step Maintenance Evaluation Report]")
+        # print(text_report)
 
         metrics_dqn_local, _ = planner._rollout_with_first_action(
             hi_traj=hi_traj,
@@ -3118,14 +3118,14 @@ class MaintenanceActivity():
             first_action=dqn_action_at_trigger,
             seed=1234,
         )
-        print("\n>>> DQN first action local evaluation based on this HI trajectory:")
-        print(
-            f"  action={dqn_action_at_trigger}, component={comp_name}, level={level_name}, "
-            f"discounted_return={metrics_dqn_local['discounted_return']:.2f}, "
-            f"profit={metrics_dqn_local['profit_sum']:.2f}, PM_cost={metrics_dqn_local['pm_cost_sum']:.2f}, "
-            f"fail_cost={metrics_dqn_local['fail_cost_sum']:.2f}, stockout_cost={metrics_dqn_local['stockout_cost_sum']:.2f}, "
-            f"total_production={metrics_dqn_local['production_sum']:.2f}, fail_count={metrics_dqn_local['fail_count']}"
-        )
+        # print("\n>>> DQN first action local evaluation based on this HI trajectory:")
+        # print(
+        #     f"  action={dqn_action_at_trigger}, component={comp_name}, level={level_name}, "
+        #     f"discounted_return={metrics_dqn_local['discounted_return']:.2f}, "
+        #     f"profit={metrics_dqn_local['profit_sum']:.2f}, PM_cost={metrics_dqn_local['pm_cost_sum']:.2f}, "
+        #     f"fail_cost={metrics_dqn_local['fail_cost_sum']:.2f}, stockout_cost={metrics_dqn_local['stockout_cost_sum']:.2f}, "
+        #     f"total_production={metrics_dqn_local['production_sum']:.2f}, fail_count={metrics_dqn_local['fail_count']}"
+        # )
 
         generator = KANScenarioGenerator(
             env_cfg=env_cfg_local,
@@ -3153,7 +3153,7 @@ class MaintenanceActivity():
             seed=2024,
         )
 
-        print("\n[INFO] Future raw shapes:", raw_future_dqn.shape, raw_future_none.shape)
+        # print("\n[INFO] Future raw shapes:", raw_future_dqn.shape, raw_future_none.shape)
 
         # SystemModel evaluates future HI & RUL for both scenarios (all from vaeSys_global_best)
         sys_eval_dqn = generator.run_vaeSys_global_best(
@@ -3161,18 +3161,18 @@ class MaintenanceActivity():
             raw_seq=raw_future_dqn,
             env_id=env_id,
         )
-        print("\n=== SystemModel Output (DQN policy scenario) ===")
-        print("sysHi:", sys_eval_dqn["sysHi"])
-        print("predRUL:", sys_eval_dqn["predRUL"])
+        # print("\n=== SystemModel Output (DQN policy scenario) ===")
+        # print("sysHi:", sys_eval_dqn["sysHi"])
+        # print("predRUL:", sys_eval_dqn["predRUL"])
 
         sys_eval_none = generator.run_vaeSys_global_best(
             vaeSys_global_best=vaeSys_global_best,
             raw_seq=raw_future_none,
             env_id=env_id,
         )
-        print("\n=== SystemModel Output (Never maintain scenario) ===")
-        print("sysHi:", sys_eval_none["sysHi"])
-        print("predRUL:", sys_eval_none["predRUL"])
+        # print("\n=== SystemModel Output (Never maintain scenario) ===")
+        # print("sysHi:", sys_eval_none["sysHi"])
+        # print("predRUL:", sys_eval_none["predRUL"])
 
         # === NEW: Apply equivalent age correction based on Env HI/RUL ===
         # 1) Extract tail Env metrics from rollout infos
@@ -3202,11 +3202,11 @@ class MaintenanceActivity():
             hi_clip_max=1.2,
         )
 
-        print("\n=== Equivalent Age Correction Results ===")
-        print(f"phi_R (RUL ratio): {hi_rul_equiv['phi_R']:.3f}")
-        print(f"phi_H (HI margin ratio): {hi_rul_equiv['phi_H']:.3f}")
-        print(f"RUL policy (raw -> corrected): {hi_rul_equiv['R_sys_policy_raw']:.2f} -> {hi_rul_equiv['R_corr_policy']:.2f}")
-        print(f"HI sys policy (raw -> corrected): {hi_rul_equiv['HI_sys_policy_raw']:.3f} -> {hi_rul_equiv['HI_sys_corr_policy']:.3f}")
+        # print("\n=== Equivalent Age Correction Results ===")
+        # print(f"phi_R (RUL ratio): {hi_rul_equiv['phi_R']:.3f}")
+        # print(f"phi_H (HI margin ratio): {hi_rul_equiv['phi_H']:.3f}")
+        # print(f"RUL policy (raw -> corrected): {hi_rul_equiv['R_sys_policy_raw']:.2f} -> {hi_rul_equiv['R_corr_policy']:.2f}")
+        # print(f"HI sys policy (raw -> corrected): {hi_rul_equiv['HI_sys_policy_raw']:.3f} -> {hi_rul_equiv['HI_sys_corr_policy']:.3f}")
 
         # Return both raw and corrected HI/RUL from vaeSys_global_best
         result = {
@@ -3479,23 +3479,23 @@ class MaintenanceActivity():
                                                     plan_horizon        =   predictionSteps         # "PLAN_HORIZON"
                                                     )
 
-        print("-------------------------------=================================")
-        # print(result['planner_best_info'])
-        print(f'The planplanner_best_info {result["planner_best_info"]}')
-        print(f'The planner_all_infos {result["planner_all_infos"]}')
-        print(f'The planner_report {result["planner_report"]}')
+        # print("-------------------------------=================================")
+        # # print(result['planner_best_info'])
+        # print(f'The planplanner_best_info {result["planner_best_info"]}')
+        # print(f'The planner_all_infos {result["planner_all_infos"]}')
+        # print(f'The planner_report {result["planner_report"]}')
 
-        print("\n===== Trigger Recommendation Results (Key Fields) =====")
-        print("Trigger step:", result["trigger_step"])
-        print("DQN recommended action: action =", result["dqn_action_at_trigger"])
-        print("Maintenance target component:", result["dqn_component_at_trigger"])
-        print("Maintenance level:", result["dqn_level_at_trigger"])
+        # print("\n===== Trigger Recommendation Results (Key Fields) =====")
+        # print("Trigger step:", result["trigger_step"])
+        # print("DQN recommended action: action =", result["dqn_action_at_trigger"])
+        # print("Maintenance target component:", result["dqn_component_at_trigger"])
+        # print("Maintenance level:", result["dqn_level_at_trigger"])
 
-        print("\n[Local Single-step Planner Report (Text Version)]:")
-        print(result["planner_report"])
+        # print("\n[Local Single-step Planner Report (Text Version)]:")
+        # print(result["planner_report"])
 
-        print("\n[System RUL / HI after Equivalent Age Correction]:")
-        print(result["equivalent_age_hi_rul"])
+        # print("\n[System RUL / HI after Equivalent Age Correction]:")
+        # print(result["equivalent_age_hi_rul"])
 
 
 

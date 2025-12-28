@@ -64,7 +64,16 @@ class serverIoT():
 
 
         self.testMQTTPerfomance = False
-        self.maintenanceThr     = 0.98
+        self.maintenanceThr     = 0.999
+
+
+        # ------------------------------------------
+        # This value is used to inform to the maintenace
+        # after each period. Starting value should be -1
+        # because we need 0 at the begining
+        # ------------------------------------------
+        self.infomMaintenance   = -1
+        self.informPeriod       = 50
 
 
         # -------------------------------------------
@@ -120,7 +129,7 @@ class serverIoT():
         # Extract the data from message
         # -------------------------------------------
         try:
-            data = json.loads(msg.payload.decode())
+            self.receiData = json.loads(msg.payload.decode())
         except Exception as e:
             aiLogger.error("Bad JSON:", e)
             return
@@ -129,11 +138,11 @@ class serverIoT():
         # Extract publish timestamp and 
         # message Id
         # -------------------------------------------
-        mesId                   = data.get("mesId")
-        timePub                 = data.get("timePub")
+        mesId                   = self.receiData.get("mesId")
+        timePub                 = self.receiData.get("timePub")
 
-        egdeCpu                 = data.get("edgeCpu")
-        edgeRam                 = data.get("edgeMem")
+        egdeCpu                 = self.receiData.get("edgeCpu")
+        edgeRam                 = self.receiData.get("edgeMem")
         self.edgeCpu.append(egdeCpu)
         self.edgeRam.append(edgeRam)
 
@@ -144,18 +153,34 @@ class serverIoT():
         # insert into the data before writting into
         # SQL
         # -------------------------------------------
-        if data.get("stripHI") < self.maintenanceThr:
-            data["maintenanceComponent"]  = "Stripper"
+        if self.receiData.get("stripHI") < self.maintenanceThr:
+            self.infomMaintenance                   += 1
+            self.receiData["maintenanceComponent"]  = "Stripper"
 
-        elif data.get("sepHI") < self.maintenanceThr:
-            data["maintenanceComponent"]  = "Separator"
+        elif self.receiData.get("sepHI") < self.maintenanceThr:
+            self.infomMaintenance                   += 1
+            self.receiData["maintenanceComponent"]  = "Separator"
 
-        elif data.get("reacHI") < self.maintenanceThr:
-            data["maintenanceComponent"]  = "Reactor"
+        elif self.receiData.get("reacHI") < self.maintenanceThr:
+            self.infomMaintenance                   += 1
+            self.receiData["maintenanceComponent"]  = "Reactor"
         else:
-            data["maintenanceComponent"]  = None
+            self.receiData["maintenanceComponent"]  = None
+            self.infomMaintenance                   = -1
 
-        if data["maintenanceComponent"] is not None:
+            # If all component is ok, no need maintenance
+            self.receiData["maintenance_action"]               = 0
+            self.receiData["maintenance_level"]                = 0
+            self.receiData["maintenance_discounted_return"]     = 0
+            self.receiData["maintenance_profit"]               = 0
+            self.receiData["maintenance_pm_cost"]               = 0
+            self.receiData["maintenance_fail_cost"]             = 0
+            self.receiData["maintenance_stockout_cost"]         = 0
+            self.receiData["maintenance_total_production"]      = 0
+            self.receiData["maintenance_fail_count"]            = 0
+
+
+        if self.receiData["maintenanceComponent"] is not None and (self.infomMaintenance%self.informPeriod == 0):
             mainResults = self.maintenance.runMaintenancePrediction(    hi_repo            = self.hi_repo, 
                                                                         env_cfg             = self.env_cfg, 
                                                                         process_model       = self.process_model, 
@@ -168,7 +193,19 @@ class serverIoT():
                                                                         businessProfile     = "balanced",
                                                                         predictionSteps     = 60) 
 
-        # print(mainResults)
+            bestPlanInfo  = mainResults['planner_best_info']
+
+            aiLogger.error(f"key of the bestPlanInfo {bestPlanInfo.keys()}")
+
+            self.receiData["maintenance_action"]               = bestPlanInfo['action']
+            self.receiData["maintenance_level"]                = bestPlanInfo['level']
+            self.receiData["maintenance_discounted_return"]     = bestPlanInfo['discounted_return']
+            self.receiData["maintenance_profit"]               = bestPlanInfo['profit_sum']
+            self.receiData["maintenance_pm_cost"]               = bestPlanInfo['pm_cost_sum']
+            self.receiData["maintenance_fail_cost"]             = bestPlanInfo['pm_cost_sum']
+            self.receiData["maintenance_stockout_cost"]         = bestPlanInfo['stockout_cost_sum']
+            self.receiData["maintenance_total_production"]      = bestPlanInfo['production_sum']
+            self.receiData["maintenance_fail_count"]            = bestPlanInfo['fail_count']
 
         aiLogger.info(f"[CPU AND RAM] CPU={egdeCpu} RAM={edgeRam} of 7620MB")
         
@@ -178,7 +215,7 @@ class serverIoT():
         # -------------------------------------------
         conn = userdata["pg_conn"]
         try:
-            self.insertRow(conn, msg.topic, data, self.sqlLatency)
+            self.insertRow(conn, msg.topic, self.receiData, self.sqlLatency)
             aiLogger.info("Inserted into PostgreSQL.")
         
         except Exception as e:
@@ -294,7 +331,7 @@ class serverIoT():
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS healthIndicatorDatabase (
+                CREATE TABLE IF NOT EXISTS hi_database (
                     id                      BIGSERIAL PRIMARY KEY,
                     ts                      TIMESTAMPTZ NOT NULL DEFAULT now(),
                     topic                   TEXT NOT NULL,
@@ -327,7 +364,7 @@ class serverIoT():
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS healthIndicatorDatabase_simple (
+                CREATE TABLE IF NOT EXISTS hi_database_simple (
                     id              BIGSERIAL PRIMARY KEY,
                     ts              TIMESTAMPTZ NOT NULL DEFAULT now(),
                     topic           TEXT NOT NULL,
@@ -389,10 +426,37 @@ class serverIoT():
 
         try:
             with pg_conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO healthIndicatorDatabase(topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI,rul, mainComp, sensors,  cpu, mem, gpuLoad, gpuTemp, latencyTime )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (topic, mesId, simTime, reacHI, sepHI, stripHI, sysHI, rul, mainComp,Json(sensors), cpu, mem, gpuLoad, gpuTemp, latencyTime))
+                cur.execute(""" INSERT INTO hi_database( topic, 
+                                                        mesId, 
+                                                        simTime, 
+                                                        reacHI, 
+                                                        sepHI, 
+                                                        stripHI, 
+                                                        sysHI,
+                                                        rul, 
+                                                        mainComp, 
+                                                        sensors,  
+                                                        cpu, 
+                                                        mem, 
+                                                        gpuLoad, 
+                                                        gpuTemp, 
+                                                        latencyTime)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
+                                                        (topic, 
+                                                        mesId, 
+                                                        simTime, 
+                                                        reacHI, 
+                                                        sepHI, 
+                                                        stripHI, 
+                                                        sysHI, 
+                                                        rul, 
+                                                        mainComp,
+                                                        Json(sensors), 
+                                                        cpu, 
+                                                        mem, 
+                                                        gpuLoad, 
+                                                        gpuTemp, 
+                                                        latencyTime))
                 aiLogger.warning("Wrote into the databased successfully!")
 
         except Exception as e:
