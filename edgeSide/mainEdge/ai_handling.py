@@ -44,7 +44,7 @@ class AiHandling():
                                                                                     use_hi_updates   = True)
         self.config                 = config
 
-        self.trigger                = 0
+        self.trigger                = 1
         # componentModelPath      = "checkpoint/bestModel200Epoch/"
         # config["component"]     = "Sys"
         # self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
@@ -68,7 +68,6 @@ class AiHandling():
         # Create thread and others
         #-----------------------------
         self.ai_handling            = threading.Thread(target=self.__ai_handling, daemon=False)
-        
         self.__running              = False
 
 
@@ -136,7 +135,9 @@ class AiHandling():
                     # ---------------------------------
                     # AI handling
                     hiReac, hiSep,  hiStrip, hiSystem, predictedRul, hiMatrixOutput    = self.vaeSys.getHIandRUL(input = xPredict)
-                    
+
+                    aiLogger.error(f"The value of system HI is {hiSystem}------------------------------------")
+
                     squeezedHiReac                                 = tf.squeeze(hiReac, axis=-1)
                     squeezedHiSep                                  = tf.squeeze(hiSep, axis=-1)
                     squeezedHiStrip                                = tf.squeeze(hiStrip, axis=-1)
@@ -158,10 +159,10 @@ class AiHandling():
                     reacHI, sepHI, stripHI, sysHI    = self.hiNormalization(squeezedHiReac,
                                                                             squeezedHiSep,
                                                                             squeezedHiStrip,
+                                                                            squeezedHiSys,
                                                                             hiMatrixOutput,
                                                                             shiftValues)
                     
-
                     # ---------------------------------
                     # Write to buffer to send
                     # ---------------------------------
@@ -181,7 +182,7 @@ class AiHandling():
                     # aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
 
                     
-                    if curIdxHeath == 700 and self.trigger == 0:
+                    if curIdxHeath == 1500 and self.trigger == 0:
                         self.trigger = 1
                         aiLogger.warning("Updating the new weight for edge device!!!")
                         self.updateFlWeight()
@@ -204,7 +205,7 @@ class AiHandling():
     #==========================================
     # This funcion is used to normalize HI
     # -----------------------------------------
-    def hiNormalization(self, reacHI, sepHI, stripHI, hiMatrixOutput, shiftValues):
+    def hiNormalization(self, reacHI, sepHI, stripHI, squeezedHiSys, hiMatrixOutput, shiftValues):
         
         shiftedReac     = reacHI    + shiftValues["reacHI"]
         shiftedSep      = sepHI     + shiftValues["sepHI"]
@@ -221,7 +222,7 @@ class AiHandling():
         elif selectedFunc[1] > 0.5:
             sysHI        = max(reacHI,sepHI,stripHI)
         else:
-            sysHI        = -0.3* reacHI + 0.3* sepHI +0.3*stripHI
+            sysHI        = 1- squeezedHiSys/self.thrHI
 
         return reacHI.numpy(), sepHI.numpy(), stripHI.numpy(), sysHI.numpy()
     

@@ -72,6 +72,7 @@ class serverIoT():
         # after each period. Starting value should be -1
         # because we need 0 at the begining
         # ------------------------------------------
+        self.isMaintenance      = False
         self.infomMaintenance   = -1
         self.informPeriod       = 50
 
@@ -79,12 +80,12 @@ class serverIoT():
         # -------------------------------------------
         # AI for the server
         # -------------------------------------------
-        
-        self.maintenance = MaintenanceActivity()
-        self.hi_repo,        \
-        self.env_cfg,        \
-        self.process_model,  \
-        self.agent       = self.maintenance.preRunMaintenancePrediction()
+        if self.isMaintenance:
+            self.maintenance = MaintenanceActivity()
+            self.hi_repo,        \
+            self.env_cfg,        \
+            self.process_model,  \
+            self.agent       = self.maintenance.preRunMaintenancePrediction()
         
     # ===============================================
     # This function is used to connect
@@ -169,10 +170,10 @@ class serverIoT():
             self.infomMaintenance                   = -1
 
             # If all component is ok, no need maintenance
-            self.receiData["maintenance_action"]               = 0
-            self.receiData["maintenance_level"]                = 0
+            self.receiData["maintenance_action"]                = 0
+            self.receiData["maintenance_level"]                 = 0
             self.receiData["maintenance_discounted_return"]     = 0
-            self.receiData["maintenance_profit"]               = 0
+            self.receiData["maintenance_profit"]                = 0
             self.receiData["maintenance_pm_cost"]               = 0
             self.receiData["maintenance_fail_cost"]             = 0
             self.receiData["maintenance_stockout_cost"]         = 0
@@ -180,7 +181,7 @@ class serverIoT():
             self.receiData["maintenance_fail_count"]            = 0
 
 
-        if self.receiData["maintenanceComponent"] is not None and (self.infomMaintenance%self.informPeriod == 0):
+        if self.isMaintenance and self.receiData["maintenanceComponent"] is not None and (self.infomMaintenance%self.informPeriod == 0):
             mainResults = self.maintenance.runMaintenancePrediction(    hi_repo            = self.hi_repo, 
                                                                         env_cfg             = self.env_cfg, 
                                                                         process_model       = self.process_model, 
