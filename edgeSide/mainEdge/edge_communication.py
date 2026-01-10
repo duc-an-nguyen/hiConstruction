@@ -126,11 +126,12 @@ class EdgeCommunication():
                     base_info, utility_info = self.raw_edge_communication_buffer.get()
 
                     simTime                 = base_info["simTime"]
-                    sensors                 = base_info["signal"]
+                    sensors                 = base_info["oriSignal"]
                     dataCollectionTime      = base_info["startFrameTime"]
                     idxFrame                = base_info["frameIdx"]
                     
-
+                    flUpdate                = utility_info["flUpdate"]
+                    anomaly                 = utility_info["anomaly"]
                     reacHI                  = utility_info["reacHI"]
                     sepHI                   = utility_info["sepHI"]
                     stripHI                 = utility_info["stripHI"]
@@ -156,12 +157,12 @@ class EdgeCommunication():
                     aiLogger.debug(f"The value of RUL is {rul.item()} type {type(rul.item())}")
 
                     # print(f"-----------------------------------------------{simTime.shape}")
-
-
                     payload = { "mesId"                 : idxFrame,                            # unique ID for message
                                 "dataCollectionTime"    : dataCollectionTime,
                                 "timePub"               : timePub,
                                 "simTime"               : simTime.item(),
+                                "flUpdate"              : flUpdate,
+                                "anomaly"               : anomaly,
                                 "reacHI"                : reacHI.item(),
                                 "sepHI"                 : sepHI.item(),
                                 "stripHI"               : stripHI.item(),

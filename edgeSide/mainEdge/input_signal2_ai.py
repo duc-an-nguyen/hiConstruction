@@ -35,6 +35,7 @@ class InputSignal2Ai():
                                                                 reduceSampleRate = True, 
                                                                 removeHigherThr  = False)
         withRULData         = self.preData.addRULAndEnvironment(rawData)
+        originalSensor      = withRULData.copy()
         norData             = self.preData.normalizeDataEachModes(  rawData        = withRULData,
                                                                     headline       = self.preData.headline["allWithoutLabelNoBias"] + ["rul"],
                                                                     )                       # Normalize the data
@@ -44,6 +45,7 @@ class InputSignal2Ai():
         # ----------------------------
         caseData            = norData[environmentIdx]                       
         self.allSensor      = caseData[self.preData.headline["allWithoutLabelNoBias"]]
+        self.originalSensors= originalSensor[environmentIdx][self.preData.headline["allWithoutLabelNoBias"]]
         self.timeTraj       = caseData["Time"]
         self.env            = caseData["environmentID"]
         self.trajectID      = caseData["Id"]
@@ -51,8 +53,10 @@ class InputSignal2Ai():
 
         aiLogger.debug(f"The shape of all sensors is {self.allSensor.shape, self.env.shape, self.trajectID.shape, self.timeTraj.shape}")
 
-        self.getAtIdx       = 1                     # Initilizing the idx only from 1 to 100
-        self.totalTraject   = 100
+        self.getAtIdx                   = 1                     # Initilizing the idx only from 1 to 100
+        self.totalTraject               = 100
+        self.afterMaintenaceSubtraction = 10
+        self.initPoint                  = 0
 
         
         #----------------------------- 
@@ -72,12 +76,13 @@ class InputSignal2Ai():
         self.c_processed_signal2_ai             = threading.Condition()
         
         
+        
         #----------------------------
         # Buffer
         #----------------------------
-        buffConfig                              = BufferConfig()
-        self.processed_signal2_ai_buffer        = buffConfig.processedBuffer
-        
+        buffConfig                                  = BufferConfig()
+        self.processed_signal2_ai_buffer            = buffConfig.processedBuffer
+        self.processed_trigger_maitenance_buffer    = buffConfig.rawBuffer
         
     #==========================================
     # This function is used to start the thread
@@ -106,14 +111,17 @@ class InputSignal2Ai():
                 # if self.c_raw_fps_control is not None:
                 #     with self.c_raw_fps_control:
                 #         self.c_raw_fps_control.wait()
+
+
                 # -------------------------------
                 # Getting data in each trajectory 
                 # -------------------------------
                 aiLogger.info(f"Getting the HI at the idx {self.getAtIdx}")
             
                 seqXAllSensorTrain, \
+                originalSensor, \
                 seqXTrainEnv,       \
-                seqTime                 = self.preData.getTensorData(   dataList    = [self.allSensor,self.env,self.timeTraj],
+                seqTime                 = self.preData.getTensorData(   dataList    = [self.allSensor, self.originalSensors, self.env,self.timeTraj],
                                                                         trajectId   = self.trajectID,  
                                                                         shuffle     = False,      
                                                                         getAtIdx    = self.getAtIdx,
@@ -129,12 +137,27 @@ class InputSignal2Ai():
                 # Getting data in each specific
                 # time from each trajectory
                 # -------------------------------
-                for idxPoint in range(seqXAllSensorTrain.shape[0]):
-                    # xPredict            = [seqXAllSensorTrain[idxPoint:idxPoint+1,:,:], seqTimeTrain[idxPoint:idxPoint+1], curEnv[idxPoint:idxPoint+1]]  
-                    
-                    curTime                         = time.time()
+                idxPoint        = self.initPoint    
+                self.initPoint  = self.initPoint + self.afterMaintenaceSubtraction          # Moving the trajectory a little but after maintenance
+                        
+    
+                while idxPoint < seqXAllSensorTrain.shape[0]:
 
-                    self.base_info["signal"]        = seqXAllSensorTrain[idxPoint:idxPoint+1,:,:]
+                    # ------------------------------
+                    # Change idx if new maintenance
+                    # ------------------------------
+                    if not self.processed_trigger_maitenance_buffer.empty():
+                        maintenance_info = self.processed_trigger_maitenance_buffer.get()
+                
+                        if maintenance_info == 1:
+                            aiLogger.warning("Maintenance is on going!!!!!!!!!!!!!!!!!!!!=================================================")
+                            break
+                        
+
+                    curTime                         = time.time()
+                    self.base_info["curTraject"]    = self.getAtIdx
+                    self.base_info["normSignal"]    = seqXAllSensorTrain[idxPoint:idxPoint+1,:,:]
+                    self.base_info["oriSignal"]     = originalSensor[idxPoint:idxPoint+1,:,:]
                     self.base_info["timestamp"]     = seqTimeTrain[idxPoint:idxPoint+1]
                     self.base_info["env"]           = curEnv[idxPoint:idxPoint+1]
                     self.base_info["frameIdx"]      = idxPoint
@@ -157,9 +180,12 @@ class InputSignal2Ai():
                     if self.processed_signal2_ai_buffer.full():
                         self.processed_signal2_ai_buffer.get()  
                         aiLogger.warning("The buffer is full, please check the size and time again to handle!!!")
+                    
+
+                    idxPoint += 1
 
                 self.getAtIdx +=1 if self.getAtIdx <= self.totalTraject else 1
-                    
+                
 
                     
                                
