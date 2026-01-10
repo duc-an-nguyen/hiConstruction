@@ -64,7 +64,7 @@ class serverIoT():
 
 
         self.testMQTTPerfomance = False
-        self.maintenanceThr     = 0.6
+        self.maintenanceThr     = 0.7
 
 
         # ------------------------------------------
@@ -74,7 +74,7 @@ class serverIoT():
         # ------------------------------------------
         self.isMaintenance      = True
         self.infomMaintenance   = -1
-        self.informPeriod       = 100
+        self.informPeriod       = 10
 
 
         # -------------------------------------------
