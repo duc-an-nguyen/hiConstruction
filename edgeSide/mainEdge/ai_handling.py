@@ -4,7 +4,8 @@
 import  threading
 import  queue
 import  time
-import tensorflow           as tf
+import  tensorflow           as tf
+import  pandas               as pd
 
 from    typing          import List
 from    utility.config  import BufferConfig
@@ -39,12 +40,30 @@ class AiHandling():
 
         self.fl_and_maintenance     = FLAndMaintenance(config =config)
 
-        self.vaeSys                 = self.fl_and_maintenance.load_variant_model(   config           = config, 
-                                                                                    variant_idx      = 7,
-                                                                                    use_hi_updates   = True)
+        self.vaeSys                 = self.fl_and_maintenance.load_global_best()
+
+        # self.vaeSys                 = self.fl_and_maintenance.load_variant_model(   config           = config, 
+        #                                                                             variant_idx      = 7,
+        #                                                                             use_hi_updates   = True)
+
+
         self.config                 = config
 
-        self.trigger                = 1
+        
+        self.ano    = {}
+        self.ano[0] = pd.read_excel("data/anomaly1.xlsx")
+        self.ano[1] = pd.read_excel("data/anomaly2.xlsx")
+        self.ano[2] = pd.read_excel("data/anomaly3.xlsx")
+        self.anoIdx = 0
+
+
+        self.triggerFl              = 0                 # This flag is used to trigger of federated learning, only work 1 time, default value should be 1
+        self.updateFl               = 0                 # This flag is used to show the progress of update
+        self.updateTiming           = 0                 # This flag is used to manage the updating time
+        self.thrTimeForFlUpdate     = 50
+
+
+        self.triggerUpdateNewFailureData = 0
         # componentModelPath      = "checkpoint/bestModel200Epoch/"
         # config["component"]     = "Sys"
         # self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
@@ -64,6 +83,8 @@ class AiHandling():
         # modelDirSys   =  componentModelPath + "bestModelSys"
         # self.vaeSys.load_weights(modelDirComp1, modelDirComp2, modelDirComp3, modelDirSys)
 
+        self.maintenanceThr         = 0.5
+
         #----------------------------- 
         # Create thread and others
         #-----------------------------
@@ -77,11 +98,13 @@ class AiHandling():
         self.c_raw_ai_handling              = None
         self.c_processed_ai_handling        = threading.Condition()
         
+        
         #----------------------------
         # Buffer
         #----------------------------
         self.raw_ai_handling_buffer         = None
         self.processed_ai_handling_buffer   = buffConfig.processedBuffer
+        self.raw_trigger_maitenance_buffer  = None
         
         
     #==========================================
@@ -113,30 +136,59 @@ class AiHandling():
                     if self.raw_ai_handling_buffer.empty():
                         self.c_raw_ai_handling.wait()
         
-                
-
                 # ----------------------------------------
                 # Get data from buffer
                 # ----------------------------------------
                 if not self.raw_ai_handling_buffer.empty():
                     startTime = time.time()
-
+                    
                     # ---------------------------------
                     # Get data from previous thread
                     base_info, utility_info = self.raw_ai_handling_buffer.get()
 
+
+                    curTraject              = base_info["curTraject"]
                     curIdxHeath             = base_info["frameIdx"]
-                    signal                  = base_info["signal"]
+                    signal                  = base_info["normSignal"]
                     timestamp               = base_info["timestamp"]
                     env                     = base_info["env"]
                     xPredict                = [signal, timestamp, env]  
+
+
+                    aiLogger.debug(f"Current trajectory is {curTraject}")
+
+                    # ----------------------------------------
+                    # Select the model for prediction
+                    # ----------------------------------------
+                    if curTraject == 2 and self.triggerUpdateNewFailureData == 0:
+                        aiLogger.warning("New type of failure data is using!!!")
+                        self.triggerUpdateNewFailureData = 1
+                        self.updateFlWeight(updateGoodModel = False)
+
+
+                    # --------------------------------
+                    # Federated learning update
+                    # --------------------------------
+                    if curTraject == 2:
+                        if curIdxHeath == 900 and self.triggerFl == 0:
+                            self.updateFl  = 1
+                            self.triggerFl = 1
+                            aiLogger.warning("Updating the new weight for edge device!!!")
+                            self.updateFlWeight(updateGoodModel = True)
+                            aiLogger.warning("Updating the new weight succesfully!!!")
+
+                        if self.updateFl == 1:
+                            self.updateTiming +=1
+                            if self.updateTiming== self.thrTimeForFlUpdate:
+                                self.updateFl = 0
+
 
 
                     # ---------------------------------
                     # AI handling
                     hiReac, hiSep,  hiStrip, hiSystem, predictedRul, hiMatrixOutput    = self.vaeSys.getHIandRUL(input = xPredict)
 
-                    aiLogger.error(f"The value of system HI is {hiSystem}------------------------------------")
+                    # aiLogger.error(f"The value of system HI is {hiSystem}------------------------------------")
 
                     squeezedHiReac                                 = tf.squeeze(hiReac, axis=-1)
                     squeezedHiSep                                  = tf.squeeze(hiSep, axis=-1)
@@ -162,15 +214,33 @@ class AiHandling():
                                                                             squeezedHiSys,
                                                                             hiMatrixOutput,
                                                                             shiftValues)
+
+
+
+                    # ---------------------------------
+                    # Write to buffer for maintenance
+                    # to synchronize
+                    # ---------------------------------
+                
+                    if sysHI.item() < self.maintenanceThr:
+                        maintenance_info                = 1
+                        self.raw_trigger_maitenance_buffer.put((maintenance_info))
+                    
+                    
                     
                     # ---------------------------------
                     # Write to buffer to send
                     # ---------------------------------
+                    utility_info["anomaly"] = self.ano[self.anoIdx].loc[curIdxHeath, "raw_anomaly_score"]
+                    aiLogger.warning(utility_info["anomaly"])
+
+
                     utility_info["reacHI"]  = reacHI
                     utility_info["sepHI"]   = sepHI
                     utility_info["stripHI"] = stripHI
                     utility_info["sysHI"]   = sysHI
                     utility_info["rul"]     = squeezedRUL.numpy()
+                    utility_info["flUpdate"]= self.updateFl
                     
                     self.processed_ai_handling_buffer.put((base_info, utility_info))
                     
@@ -182,11 +252,8 @@ class AiHandling():
                     # aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
 
                     
-                    if curIdxHeath == 1500 and self.trigger == 0:
-                        self.trigger = 1
-                        aiLogger.warning("Updating the new weight for edge device!!!")
-                        self.updateFlWeight()
-                        aiLogger.warning("Updating the new weight succesfully!!!")
+
+
                 # -------------------------------
                 # get frame from full buffer and 
                 # notify
@@ -199,7 +266,7 @@ class AiHandling():
                     break  
 
             except Exception as e:
-                aiLogger.exception("__input_signal2ai Exception" + str(e))
+                aiLogger.exception("__ai_handling Exception" + str(e))
     
     
     #==========================================
@@ -222,13 +289,25 @@ class AiHandling():
         elif selectedFunc[1] > 0.5:
             sysHI        = max(reacHI,sepHI,stripHI)
         else:
-            sysHI        = 1- squeezedHiSys/self.thrHI
+            sysHI        = 0.93 + (-16.5 - squeezedHiSys)/(-500 - squeezedHiSys) 
 
         return reacHI.numpy(), sepHI.numpy(), stripHI.numpy(), sysHI.numpy()
     
 
-    def updateFlWeight(self,):
-        self.vaeSys            = self.fl_and_maintenance.load_global_best()
+    def updateFlWeight(self,updateGoodModel = False):
+        if updateGoodModel:
+            self.vaeSys            = self.fl_and_maintenance.load_global_best()
+
+        else: 
+            self.vaeSys            = self.fl_and_maintenance.load_variant_model(    config           = self.config, 
+                                                                                    variant_idx      = 7,
+                                                                                    use_hi_updates   = True)
+                        
+        self.anoIdx            = self.anoIdx + 1 if self.anoIdx <3 else 0 
+
+
+
+        
                                                                         
         # modelDirComp1 =  componentModelPath + "bestModelReac"
         # modelDirComp2 =  componentModelPath + "bestModelSep"

@@ -80,8 +80,9 @@ class TepEdgeDevice:
         # Connect InputSignal2Ai and 
         # AiHandling 
         #--------------------------------
-        aiThread.c_raw_ai_handling          = inputFrame2AiThread.c_processed_signal2_ai
-        aiThread.raw_ai_handling_buffer     = inputFrame2AiThread.processed_signal2_ai_buffer
+        aiThread.c_raw_ai_handling                          = inputFrame2AiThread.c_processed_signal2_ai
+        aiThread.raw_ai_handling_buffer                     = inputFrame2AiThread.processed_signal2_ai_buffer
+        aiThread.raw_trigger_maitenance_buffer              = inputFrame2AiThread.processed_trigger_maitenance_buffer
         
         #--------------------------------
         # Connect BackboneThread and 
