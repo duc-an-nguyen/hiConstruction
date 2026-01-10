@@ -4,7 +4,8 @@
 import  threading
 import  queue
 import  time
-import tensorflow           as tf
+import  tensorflow           as tf
+
 
 from    typing          import List
 from    utility.config  import BufferConfig
@@ -44,7 +45,8 @@ class AiHandling():
                                                                                     use_hi_updates   = True)
         self.config                 = config
 
-        self.trigger                = 1
+
+
         # componentModelPath      = "checkpoint/bestModel200Epoch/"
         # config["component"]     = "Sys"
         # self.vaeSys             = SystemModel(config = config, componentModelPath= componentModelPath)
@@ -172,6 +174,7 @@ class AiHandling():
                     utility_info["sysHI"]   = sysHI
                     utility_info["rul"]     = squeezedRUL.numpy()
                     
+                    
                     self.processed_ai_handling_buffer.put((base_info, utility_info))
                     
                     with self.c_processed_ai_handling:
@@ -181,12 +184,7 @@ class AiHandling():
                     aiLogger.info(f"The time of ai_handling is {time.time() - startTime}")
                     # aiLogger.debug(f"The value of HI is {reacHI, sepHI, stripHI, sysHI}")
 
-                    
-                    if curIdxHeath == 1500 and self.trigger == 0:
-                        self.trigger = 1
-                        aiLogger.warning("Updating the new weight for edge device!!!")
-                        self.updateFlWeight()
-                        aiLogger.warning("Updating the new weight succesfully!!!")
+
                 # -------------------------------
                 # get frame from full buffer and 
                 # notify

@@ -64,7 +64,7 @@ class serverIoT():
 
 
         self.testMQTTPerfomance = False
-        self.maintenanceThr     = 0.999
+        self.maintenanceThr     = 0.6
 
 
         # ------------------------------------------
@@ -72,9 +72,9 @@ class serverIoT():
         # after each period. Starting value should be -1
         # because we need 0 at the begining
         # ------------------------------------------
-        self.isMaintenance      = False
+        self.isMaintenance      = True
         self.infomMaintenance   = -1
-        self.informPeriod       = 50
+        self.informPeriod       = 100
 
 
         # -------------------------------------------
@@ -157,17 +157,21 @@ class serverIoT():
         if self.receiData.get("stripHI") < self.maintenanceThr:
             self.infomMaintenance                   += 1
             self.receiData["maintenanceComponent"]  = "Stripper"
-
+            self.receiData["mainCompNum"]           = 3
+                                 
         elif self.receiData.get("sepHI") < self.maintenanceThr:
             self.infomMaintenance                   += 1
             self.receiData["maintenanceComponent"]  = "Separator"
+            self.receiData["mainCompNum"]           = 2
 
         elif self.receiData.get("reacHI") < self.maintenanceThr:
             self.infomMaintenance                   += 1
             self.receiData["maintenanceComponent"]  = "Reactor"
+            self.receiData["mainCompNum"]           = 1
         else:
             self.receiData["maintenanceComponent"]  = None
             self.infomMaintenance                   = -1
+            self.receiData["mainCompNum"]           = 0
 
             # If all component is ok, no need maintenance
             self.receiData["maintenance_action"]                = 0
@@ -196,12 +200,24 @@ class serverIoT():
 
             bestPlanInfo  = mainResults['planner_best_info']
 
-            aiLogger.error(f"key of the bestPlanInfo {bestPlanInfo.keys()}")
+            aiLogger.error(f"key of the bestPlanInfo {bestPlanInfo}")
+            
+            if bestPlanInfo['level'] == "minor":
+                self.receiData["maintenance_level"]                 = 1
 
-            self.receiData["maintenance_action"]               = bestPlanInfo['action']
-            self.receiData["maintenance_level"]                = bestPlanInfo['level']
+            elif bestPlanInfo['level'] == "medium":
+                self.receiData["maintenance_level"]                 = 2
+
+            elif bestPlanInfo['level'] == "major":
+                self.receiData["maintenance_level"]                 = 3    
+
+            else:
+                self.receiData["maintenance_level"]                 = 0
+            
+
+            self.receiData["maintenance_action"]                = bestPlanInfo['action']
             self.receiData["maintenance_discounted_return"]     = bestPlanInfo['discounted_return']
-            self.receiData["maintenance_profit"]               = bestPlanInfo['profit_sum']
+            self.receiData["maintenance_profit"]                = bestPlanInfo['profit_sum']
             self.receiData["maintenance_pm_cost"]               = bestPlanInfo['pm_cost_sum']
             self.receiData["maintenance_fail_cost"]             = bestPlanInfo['pm_cost_sum']
             self.receiData["maintenance_stockout_cost"]         = bestPlanInfo['stockout_cost_sum']
@@ -338,12 +354,15 @@ class serverIoT():
                     topic                   TEXT NOT NULL,
                     mesId                   DOUBLE PRECISION,
                     simTime                 DOUBLE PRECISION,
+                    flUpdate                DOUBLE PRECISION,
+                    anomaly                 DOUBLE PRECISION,
                     reacHI                  DOUBLE PRECISION,
                     sepHI                   DOUBLE PRECISION,
                     stripHI                 DOUBLE PRECISION,
                     sysHI                   DOUBLE PRECISION,
                     rul                     DOUBLE PRECISION,
                     mainComp                TEXT,
+                    mainCompNum             DOUBLE PRECISION,
                     sensors                 JSONB,
                     cpu                     DOUBLE PRECISION,
                     mem                     DOUBLE PRECISION,
@@ -354,6 +373,8 @@ class serverIoT():
             """)
         
         return conn
+    
+
     
     
     def postgreConnectDiffSize(self,):
@@ -406,12 +427,15 @@ class serverIoT():
         # known fields
         mesId       = payload.get("mesId")
         simTime     = payload.get("simTime")
-        rul         = payload.get("rul")
+        flUpdate    = payload.get("flUpdate")  
+        anomaly     = payload.get("anomaly")
         reacHI      = payload.get("reacHI")
         sepHI       = payload.get("sepHI")
         stripHI     = payload.get("stripHI")
         sysHI       = payload.get("sysHI")
+        rul         = payload.get("rul") if sysHI>=0 else 0
         mainComp    = payload.get("maintenanceComponent")
+        mainCompNum = payload.get("mainCompNum")
 
 
         cpu         = psutil.cpu_percent(interval=None)
@@ -429,29 +453,35 @@ class serverIoT():
             with pg_conn.cursor() as cur:
                 cur.execute(""" INSERT INTO hi_database( topic, 
                                                         mesId, 
-                                                        simTime, 
+                                                        simTime,
+                                                        flUpdate,
+                                                        anomaly, 
                                                         reacHI, 
                                                         sepHI, 
                                                         stripHI, 
                                                         sysHI,
                                                         rul, 
                                                         mainComp, 
+                                                        mainCompNum,
                                                         sensors,  
                                                         cpu, 
                                                         mem, 
                                                         gpuLoad, 
                                                         gpuTemp, 
                                                         latencyTime)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s, %s, %s, %s, %s, %s, %s)""", 
                                                         (topic, 
                                                         mesId, 
                                                         simTime, 
+                                                        flUpdate,
+                                                        anomaly,
                                                         reacHI, 
                                                         sepHI, 
                                                         stripHI, 
                                                         sysHI, 
                                                         rul, 
                                                         mainComp,
+                                                        mainCompNum,
                                                         Json(sensors), 
                                                         cpu, 
                                                         mem, 
