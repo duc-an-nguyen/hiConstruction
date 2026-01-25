@@ -64,7 +64,7 @@ class serverIoT():
 
 
         self.testMQTTPerfomance = False
-        self.maintenanceThr     = 0.7
+        self.maintenanceThr     = 0.75
 
 
         # ------------------------------------------
@@ -487,7 +487,7 @@ class serverIoT():
                                                         mem, 
                                                         gpuLoad, 
                                                         gpuTemp, 
-                                                        latencyTime))
+                                                        latencyTime/10))
                 aiLogger.warning("Wrote into the databased successfully!")
 
         except Exception as e:
