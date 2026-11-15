@@ -8,6 +8,14 @@ The system is divided into two main parts:
 
 ---
 
+## Video Demo
+
+Click the thumbnail below to watch the system demonstration on YouTube.
+
+[![Edge–Server AI System Demo](https://img.youtube.com/vi/RiEppPjVGJU/hqdefault.jpg)](https://www.youtube.com/watch?v=RiEppPjVGJU)
+
+---
+
 ## System Architecture Overview
 
 - The **edge device** runs AI models locally and sends data to the server via MQTT.
